@@ -25,10 +25,14 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci
-      - name: Verify (originality gate + coverage + typecheck)
+      - name: Verify (typecheck + coverage + originality + link integrity)
+        # BASE_PATH is set here too so `verify` builds and link-checks with the
+        # real Pages base path — a base-path bug is invisible at base "/".
         run: |
           python3 -m pip install --quiet --upgrade pip
           npm run verify
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}
       - name: Build
         run: npm run build
         env:

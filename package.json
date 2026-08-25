@@ -9,8 +9,9 @@
     "check": "astro check",
     "coverage": "node scripts/check_coverage.mjs",
     "originality": "python3 scripts/check_originality.py src/data/questions/all.json --root .",
-    "verify": "npm run check && npm run coverage && npm run originality",
-    "merge-questions": "node scripts/merge_new_questions.mjs"
+    "verify": "npm run check && npm run coverage && npm run originality && npm run build && npm run links",
+    "merge-questions": "node scripts/merge_new_questions.mjs",
+    "links": "node scripts/check_links.mjs \"${BASE_PATH:-/}\""
   },
   "dependencies": {
     "@astrojs/check": "^0.9.10",
