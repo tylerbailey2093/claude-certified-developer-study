@@ -1,0 +1,37 @@
+---
+import Base from '../layouts/Base.astro';
+const base = import.meta.env.BASE_URL;
+---
+<Base title="Page not found">
+  <header class="phead" style="padding-top:52px">
+    <p class="eyebrow">404</p>
+    <h1>That page isn’t here.</h1>
+    <p class="lede">
+      The link may be stale. If you followed it from a page you had open for a while,
+      your browser is probably holding an old copy — a hard reload
+      (<code>Cmd</code>+<code>Shift</code>+<code>R</code>) will fix it.
+    </p>
+  </header>
+
+  <p class="index-head">Go to</p>
+  <nav>
+    <a class="dom-row" href={base}>
+      <span class="dom-n">§</span>
+      <span><span class="dom-name">Contents</span>
+      <span class="dom-meta">All 8 domains and 25 objectives</span></span>
+      <span class="dom-weight">Home</span>
+    </a>
+    <a class="dom-row" href={`${base}quiz/`}>
+      <span class="dom-n">§</span>
+      <span><span class="dom-name">Practice quiz</span>
+      <span class="dom-meta">150 items, filterable by domain</span></span>
+      <span class="dom-weight">Drill</span>
+    </a>
+    <a class="dom-row" href={`${base}mock/`}>
+      <span class="dom-n">§</span>
+      <span><span class="dom-name">Mock exam</span>
+      <span class="dom-meta">53 items, 120 minutes</span></span>
+      <span class="dom-weight">Timed</span>
+    </a>
+  </nav>
+</Base>
