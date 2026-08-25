@@ -2,25 +2,55 @@
 import Base from '../../layouts/Base.astro';
 import { getCollection } from 'astro:content';
 import blueprint from '../../../blueprint.json';
+import allQuestions from '../../data/questions/all.json';
 
 export async function getStaticPaths() {
-  return blueprint.domains.map(d => ({ params: { n: String(d.n) }, props: { domain: d } }));
+  return blueprint.domains.map((d) => ({ params: { n: String(d.n) }, props: { domain: d } }));
 }
+
 const { domain } = Astro.props;
+const base = import.meta.env.BASE_URL;
+
 const objectives = (await getCollection('objectives'))
-  .filter(o => o.data.domain === domain.n)
+  .filter((o) => o.data.domain === domain.n)
   .sort((a, b) => b.data.weight - a.data.weight);
+
+const maxW = Math.max(...objectives.map((o) => o.data.weight));
+const itemCount = (allQuestions as { d: number }[]).filter((q) => q.d === domain.n).length;
 ---
-<Base title={`Domain ${domain.n} — ${domain.name}`}>
-  <p class="crumbs"><a href={import.meta.env.BASE_URL}>Domains</a> / D{domain.n}</p>
-  <h1>{domain.name}</h1>
-  <p style="opacity:.8">{domain.weight}% of the exam &middot; ~{domain.approx_items} items</p>
-  <div class="obj-list">
-    {objectives.map(o => (
-      <a class="obj-row" href={`${import.meta.env.BASE_URL}objective/${o.data.id}/`}>
-        <span>{o.data.name} {o.data.hot && <span class="tag r">heaviest objective</span>}</span>
-        <span class="tier">{o.data.weight}%{!o.data.authored && <span class="tag pending" style="margin-left:8px">legacy</span>}</span>
+<Base
+  title={`Domain ${domain.n} — ${domain.name}`}
+  activeDomain={domain.n}
+  crumbs={[{ label: 'Field Manual', href: base }, { label: `Domain ${domain.n}` }]}
+>
+  <header class="phead">
+    <p class="eyebrow">Domain {domain.n}</p>
+    <h1>{domain.name}</h1>
+  </header>
+
+  <div class="obj-meta">
+    <span>Weight <b>{domain.weight}%</b></span>
+    <span>Scored items <b>~{domain.approx_items}</b></span>
+    <span>Objectives <b>{objectives.length}</b></span>
+    <span>Practice bank <b>{itemCount}</b></span>
+  </div>
+
+  <p class="index-head">Objectives · ordered by weight</p>
+  <nav>
+    {objectives.map((o, i) => (
+      <a class="dom-row" href={`${base}objective/${o.data.id}/`}>
+        <span class="dom-n">{String(i + 1).padStart(2, '0')}</span>
+        <span>
+          <span class="dom-name">{o.data.name}</span>
+          <span class="dom-meta">
+            {o.data.hot ? 'Heaviest objective on the exam · ' : ''}{o.data.scope.length} scope points
+          </span>
+        </span>
+        <span>
+          <span class="dom-weight">{o.data.weight}%</span>
+          <span class="measure"><i style={`width:${(o.data.weight / maxW) * 100}%`}></i></span>
+        </span>
       </a>
     ))}
-  </div>
+  </nav>
 </Base>

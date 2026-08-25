@@ -1,8 +1,12 @@
 ---
 import Base from '../layouts/Base.astro';
 import MockExam from '../islands/MockExam.tsx';
+const base = import.meta.env.BASE_URL;
 ---
-<Base title="Mock Exam">
-  <h1>Timed mock exam</h1>
+<Base title="Mock Exam" crumbs={[{ label: 'Field Manual', href: base }, { label: 'Mock exam' }]}>
+  <header class="phead">
+    <p class="eyebrow">Drill · Timed</p>
+    <h1>Mock exam</h1>
+  </header>
   <MockExam client:load />
 </Base>

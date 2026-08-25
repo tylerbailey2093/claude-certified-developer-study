@@ -1,8 +1,15 @@
 ---
 import Base from '../layouts/Base.astro';
 import ProgressDashboard from '../islands/ProgressDashboard.tsx';
+const base = import.meta.env.BASE_URL;
 ---
-<Base title="Progress">
-  <h1>Progress</h1>
+<Base title="Progress" crumbs={[{ label: 'Field Manual', href: base }, { label: 'Progress' }]}>
+  <header class="phead">
+    <p class="eyebrow">Your data</p>
+    <h1>Progress</h1>
+    <p class="lede">
+      Everything here is computed from answers you actually gave, and stored only in this browser.
+    </p>
+  </header>
   <ProgressDashboard client:load />
 </Base>

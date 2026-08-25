@@ -7,6 +7,7 @@ type Q = { id: string; d: number; s: string; q: string; o: string[]; a: number |
 
 const MOCK_COMPOSITION: Record<string, number> = (blueprint as any).mock_composition;
 const DURATION_MIN = 120;
+const KEYS = ['A', 'B', 'C', 'D'];
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -119,13 +120,18 @@ export default function MockExam() {
   if (phase === 'intro') {
     return (
       <div className="mock-wrap">
-        <p>53 items sampled to the exam blueprint, 120-minute countdown, explanations withheld until you submit — same shape as the real thing.</p>
+        <p className="score-note" style={{ fontSize: '1rem', maxWidth: '62ch' }}>
+          53 items sampled to the exam blueprint, a 120-minute countdown, and explanations withheld
+          until you submit — the same shape as the real thing.
+        </p>
         {poolWarning.length > 0 && (
-          <div className="quiz-explain" style={{ marginTop: 16 }}>
-            <p><strong>Bank variance warning.</strong> The question bank has {(allQuestions as Q[]).length} items (target: 150). These domains will draw an identical set every mock until it's expanded: {poolWarning.join('; ')}.</p>
+          <div className="quiz-explain" style={{ marginTop: 24 }}>
+            <span className="qe-label">Bank variance warning</span>
+            The bank holds {(allQuestions as Q[]).length} items. These domains will draw an identical
+            set every mock until expanded: {poolWarning.join('; ')}.
           </div>
         )}
-        <button className="quiz-submit" onClick={start} style={{ marginTop: 16 }}>Start mock exam</button>
+        <button className="btn" onClick={start} style={{ marginTop: 32 }}>Start mock exam</button>
       </div>
     );
   }
@@ -140,10 +146,10 @@ export default function MockExam() {
     return (
       <div className="mock-wrap">
         <div className="mock-header">
-          <span>Item {i + 1} / {items.length}</span>
+          <span>Item {i + 1} of {items.length}</span>
           <span className={secondsLeft < 300 ? 'mock-timer low' : 'mock-timer'}>{mm}:{ss}</span>
         </div>
-        <p className="quiz-tag">Domain {q.d}</p>
+        <p className="quiz-tag">Domain {q.d} · {q.s}</p>
         <p className="quiz-stem">{q.q}</p>
         {isMulti && <p className="quiz-hint">Select all that apply ({q.correctPositions.size}).</p>}
         <div className="quiz-options">
@@ -152,15 +158,18 @@ export default function MockExam() {
               key={pos}
               className={given.has(pos) ? 'quiz-opt selected' : 'quiz-opt'}
               onClick={() => toggle(q.id, pos, isMulti)}
-            >{opt}</button>
+            >
+              <span className="opt-k">{KEYS[pos]}</span>
+              <span>{opt}</span>
+            </button>
           ))}
         </div>
         <div className="mock-nav">
-          <button disabled={i === 0} onClick={() => setI((n) => n - 1)}>Previous</button>
+          <button className="btn btn-ghost" disabled={i === 0} onClick={() => setI((n) => n - 1)}>← Previous</button>
           {i < items.length - 1 ? (
-            <button onClick={() => setI((n) => n + 1)}>Next</button>
+            <button className="btn btn-ghost" onClick={() => setI((n) => n + 1)}>Next →</button>
           ) : (
-            <button className="quiz-submit" onClick={submit}>Submit exam</button>
+            <button className="btn" onClick={submit}>Submit exam</button>
           )}
         </div>
       </div>
@@ -172,29 +181,41 @@ export default function MockExam() {
   const last = hist[hist.length - 1];
   return (
     <div className="mock-wrap">
-      <h2>Result &mdash; <span className={last.scaledEstimate >= 720 ? 'pass' : 'fail'}>{last.scaledEstimate >= 720 ? 'Estimated pass' : 'Estimated fail'}</span></h2>
-      <p className="score-estimate">Estimated scaled score: <strong>{last.scaledEstimate}</strong> / 1000 (cut 720). This is a linear estimate from raw percent correct &mdash; Anthropic does not publish the real scaling curve.</p>
-      <table className="mock-review-table">
-        <thead><tr><th>Domain</th><th>Correct</th><th>%</th></tr></thead>
+      <p className="quiz-tag">Result</p>
+      <p className={last.scaledEstimate >= 720 ? 'result-verdict pass' : 'result-verdict fail'}>
+        {last.scaledEstimate >= 720 ? 'Estimated pass' : 'Estimated fail'}
+      </p>
+      <p className="score-big">{last.scaledEstimate}<span style={{ fontSize: '1.25rem', color: 'var(--ink-3)' }}> / 1000</span></p>
+      <p className="score-note">
+        Cut score is 720. This is a linear estimate from raw percent correct
+        ({Math.round(last.scorePct * 100)}% of {items.length}) &mdash; Anthropic does not publish the
+        real scaling curve, so treat it as a directional signal, not a score.
+      </p>
+      <table className="dtable">
+        <thead><tr><th>Domain</th><th>Correct</th><th>Percent</th></tr></thead>
         <tbody>
           {Object.entries(last.byDomain).map(([d, r]) => (
-            <tr key={d}><td>D{d}</td><td>{r.correct}/{r.total}</td><td>{Math.round((r.correct / r.total) * 100)}%</td></tr>
+            <tr key={d}>
+              <td>Domain {d}</td>
+              <td className="num">{r.correct}/{r.total}</td>
+              <td className="num">{Math.round((r.correct / r.total) * 100)}%</td>
+            </tr>
           ))}
         </tbody>
       </table>
-      <h3>Review</h3>
+      <p className="index-head" style={{ marginTop: 52 }}>Item review</p>
       {items.map((q, idx) => {
         const given = answers[q.id] ?? new Set<number>();
         const isCorrect = given.size === q.correctPositions.size && [...given].every((p) => q.correctPositions.has(p));
         return (
           <div key={q.id} className={isCorrect ? 'review-item correct' : 'review-item wrong'}>
-            <p className="quiz-tag">{idx + 1}. {q.s} &middot; D{q.d}</p>
+            <p className="quiz-tag" style={{ marginBottom: 8 }}>{idx + 1}. {q.s} &middot; D{q.d}</p>
             <p className="quiz-stem">{q.q}</p>
             <p className="quiz-explain-text">{q.e}</p>
           </div>
         );
       })}
-      <button className="quiz-submit" onClick={() => setPhase('intro')}>Take another mock</button>
+      <button className="btn" style={{ marginTop: 36 }} onClick={() => setPhase('intro')}>Take another mock</button>
     </div>
   );
 }

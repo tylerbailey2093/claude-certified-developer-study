@@ -1,9 +1,17 @@
 ---
 import Base from '../layouts/Base.astro';
 import Quiz from '../islands/Quiz.tsx';
+import allQuestions from '../data/questions/all.json';
+const base = import.meta.env.BASE_URL;
 ---
-<Base title="Practice Quiz">
-  <h1>Practice quiz</h1>
-  <p style="opacity:.8">Answer options shuffle on every question. Wrong answers feed the spaced-repetition queue on the Progress page.</p>
+<Base title="Practice Quiz" crumbs={[{ label: 'Field Manual', href: base }, { label: 'Practice quiz' }]}>
+  <header class="phead">
+    <p class="eyebrow">Drill</p>
+    <h1>Practice quiz</h1>
+    <p class="lede">
+      {allQuestions.length} original items. Answer options reshuffle on every question, so position
+      never becomes a tell. Anything you miss enters the spaced-repetition queue on the Progress page.
+    </p>
+  </header>
   <Quiz client:load />
 </Base>

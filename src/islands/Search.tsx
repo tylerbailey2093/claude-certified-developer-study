@@ -15,16 +15,20 @@ export default function Search({ index, baseUrl }: { index: ObjectiveIndexEntry[
     <div className="search-wrap">
       <input
         type="search"
-        placeholder="Search objectives…"
+        placeholder="Search the 25 objectives…"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         className="search-input"
+        aria-label="Search objectives"
       />
       {results.length > 0 && (
         <ul className="search-results">
           {results.map((r) => (
             <li key={r.id}>
-              <a href={`${baseUrl}objective/${r.id}/`}>D{r.domain} &middot; {r.name} <span style={{ opacity: 0.6 }}>{r.weight}%</span></a>
+              <a href={`${baseUrl}objective/${r.id}/`}>
+                <span>D{r.domain} · {r.name}</span>
+                <span className="sr-w">{r.weight}%</span>
+              </a>
             </li>
           ))}
         </ul>

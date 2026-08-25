@@ -52,6 +52,28 @@ for (const [d, need] of Object.entries(mockComp)) {
   console.log(`${ok ? 'OK  ' : 'FAIL'}  D${d}: ${have} available / ${need} needed (${margin.toFixed(1)}x)`);
 }
 
+// Guard against the silent-content failure: an objective whose .mdx carries a
+// real authored body but whose `authored` flag is false or missing renders the
+// legacy fallback instead, hiding the real content with no error anywhere.
+// This actually happened once when a frontmatter key was dropped during editing.
+console.log('\n--- authored-flag integrity ---');
+const OBJ_DIR = path.join(ROOT, 'src/content/objectives');
+let flagProblems = 0;
+for (const file of fs.readdirSync(OBJ_DIR).filter((f) => f.endsWith('.mdx'))) {
+  const raw = fs.readFileSync(path.join(OBJ_DIR, file), 'utf-8');
+  const m = raw.match(/^(---[\s\S]*?---)([\s\S]*)$/);
+  if (!m) continue;
+  const [, frontmatter, body] = m;
+  const hasRealBody = !body.includes('Mastery-depth content goes here') && body.trim().length > 400;
+  const flaggedAuthored = /^authored:\s*true\s*$/m.test(frontmatter);
+  if (hasRealBody && !flaggedAuthored) {
+    console.log(`FAIL  ${file}: has an authored body but authored is not true — page will silently render the legacy fallback`);
+    flagProblems++;
+    failures++;
+  }
+}
+if (flagProblems === 0) console.log(`OK    all ${fs.readdirSync(OBJ_DIR).filter((f) => f.endsWith('.mdx')).length} objectives flag their authored content correctly`);
+
 console.log(`\ntotal bank size: ${all.length} (target 150)`);
 
 if (failures > 0) {

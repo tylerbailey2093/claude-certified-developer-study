@@ -2,25 +2,26 @@ import { useEffect, useState } from 'react';
 import { Store, type MissRecord, type MockResult } from '../lib/store';
 
 export default function ProgressDashboard() {
-  const [, setMisses] = useState<MissRecord[]>([]);
   const [history, setHistory] = useState<MockResult[]>([]);
   const [confidence, setConfidence] = useState<Record<string, number>>({});
   const [due, setDue] = useState<MissRecord[]>([]);
+  const [weakest, setWeakest] = useState<{ objective: string; misses: number }[]>([]);
 
-  useEffect(() => {
-    setMisses(Store.getMisses());
+  function refresh() {
     setHistory(Store.getMockHistory());
     setConfidence(Store.getConfidence());
     setDue(Store.dueForReview());
-  }, []);
+    setWeakest(Store.weakestObjectives(8));
+  }
 
-  const weakest = Store.weakestObjectives(8);
+  useEffect(refresh, []);
 
   function exportProgress() {
     const blob = new Blob([Store.exportJSON()], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `ccdvf-progress-${Date.now()}.json`;
+    a.href = url;
+    a.download = `ccdvf-progress-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -30,20 +31,22 @@ export default function ProgressDashboard() {
     if (!file) return;
     file.text().then((text) => {
       Store.importJSON(text);
-      setMisses(Store.getMisses());
-      setHistory(Store.getMockHistory());
-      setConfidence(Store.getConfidence());
-      setDue(Store.dueForReview());
+      refresh();
     });
   }
 
   return (
     <div className="progress-wrap">
-      <section>
-        <h2>Weakest objectives (by real miss data)</h2>
-        {weakest.length === 0 ? <p>No misses recorded yet — take a quiz or mock to build this.</p> : (
-          <table className="mock-review-table">
-            <thead><tr><th>Objective</th><th>Misses</th><th>Your confidence</th></tr></thead>
+      <section className="prog-section">
+        <h2>Weakest objectives</h2>
+        <p className="ps-note">Ranked by real miss data, not by how shaky a topic feels.</p>
+        {weakest.length === 0 ? (
+          <p className="empty-note">No misses recorded yet — take a quiz or a mock to build this.</p>
+        ) : (
+          <table className="dtable">
+            <thead>
+              <tr><th>Objective</th><th>Misses</th><th>Self-rating</th></tr>
+            </thead>
             <tbody>
               {weakest.map((w) => {
                 const conf = confidence[w.objective];
@@ -51,8 +54,11 @@ export default function ProgressDashboard() {
                 return (
                   <tr key={w.objective}>
                     <td>{w.objective}</td>
-                    <td>{w.misses}</td>
-                    <td>{conf ? `${conf}/5${mismatch ? ' ⚠ feels strong, isn\'t' : ''}` : '—'}</td>
+                    <td className="num">{w.misses}</td>
+                    <td className="num">
+                      {conf ? `${conf}/5` : '—'}
+                      {mismatch && <span className="warn-flag"> · feels strong, isn’t</span>}
+                    </td>
                   </tr>
                 );
               })}
@@ -61,26 +67,21 @@ export default function ProgressDashboard() {
         )}
       </section>
 
-      <section style={{ marginTop: 28 }}>
-        <h2>Due for spaced-repetition review ({due.length})</h2>
-        {due.length === 0 ? <p>Nothing due right now.</p> : (
-          <ul>
-            {due.map((d) => <li key={d.questionId}>{d.objective} &mdash; missed {new Date(d.missedAt).toLocaleDateString()}</li>)}
-          </ul>
-        )}
-      </section>
-
-      <section style={{ marginTop: 28 }}>
-        <h2>Mock exam history</h2>
-        {history.length === 0 ? <p>No mocks taken yet.</p> : (
-          <table className="mock-review-table">
-            <thead><tr><th>Date</th><th>Score</th><th>Estimated scaled</th></tr></thead>
+      <section className="prog-section">
+        <h2>Due for review</h2>
+        <p className="ps-note">Missed items resurface at 1 day, then 3, then 7.</p>
+        {due.length === 0 ? (
+          <p className="empty-note">Nothing due right now.</p>
+        ) : (
+          <table className="dtable">
+            <thead>
+              <tr><th>Objective</th><th>Missed</th></tr>
+            </thead>
             <tbody>
-              {history.map((h) => (
-                <tr key={h.id}>
-                  <td>{new Date(h.takenAt).toLocaleString()}</td>
-                  <td>{Math.round(h.scorePct * 100)}%</td>
-                  <td className={h.scaledEstimate >= 720 ? 'pass' : 'fail'}>{h.scaledEstimate}</td>
+              {due.map((d) => (
+                <tr key={d.questionId}>
+                  <td>{d.objective}</td>
+                  <td className="num">{new Date(d.missedAt).toLocaleDateString()}</td>
                 </tr>
               ))}
             </tbody>
@@ -88,13 +89,41 @@ export default function ProgressDashboard() {
         )}
       </section>
 
-      <section style={{ marginTop: 28 }}>
-        <h2>Export / import</h2>
-        <p>Progress lives only in this browser. Export before wiping storage or switching machines.</p>
-        <button className="quiz-submit" onClick={exportProgress}>Export progress (JSON)</button>
-        <label className="import-label">
-          Import: <input type="file" accept="application/json" onChange={importProgress} />
-        </label>
+      <section className="prog-section">
+        <h2>Mock exam history</h2>
+        <p className="ps-note">Scaled scores are linear estimates, not official scoring.</p>
+        {history.length === 0 ? (
+          <p className="empty-note">No mocks taken yet.</p>
+        ) : (
+          <table className="dtable">
+            <thead>
+              <tr><th>Date</th><th>Raw</th><th>Est. scaled</th></tr>
+            </thead>
+            <tbody>
+              {history.map((h) => (
+                <tr key={h.id}>
+                  <td>{new Date(h.takenAt).toLocaleString()}</td>
+                  <td className="num">{Math.round(h.scorePct * 100)}%</td>
+                  <td className={h.scaledEstimate >= 720 ? 'num pass' : 'num fail'}>{h.scaledEstimate}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className="prog-section">
+        <h2>Export &amp; import</h2>
+        <p className="ps-note">
+          Progress lives only in this browser. Export before clearing site data or switching machines.
+        </p>
+        <div className="quiz-actions">
+          <button className="btn" onClick={exportProgress}>Export JSON</button>
+          <label className="import-label">
+            Import
+            <input type="file" accept="application/json" onChange={importProgress} />
+          </label>
+        </div>
       </section>
     </div>
   );

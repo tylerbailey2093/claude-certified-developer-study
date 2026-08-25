@@ -3,56 +3,86 @@ import Base from '../layouts/Base.astro';
 import { getCollection } from 'astro:content';
 import blueprint from '../../blueprint.json';
 import Search from '../islands/Search.tsx';
+import allQuestions from '../data/questions/all.json';
 
+const base = import.meta.env.BASE_URL;
 const objectives = await getCollection('objectives');
-const authoredCount = objectives.filter(o => o.data.authored).length;
 
-const domains = blueprint.domains.map(d => ({
-  ...d,
-  path: `${import.meta.env.BASE_URL}domain/${d.n}/`,
+const domains = blueprint.domains
+  .map((d) => ({ ...d, count: objectives.filter((o) => o.data.domain === d.n).length }))
+  .sort((a, b) => b.weight - a.weight);
+
+const maxW = Math.max(...domains.map((d) => d.weight));
+const searchIndex = objectives.map((o) => ({
+  id: o.data.id,
+  name: o.data.name,
+  domain: o.data.domain,
+  weight: o.data.weight,
 }));
-const maxW = Math.max(...domains.map(d => d.weight));
-const searchIndex = objectives.map(o => ({ id: o.data.id, name: o.data.name, domain: o.data.domain, weight: o.data.weight }));
 ---
-<Base title="Study Guide">
-  <section class="hero">
-    <h1>Claude Certified Developer &ndash; Foundations</h1>
-    <p>
-      8 domains, 25 scored objectives, weighted to the official exam blueprint (v1.0, effective
-      July 2026). Cut score 720/1000, no per-domain minimum &mdash; effort here tracks blueprint
-      weight, not novelty.
+<Base title="Field Manual">
+  <header class="phead" style="padding-top:52px">
+    <p class="eyebrow">Exam Guide v1.0 · Effective July 2026</p>
+    <h1>A field manual for the Claude&nbsp;Certified Developer exam.</h1>
+    <p class="lede">
+      Eight domains, twenty-five scored objectives, {allQuestions.length} original practice items —
+      every page weighted to the published blueprint. The cut score is 720 of 1000 and there is no
+      per-domain minimum, so depth here follows exam weight rather than novelty.
     </p>
-    <div class="stat-row">
-      <div class="stat" style="--c:var(--sky)"><b>53</b><span>exam items</span></div>
-      <div class="stat" style="--c:var(--violet)"><b>120</b><span>minutes</span></div>
-      <div class="stat" style="--c:var(--lime)"><b>720</b><span>cut score / 1000</span></div>
-      <div class="stat" style="--c:var(--amber)"><b>25</b><span>objectives</span></div>
-      <div class="stat" style="--c:var(--aqua)"><b>{authoredCount}/25</b><span>mastery-authored</span></div>
-    </div>
-  </section>
+  </header>
 
-  <Search client:load index={searchIndex} baseUrl={import.meta.env.BASE_URL} />
+  <div class="stat-strip">
+    <div class="stat-cell"><b>53</b><span>Items</span></div>
+    <div class="stat-cell"><b>120</b><span>Minutes</span></div>
+    <div class="stat-cell"><b>720</b><span>Cut score</span></div>
+    <div class="stat-cell"><b>25</b><span>Objectives</span></div>
+    <div class="stat-cell"><b>{allQuestions.length}</b><span>Practice items</span></div>
+  </div>
 
-  <section>
-    <h2>Domains, by exam weight</h2>
-    <div class="domain-list">
-      {domains.map(d => (
-        <a class="domain-row" href={d.path}>
-          <span class="dn">D{d.n}</span>
-          <span class="dname">{d.name}</span>
-          <span class="wbar"><i style={`width:${(d.weight / maxW) * 100}%`}></i></span>
-          <span class="dw">{d.weight}%</span>
-        </a>
-      ))}
-    </div>
-  </section>
+  <Search client:load index={searchIndex} baseUrl={base} />
 
-  <section style="margin-top:36px">
-    <h2>Drill</h2>
-    <div class="obj-list">
-      <a class="obj-row" href={`${import.meta.env.BASE_URL}quiz/`}><span>Practice quiz &mdash; by domain or pattern</span><span class="tier">64 items</span></a>
-      <a class="obj-row" href={`${import.meta.env.BASE_URL}mock/`}><span>Timed mock exam &mdash; 53 items, 120 min</span><span class="tier">full sim</span></a>
-      <a class="obj-row" href={`${import.meta.env.BASE_URL}progress/`}><span>Progress &amp; weakest objectives</span><span class="tier">your data</span></a>
-    </div>
-  </section>
+  <p class="index-head">Contents · ordered by exam weight</p>
+  <nav>
+    {domains.map((d) => (
+      <a class="dom-row" href={`${base}domain/${d.n}/`}>
+        <span class="dom-n">{d.n}</span>
+        <span>
+          <span class="dom-name">{d.name}</span>
+          <span class="dom-meta">{d.count} objective{d.count === 1 ? "" : "s"} · ~{d.approx_items} items</span>
+        </span>
+        <span>
+          <span class="dom-weight">{d.weight}%</span>
+          <span class="measure"><i style={`width:${(d.weight / maxW) * 100}%`}></i></span>
+        </span>
+      </a>
+    ))}
+  </nav>
+
+  <p class="index-head" style="margin-top:60px">Drill</p>
+  <nav>
+    <a class="dom-row" href={`${base}quiz/`}>
+      <span class="dom-n">§</span>
+      <span>
+        <span class="dom-name">Practice quiz</span>
+        <span class="dom-meta">Filter by domain · immediate feedback · misses feed spaced repetition</span>
+      </span>
+      <span class="dom-weight">{allQuestions.length} items</span>
+    </a>
+    <a class="dom-row" href={`${base}mock/`}>
+      <span class="dom-n">§</span>
+      <span>
+        <span class="dom-name">Timed mock exam</span>
+        <span class="dom-meta">53 items sampled to blueprint · 120-minute countdown · explanations withheld</span>
+      </span>
+      <span class="dom-weight">Full sim</span>
+    </a>
+    <a class="dom-row" href={`${base}progress/`}>
+      <span class="dom-n">§</span>
+      <span>
+        <span class="dom-name">Progress &amp; weakest objectives</span>
+        <span class="dom-meta">Miss rates from real answers, not self-assessment</span>
+      </span>
+      <span class="dom-weight">Your data</span>
+    </a>
+  </nav>
 </Base>

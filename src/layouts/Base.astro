@@ -1,39 +1,174 @@
 ---
 import '../styles/theme.css';
+import { getCollection } from 'astro:content';
+import blueprint from '../../blueprint.json';
+
 interface Props {
   title: string;
   description?: string;
+  /** id of the current objective, so the rail can mark it */
+  activeObjective?: string;
+  /** domain number of the current page, so the rail can mark it */
+  activeDomain?: number;
+  /** breadcrumb segments rendered into the running head */
+  crumbs?: { label: string; href?: string }[];
 }
-const { title, description = 'CCDV-F study platform — Claude Certified Developer, Foundations.' } = Astro.props;
+
+const {
+  title,
+  description = 'CCDV-F study platform — Claude Certified Developer, Foundations.',
+  activeObjective,
+  activeDomain,
+  crumbs = [],
+} = Astro.props;
+
+const base = import.meta.env.BASE_URL;
+const objectives = await getCollection('objectives');
+
+const domains = blueprint.domains.map((d) => ({
+  n: d.n,
+  name: d.name,
+  weight: d.weight,
+  objectives: objectives
+    .filter((o) => o.data.domain === d.n)
+    .sort((a, b) => b.data.weight - a.data.weight),
+}));
 ---
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{title} · CCDV-F</title>
   <meta name="description" content={description} />
-  <link rel="icon" href="data:,">
+  <link rel="icon" href="data:," />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <script is:inline>
+    // Set the theme before first paint so there is no flash. Explicit choice
+    // wins; otherwise follow the OS. Wrapped because storage can throw in
+    // private windows and a failure here must not block rendering.
+    (function () {
+      try {
+        var saved = localStorage.getItem('ccdvf:v1:theme');
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.dataset.theme = saved || (prefersDark ? 'dark' : 'light');
+      } catch (e) {
+        document.documentElement.dataset.theme = 'light';
+      }
+    })();
+  </script>
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href={import.meta.env.BASE_URL}>CCDV-F</a>
-    <nav class="topnav">
-      <a href={import.meta.env.BASE_URL}>Domains</a>
-      <a href={`${import.meta.env.BASE_URL}quiz/`}>Quiz</a>
-      <a href={`${import.meta.env.BASE_URL}mock/`}>Mock exam</a>
-      <a href={`${import.meta.env.BASE_URL}progress/`}>Progress</a>
-      <a href={`${import.meta.env.BASE_URL}logistics/`}>Logistics</a>
-    </nav>
-  </header>
-  <main>
-    <slot />
-  </main>
-  <footer class="sitefoot">
-    <p>Not affiliated with, endorsed by, or sponsored by Anthropic. Contains no real exam content.</p>
-  </footer>
+  <div class="shell">
+    <aside class="rail" id="rail">
+      <div class="rail-head">
+        <a class="wordmark" href={base}>Claude Certified <em>Developer</em></a>
+        <div class="rail-sub">Foundations · CCDV-F</div>
+      </div>
+
+      <div class="rail-section">Drill</div>
+      <a class="rail-link" href={`${base}quiz/`} aria-current={Astro.url.pathname.includes('/quiz') ? 'page' : undefined}>
+        <span class="rl-n">01</span><span>Practice quiz</span>
+      </a>
+      <a class="rail-link" href={`${base}mock/`} aria-current={Astro.url.pathname.includes('/mock') ? 'page' : undefined}>
+        <span class="rl-n">02</span><span>Mock exam</span>
+      </a>
+      <a class="rail-link" href={`${base}progress/`} aria-current={Astro.url.pathname.includes('/progress') ? 'page' : undefined}>
+        <span class="rl-n">03</span><span>Progress</span>
+      </a>
+      <a class="rail-link" href={`${base}logistics/`} aria-current={Astro.url.pathname.includes('/logistics') ? 'page' : undefined}>
+        <span class="rl-n">04</span><span>Logistics</span>
+      </a>
+
+      <div class="rail-section">Domains</div>
+      {domains.map((d) => (
+        <div class="rail-group">
+          <a
+            class="rail-link"
+            href={`${base}domain/${d.n}/`}
+            aria-current={activeDomain === d.n && !activeObjective ? 'page' : undefined}
+          >
+            <span class="rl-n">D{d.n}</span>
+            <span>{d.name}</span>
+            <span class="rl-w">{d.weight}%</span>
+          </a>
+          {activeDomain === d.n && d.objectives.map((o) => (
+            <a
+              class="rail-obj"
+              href={`${base}objective/${o.data.id}/`}
+              aria-current={activeObjective === o.data.id ? 'page' : undefined}
+            >{o.data.name}</a>
+          ))}
+        </div>
+      ))}
+
+      <div class="rail-foot">
+        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle colour theme">
+          <span class="tt-dot"></span><span id="theme-label">Light</span>
+        </button>
+      </div>
+    </aside>
+
+    <div class="main">
+      <button class="rail-toggle" id="rail-toggle" type="button">☰ Contents</button>
+
+      <div class="wrap">
+        {crumbs.length > 0 && (
+          <nav class="runhead">
+            {crumbs.map((c, i) => (
+              <>
+                {i > 0 && <span class="sep">/</span>}
+                {c.href ? <a href={c.href}>{c.label}</a> : <span>{c.label}</span>}
+              </>
+            ))}
+          </nav>
+        )}
+        <slot />
+      </div>
+
+      <footer class="sitefoot">
+        <p>
+          Original study material written against the CCDV-F blueprint (Exam Guide v1.0, July 2026).
+          Not affiliated with, endorsed by, or sponsored by Anthropic. Contains no real exam content —
+          every practice item is original.
+        </p>
+      </footer>
+    </div>
+  </div>
+
+  <script is:inline>
+    (function () {
+      var root = document.documentElement;
+      var btn = document.getElementById('theme-toggle');
+      var label = document.getElementById('theme-label');
+      function sync() {
+        // The button names the theme you'd switch *to*, which is what people expect.
+        if (label) label.textContent = root.dataset.theme === 'dark' ? 'Light' : 'Dark';
+      }
+      sync();
+      if (btn) {
+        btn.addEventListener('click', function () {
+          var next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+          root.dataset.theme = next;
+          try { localStorage.setItem('ccdvf:v1:theme', next); } catch (e) {}
+          sync();
+        });
+      }
+      var railBtn = document.getElementById('rail-toggle');
+      if (railBtn) {
+        railBtn.addEventListener('click', function () { document.body.classList.toggle('rail-open'); });
+      }
+      document.addEventListener('click', function (e) {
+        if (document.body.classList.contains('rail-open') &&
+            !e.target.closest('#rail') && !e.target.closest('#rail-toggle')) {
+          document.body.classList.remove('rail-open');
+        }
+      });
+    })();
+  </script>
   <script>
-    import "../scripts/codeblocks.js";
+    import '../scripts/codeblocks.js';
   </script>
 </body>
 </html>

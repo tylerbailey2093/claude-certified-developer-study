@@ -3,15 +3,25 @@ import Base from '../layouts/Base.astro';
 import fragments from '../data/static-fragments.json';
 import { CK } from '../data/checklist.js';
 
+const base = import.meta.env.BASE_URL;
 const checklist = CK as [title: string, items: string[]][];
 ---
-<Base title="Logistics, Prep Plan & Readiness">
-  <div set:html={fragments.logisticsPlan} />
+<Base title="Logistics & Readiness" crumbs={[{ label: 'Field Manual', href: base }, { label: 'Logistics' }]}>
+  <header class="phead">
+    <p class="eyebrow">Policy · Plan · Readiness</p>
+    <h1>Logistics</h1>
+    <p class="lede">
+      The parts of preparation that are not content but can still cost you the fee, plus a
+      readiness checklist that persists to this browser.
+    </p>
+  </header>
 
-  <section id="ready">
-    <div class="sechead"><span class="big">✓</span><div><h2>Readiness check</h2>
-      <p class="lede">Book it when you can do all of these without notes. Checks persist to this browser.</p></div></div>
-    <div id="ckout" class="checklist">
+  <article class="prose legacy-body" set:html={fragments.logisticsPlan} />
+
+  <section style="margin-top:64px">
+    <h2 style="font-family:var(--serif);font-weight:400;font-size:1.75rem;letter-spacing:-0.012em;padding-top:22px;border-top:1px solid var(--rule);margin:0 0 6px">Readiness check</h2>
+    <p class="ps-note" style="margin-bottom:28px">Book it when you can do all of these without notes.</p>
+    <div class="checklist">
       {checklist.map(([title, items], gi) => (
         <div class="ck-group">
           <h4>{title}</h4>
@@ -29,7 +39,7 @@ const checklist = CK as [title: string, items: string[]][];
     </div>
   </section>
 
-  <div set:html={fragments.readyResourcesFooter} />
+  <article class="prose legacy-body" style="margin-top:64px" set:html={fragments.readyResourcesFooter} />
 
   <script>
     import { Store } from '../lib/store';

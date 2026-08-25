@@ -7,6 +7,8 @@ type Q = {
   a: number | number[]; e: string; pattern: string;
 };
 
+const KEYS = ['A', 'B', 'C', 'D'];
+
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -21,7 +23,9 @@ function shuffle<T>(arr: T[]): T[] {
 function shuffledOptions(q: Q) {
   const idx = shuffle(q.o.map((_, i) => i));
   const answerSet = new Set(Array.isArray(q.a) ? q.a : [q.a]);
-  const correctPositions = new Set(idx.map((orig, pos) => (answerSet.has(orig) ? pos : -1)).filter((p) => p >= 0));
+  const correctPositions = new Set(
+    idx.map((orig, pos) => (answerSet.has(orig) ? pos : -1)).filter((p) => p >= 0)
+  );
   return { options: idx.map((i) => q.o[i]), correctPositions };
 }
 
@@ -33,25 +37,28 @@ export default function Quiz() {
   }, [domainFilter]);
 
   const [i, setI] = useState(0);
-  const [round, setRound] = useState(0); // bumps to force reshuffle of options per question view
+  const [round, setRound] = useState(0);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [revealed, setRevealed] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [answered, setAnswered] = useState(0);
 
   const q = pool[i % Math.max(pool.length, 1)];
-  const { options, correctPositions } = useMemo(() => q ? shuffledOptions(q) : { options: [], correctPositions: new Set<number>() }, [q, round]);
+  const { options, correctPositions } = useMemo(
+    () => (q ? shuffledOptions(q) : { options: [], correctPositions: new Set<number>() }),
+    [q, round]
+  );
 
-  if (!q) return <p>No questions in this domain yet.</p>;
+  if (!q) return <p className="empty-note">No questions in this domain yet.</p>;
 
-  const isMulti = Array.isArray(q.a) && q.a.length > 1;
+  const isMulti = correctPositions.size > 1;
 
   function toggle(pos: number) {
     if (revealed) return;
     setSelected((prev) => {
       const next = new Set(prev);
       if (isMulti) {
-        next.has(pos) ? next.delete(pos) : next.add(pos);
+        if (next.has(pos)) next.delete(pos); else next.add(pos);
       } else {
         next.clear();
         next.add(pos);
@@ -62,14 +69,12 @@ export default function Quiz() {
 
   function submit() {
     if (revealed || selected.size === 0) return;
-    const correct = selected.size === correctPositions.size && [...selected].every((p) => correctPositions.has(p));
+    const correct =
+      selected.size === correctPositions.size && [...selected].every((p) => correctPositions.has(p));
     setRevealed(true);
     setAnswered((n) => n + 1);
-    if (correct) {
-      setCorrectCount((n) => n + 1);
-    } else {
-      Store.recordMiss(q.id, q.s, q.d);
-    }
+    if (correct) setCorrectCount((n) => n + 1);
+    else Store.recordMiss(q.id, q.s, q.d);
   }
 
   function next() {
@@ -83,20 +88,30 @@ export default function Quiz() {
 
   return (
     <div className="quiz-wrap">
-      <div className="quiz-controls">
+      <div className="quiz-bar">
         <label>
-          Domain:{' '}
-          <select value={domainFilter} onChange={(e) => { setDomainFilter(e.target.value === 'all' ? 'all' : Number(e.target.value)); setI(0); setSelected(new Set()); setRevealed(false); }}>
-            <option value="all">All (64)</option>
-            {[1,2,3,4,5,6,7,8].map((d) => <option key={d} value={d}>Domain {d}</option>)}
+          Domain{' '}
+          <select
+            value={domainFilter}
+            onChange={(e) => {
+              setDomainFilter(e.target.value === 'all' ? 'all' : Number(e.target.value));
+              setI(0); setSelected(new Set()); setRevealed(false);
+            }}
+          >
+            <option value="all">All ({(allQuestions as Q[]).length})</option>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((d) => (
+              <option key={d} value={d}>Domain {d}</option>
+            ))}
           </select>
         </label>
-        <span className="quiz-score">{answered > 0 ? `${correctCount}/${answered} (${pct}%)` : 'no answers yet'}</span>
+        <span className="quiz-score">
+          {answered > 0 ? <>Score <b>{correctCount}/{answered}</b> · {pct}%</> : 'No answers yet'}
+        </span>
       </div>
 
-      <p className="quiz-tag">{q.s} &middot; Domain {q.d}</p>
+      <p className="quiz-tag">{q.s} · Domain {q.d}</p>
       <p className="quiz-stem">{q.q}</p>
-      {isMulti && <p className="quiz-hint">Select all that apply.</p>}
+      {isMulti && <p className="quiz-hint">Select all that apply ({correctPositions.size}).</p>}
 
       <div className="quiz-options">
         {options.map((opt, pos) => {
@@ -106,24 +121,29 @@ export default function Quiz() {
           if (revealed) {
             if (isCorrect) cls += ' correct';
             else if (isSelected) cls += ' wrong';
-          } else if (isSelected) {
-            cls += ' selected';
-          }
+          } else if (isSelected) cls += ' selected';
           return (
             <button key={pos} className={cls} onClick={() => toggle(pos)} disabled={revealed}>
-              {opt}
+              <span className="opt-k">{KEYS[pos]}</span>
+              <span>{opt}</span>
             </button>
           );
         })}
       </div>
 
       {!revealed ? (
-        <button className="quiz-submit" onClick={submit} disabled={selected.size === 0}>Submit</button>
+        <button className="btn" onClick={submit} disabled={selected.size === 0}>Submit answer</button>
       ) : (
-        <div className="quiz-explain">
-          <p>{q.e}</p>
-          <button className="quiz-submit" onClick={next}>Next question</button>
-        </div>
+        <>
+          <div className="quiz-explain">
+            <span className="qe-label">Why</span>
+            {q.e}
+          </div>
+          <div className="quiz-actions">
+            <button className="btn" onClick={next}>Next question</button>
+            <span className="quiz-hint" style={{ margin: 0 }}>{q.pattern.replace(/-/g, ' ')}</span>
+          </div>
+        </>
       )}
     </div>
   );

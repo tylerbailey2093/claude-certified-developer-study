@@ -15,15 +15,19 @@ export default function ConfidenceRating({ objective }: { objective: string }) {
 
   return (
     <div className="confidence-rating">
-      <span>Confidence:</span>
+      <span>Confidence</span>
       {[1, 2, 3, 4, 5].map((n) => (
         <button
           key={n}
           className={n <= rating ? 'conf-dot on' : 'conf-dot'}
           onClick={() => set(n)}
           aria-label={`${n} of 5`}
-        >&#9679;</button>
+          type="button"
+        >{n}</button>
       ))}
+      <span style={{ color: 'var(--ink-3)' }}>
+        {rating ? `${rating}/5` : 'unrated'}
+      </span>
     </div>
   );
 }
