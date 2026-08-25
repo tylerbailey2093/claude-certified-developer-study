@@ -1,0 +1,9 @@
+---
+import Base from '../layouts/Base.astro';
+import Quiz from '../islands/Quiz.tsx';
+---
+<Base title="Practice Quiz">
+  <h1>Practice quiz</h1>
+  <p style="opacity:.8">Answer options shuffle on every question. Wrong answers feed the spaced-repetition queue on the Progress page.</p>
+  <Quiz client:load />
+</Base>

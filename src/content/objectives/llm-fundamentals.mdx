@@ -1,0 +1,242 @@
+---
+id: "llm-fundamentals"
+domain: 5
+domainName: "Model Selection and Optimization"
+name: "LLM Fundamentals"
+weight: 5.2
+tier: 1
+hot: false
+scope:
+  - "tokens"
+  - "context windows"
+  - "sampling"
+  - "non-determinism"
+  - "next-token generation"
+  - "fast mode"
+  - "extended thinking"
+  - "adaptive thinking"
+  - "effort levels"
+  - "zero-shot, single-shot, multi-shot prompting"
+traps:
+  - "few-shot prompting is scored HERE, not in Domain 6"
+  - "context window and max output tokens are different limits"
+  - "token counts are model-specific and do not transfer across a migration"
+sources:
+  - label: "Context windows"
+    url: "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+  - label: "Extended thinking"
+    url: "https://platform.claude.com/docs/en/build-with-claude/extended-thinking"
+  - label: "Effort"
+    url: "https://platform.claude.com/docs/en/build-with-claude/effort"
+  - label: "Fast mode (research preview)"
+    url: "https://platform.claude.com/docs/en/build-with-claude/fast-mode"
+  - label: "Prompting best practices"
+    url: "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices"
+authored: true
+---
+
+## What this objective actually tests
+
+This objective checks whether you understand LLM mechanics well enough to reason about cost, latency, and consistency trade-offs — not whether you can recite parameter names. The exam separates limits the model imposes on you (context window, non-determinism) from dials you actively set (effort, thinking mode, example count). It also checks one placement fact: zero/single/multi-shot prompting is scored here, in Model Selection and Optimization, not in Prompt and Context Engineering — counterintuitive on first read, which is exactly why it's a trap.
+
+## Mechanism
+
+### Context window
+
+The context window is **one shared token budget for the entire exchange**, not a per-message allowance. Every request counts the system prompt, every message in `messages` (tool results, images, documents included), your tool definitions, and the output Claude generates for that turn — including any thinking tokens — against a single ceiling. Prompt caching changes what you *pay* for the cached portion; it does not change whether those tokens count against the window. [Verified: `platform.claude.com/docs/en/build-with-claude/context-windows`.]
+
+This is a **different limit from `max_tokens`** (the output ceiling for one turn). The two share the same underlying budget: once input plus generated tokens hit the window's total capacity, generation stops even if `max_tokens` hasn't been reached. Advertised context size is not effective context — quality degrades as the window fills (*context rot*). Window size is model-dependent (some current-generation models default to 1M tokens; others cap at 200k) — treat any specific number in a stem as scenario data, not a universal constant.
+
+### Next-token generation and non-determinism
+
+Claude generates output **autoregressively**: one token at a time, each conditioned on every token before it — the full prompt plus everything generated so far. This is why output tokens are far more expensive to produce than input tokens are to read, and why latency tracks output length much more than input length: you cannot parallelize generating token 500 across the generation of tokens 1–499.
+
+**Non-determinism survives even at `temperature: 0`.** Temperature 0 makes decoding greedy — the model always picks the single highest-probability next token — but greedy decoding is not a byte-identical output guarantee. GPU floating-point arithmetic is not strictly associative, and production inference batches requests together; which requests share a batch, and the order operations execute in, can shift the numerics enough to flip a close top-1 decision. *(Standard engineering knowledge on why low-temperature sampling reduces variance without eliminating it — not a claim sourced to one specific Anthropic doc page.)* Exam-relevant takeaway: **no sampling parameter alone delivers a hard determinism guarantee.**
+
+### Effort: the dial that replaced manual thinking budgets
+
+Terminology here has moved since the exam guide's July 2026 baseline, and the move matters for how you read a stem. Two eras of "how much should Claude think" controls exist:
+
+- **Extended thinking (manual mode, older):** `thinking: {type: "enabled", budget_tokens: N}` — you pre-commit a fixed token budget and Claude reasons against it. This mode is deprecated on the current mid-generation models and is **rejected outright with a 400 error** on the newest model generation; where thinking is supported at all on those models, adaptive is the only mode.
+- **Adaptive thinking (current default where available):** `thinking: {type: "adaptive"}` — Claude decides per request whether to think and how much, instead of you pre-selecting a budget.
+
+The **`effort` parameter** is the live dial that steers adaptive thinking and, more broadly, all output token spend at once — text, tool calls, and thinking together. Verified current shape: **`output_config: {effort: "..."}`** on the request, not a bare top-level `effort` field. [Verified: `platform.claude.com/docs/en/build-with-claude/effort`.] Valid levels, low to high: `low`, `medium`, `high` (the API default — setting `high` explicitly equals omitting the parameter), `xhigh` (newer, not available on every model that supports `max`), and `max`. Effort is documented as **a behavioral signal, not a strict token cap**: at `low`, Claude still thinks on a genuinely hard problem, just less than at a higher setting. Changing effort between requests invalidates prompt-cache breakpoints — the same as changing `budget_tokens` did in manual mode — so hold effort constant across a cached conversation.
+
+> **Fast mode is a different dial**
+> 
+> Fast mode trades cost for output-token <em>throughput</em> without touching intelligence or capability — same weights, faster inference configuration. Opt-in via <code>speed: "fast"</code> plus a dated beta header; as of this writing it's a research-preview feature gated to specific models. [Verified: <code>platform.claude.com/docs/en/build-with-claude/fast-mode</code>.] It postdates the July 2026 guide — treat it as engineering knowledge to recognize by name and function (a latency/cost lever, not a quality lever), not as exam-certain opt-in mechanics.
+
+### Zero-shot, single-shot, and multi-shot prompting
+
+These are prompt-construction techniques scored in **Domain 5**, not Domain 6 — the single most-tested placement trap in this objective.
+
+- **Zero-shot** — instructions only, no worked examples. Cheapest per call, fastest to write, often sufficient for tasks the model already handles well.
+- **Single-shot (one-shot)** — exactly one worked example. Useful when the task is simple enough that one example fully disambiguates format, but format isn't obvious from instructions alone.
+- **Multi-shot (few-shot)** — several worked examples. Anthropic's own prompting guidance recommends **3–5 examples for best results**. [Verified: `platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices`.] Diminishing (then negative) returns set in once examples are redundant — **diverse examples covering edge cases beat a larger pile of near-duplicates**, which instead teach an unintended narrow pattern.
+
+Every example in a multi-shot prompt costs input tokens on every call — exactly why the example block belongs inside a stable, cached prefix rather than being reconstructed per request.
+
+## Decision table
+
+<div class="tw">
+<table>
+<thead>
+<tr>
+<th>Stem signal</th>
+<th>Answer</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Examples improve output format/tone/structure consistency</td>
+<td>Multi-shot (few-shot) prompting — <strong>Domain 5</strong></td>
+<td>Example-count technique selection is scored in Model Selection and Optimization, not Prompt and Context Engineering</td>
+</tr>
+<tr>
+<td>Output "must" be byte-identical / fully reproducible across repeated calls</td>
+<td>No parameter alone guarantees it</td>
+<td>Temperature 0 reduces variance, doesn't eliminate it — a stem promising strict determinism from one setting is the trap</td>
+</tr>
+<tr>
+<td>Stem distinguishes "total request budget" from "response length ceiling"</td>
+<td>Context window vs. <code>max_tokens</code> are different limits</td>
+<td>They share one underlying budget but are independently configured and mean different things</td>
+</tr>
+<tr>
+<td>Migrating a workload to a new model, question turns on token accounting</td>
+<td>Re-measure token counts on the new model</td>
+<td>Token counts are tokenizer-specific; a count calibrated on one model doesn't transfer to another</td>
+</tr>
+<tr>
+<td>"Make Claude think longer on hard steps" without hand-picking a budget</td>
+<td>Adaptive thinking + <code>effort</code>, not manual <code>budget_tokens</code></td>
+<td>Manual budgets are deprecated/rejected on current-generation models; effort is the live dial</td>
+</tr>
+<tr>
+<td>Latency-sensitive, same model, same quality bar, willing to pay a premium</td>
+<td>Fast mode</td>
+<td>A throughput dial, distinct from effort, which is a capability/depth dial</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+## Code examples
+
+Zero-shot vs. multi-shot prompt construction — the example block sits in a stable prefix so it can be cached across calls:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+# Zero-shot: instructions only, no worked examples.
+zero_shot = client.messages.create(
+    model="claude-sonnet-4-6",
+    max_tokens=200,
+    messages=[{"role": "user", "content":
+        "Classify the sentiment of this review as positive, negative, or "
+        "neutral: 'The onboarding flow was confusing but support fixed it fast.'"}],
+)
+
+# Multi-shot: 3-5 diverse examples in <example> tags, kept in a stable
+# prefix so this block can be prompt-cached across requests.
+FEW_SHOT_PREFIX = """<examples>
+<example><review>Shipping was two weeks late and nobody responded.</review><sentiment>negative</sentiment></example>
+<example><review>Exactly as described, arrived on time.</review><sentiment>neutral</sentiment></example>
+<example><review>Support walked me through setup in five minutes.</review><sentiment>positive</sentiment></example>
+</examples>"""
+
+few_shot = client.messages.create(
+    model="claude-sonnet-4-6",
+    max_tokens=200,
+    messages=[{"role": "user", "content":
+        f"{FEW_SHOT_PREFIX}\n\nClassify this review the same way: "
+        "'The onboarding flow was confusing but support fixed it fast.'"}],
+)
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+// Zero-shot: instructions only.
+const zeroShot = await client.messages.create({
+  model: "claude-sonnet-4-6",
+  max_tokens: 200,
+  messages: [{ role: "user", content:
+    "Classify the sentiment of this review as positive, negative, or " +
+    "neutral: 'The onboarding flow was confusing but support fixed it fast.'" }],
+});
+
+// Multi-shot: diverse examples in a stable, cacheable prefix.
+const FEW_SHOT_PREFIX = `<examples>
+<example><review>Shipping was two weeks late and nobody responded.</review><sentiment>negative</sentiment></example>
+<example><review>Exactly as described, arrived on time.</review><sentiment>neutral</sentiment></example>
+<example><review>Support walked me through setup in five minutes.</review><sentiment>positive</sentiment></example>
+</examples>`;
+
+const fewShot = await client.messages.create({
+  model: "claude-sonnet-4-6",
+  max_tokens: 200,
+  messages: [{ role: "user", content:
+    `${FEW_SHOT_PREFIX}\n\nClassify this review the same way: 'The onboarding flow was confusing but support fixed it fast.'` }],
+});
+```
+
+Setting effort and adaptive thinking — the current dial, replacing manual `budget_tokens`:
+
+```python
+# output_config.effort is the verified current shape (not a bare top-level
+# `effort` field). Manual `thinking.budget_tokens` is deprecated/rejected
+# on current-generation models — adaptive thinking is the live mode.
+response = client.messages.create(
+    model="claude-opus-5",
+    max_tokens=4096,
+    thinking={"type": "adaptive"},
+    output_config={"effort": "medium"},  # low | medium | high (default) | xhigh | max
+    messages=[{
+        "role": "user",
+        "content": "Design a retry strategy for a flaky downstream payments API.",
+    }],
+)
+```
+
+```typescript
+// Pick one effort value and hold it constant across a cached conversation —
+// changing output_config.effort between requests invalidates the prompt cache.
+const response = await client.messages.create({
+  model: "claude-opus-5",
+  max_tokens: 4096,
+  thinking: { type: "adaptive" },
+  output_config: { effort: "medium" },
+  messages: [{
+    role: "user",
+    content: "Design a retry strategy for a flaky downstream payments API.",
+  }],
+});
+```
+
+## Named traps, expanded
+
+> **Few-shot prompting is scored in Domain 5, not Domain 6**
+> 
+> It reads like a pure prompt-writing technique, which makes Domain 6 (Prompt and Context Engineering) the intuitive — and wrong — guess. The blueprint places zero/single/multi-shot prompting inside Model Selection and Optimization alongside effort and thinking, framing it as getting more out of a given model rather than as a context-structuring technique like XML tags (which do stay in Domain 6). When a stem's only content is "how many examples should this prompt include," resist routing it to context engineering by feel.
+
+> **Context window and max output tokens are different limits**
+> 
+> They interact — both draw from the same underlying budget — but they are not interchangeable. The context window is the ceiling on the whole exchange: system prompt, messages, tool definitions, everything generated for the turn. `max_tokens` is a per-turn output ceiling you set explicitly. A stem that says "increase `max_tokens` to fit more conversation history," or "the context window overflowed so the output was truncated," is conflating a total-budget concept with a response-length setting.
+
+> **Token counts are model-specific and do not transfer across a migration**
+> 
+> Token counts come from a model's specific tokenizer, and tokenizer changes across generations aren't guaranteed to be count-neutral. A budget, truncation threshold, or cost estimate calibrated on one model's tokenizer isn't safe to reuse verbatim after switching models — re-measure rather than porting an old number forward. This is one instance of a broader exam pattern: numbers that look like universal constants are usually scoped to one model or one moment in time.
+
+## Recall checks
+
+1. State the difference between the context window and `max_tokens` in one sentence each, without looking back.
+2. Name the two eras of "how much should Claude think" controls and which parameter belongs to each.
+3. Why does `temperature: 0` reduce output variance without guaranteeing byte-identical output across calls?
+4. Which domain scores zero/single/multi-shot prompting, and why does that placement feel counterintuitive?
+5. List the effort levels from lowest to highest and state which one is the API default.

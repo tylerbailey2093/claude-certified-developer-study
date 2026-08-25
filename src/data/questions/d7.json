@@ -1,0 +1,185 @@
+[
+  {
+    "id": "legacy-055",
+    "d": 7,
+    "s": "AI Application Security",
+    "q": "A support agent reads customer tickets and can call a refund tool. A customer pastes text into a ticket that reads like an internal instruction authorising a full refund. The agent issues it. Which change prevents recurrence?",
+    "o": [
+      "Add a system prompt line telling Claude that ticket text is never authoritative",
+      "Require an approval step for refunds and scope the tool so the agent cannot issue one unilaterally",
+      "Lower the temperature so the agent behaves more predictably",
+      "Move to a larger model with stronger instruction following"
+    ],
+    "a": 1,
+    "e": "Ticket content is untrusted input and the injection succeeded because the tool permitted an irreversible financial action without a gate. Least privilege at the tool boundary plus human approval is the enforceable control. A system prompt line is a request, temperature is unrelated to injection, and a model that follows instructions better can follow injected ones better too.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-056",
+    "d": 7,
+    "s": "Guardrails and Safe Deployment",
+    "q": "An agent acts on behalf of a logged-in user. Which access model is correct?",
+    "o": [
+      "The agent uses a shared service account with broad permissions for reliability",
+      "The agent inherits the calling user's permissions, verified at the tool boundary per request",
+      "The model decides which records the user may see based on the system prompt",
+      "Access is checked once at session start and cached for the session"
+    ],
+    "a": 1,
+    "e": "Least privilege means an agent never holds a superset of the user's permissions, and entitlement is verified at the tool boundary on each request. Access control must never be delegated to the model, and session-start checks miss mid-session permission changes.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-057",
+    "d": 7,
+    "s": "Claude Hooks",
+    "q": "A team writes a PreToolUse hook to block destructive commands. During an incident they discover the hook crashed on a malformed payload and the command ran anyway. What went wrong?",
+    "o": [
+      "PreToolUse hooks cannot block tool execution",
+      "The script exited with code 1, which is a non-blocking error, so the action proceeded",
+      "Hooks only run in interactive mode, not headless",
+      "The matcher was case-insensitive and failed to match"
+    ],
+    "a": 1,
+    "e": "Only exit code 2 blocks and returns stderr to the model as the reason. Exit 1 is treated as a non-blocking hook error and the tool call proceeds, so a crashing guard script fails open rather than closed. Guard scripts need their own error handling.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-058",
+    "d": 7,
+    "s": "Identity, Secrets, and Key Management",
+    "q": "A mobile application calls Claude to power an in-app assistant. Where should the API key live?",
+    "o": [
+      "Bundled in the mobile application, obfuscated at build time",
+      "On a backend service the app calls, with the key never shipped to the client",
+      "In the app's local secure storage, written on first launch",
+      "In an environment variable read by the mobile runtime"
+    ],
+    "a": 1,
+    "e": "Any key shipped to a client is compromised the moment it ships, and obfuscation only delays extraction. The app should call your backend, which holds the key from a secret manager and can also enforce per-user authorization and rate limiting.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "new-claude-hooks-01",
+    "d": 7,
+    "s": "Claude Hooks",
+    "q": "An engineering team adds a CLAUDE.md rule stating Claude Code must never run `git push --force` against the main branch. During a migration, a contributor pastes instructions from a Slack thread into the chat that override this rule, and the agent force-pushes to main anyway. Which control would have prevented this regardless of what instructions the agent received during that session?",
+    "o": [
+      "A more detailed CLAUDE.md rule listing examples of what counts as a force push",
+      "A PreToolUse hook matching the Bash tool that inspects the command and exits 2 to block any force push targeting main",
+      "A PostToolUse hook that reverts the push once it detects one occurred",
+      "A system-prompt instruction paired with a lower sampling temperature"
+    ],
+    "a": 1,
+    "e": "A rule that must always hold needs a deterministic control, not a prompt instruction that pasted text can override. A PreToolUse hook runs before the tool executes and, on exit 2, blocks it outright regardless of what the model was told in-session. More detailed CLAUDE.md wording is still a request, not a guarantee. PostToolUse fires after the push already happened, and a force push can rewrite history other developers have already pulled, so it cannot reliably undo the damage. Temperature affects sampling variance, not policy compliance.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-guardrails-and-safe-deployment-01",
+    "d": 7,
+    "s": "Guardrails and Safe Deployment",
+    "q": "A team deploys a customer-support agent with a system-prompt rule telling Claude to never reveal a customer's full account number. During testing, a cleverly worded support ticket causes the agent to include a full account number in its reply anyway, even though the system-prompt rule was in place the entire time. Which addition would have reliably stopped this from reaching the customer?",
+    "o": [
+      "Rewrite the system-prompt rule with stronger wording and more emphatic language",
+      "Add an output filter that redacts account-number patterns before the response is sent",
+      "Add more few-shot examples of refusals to the system prompt",
+      "Rely on the model's built-in safety training without any additional layer"
+    ],
+    "a": 1,
+    "e": "A system-prompt rule is a request the model can still be talked out of by a sufficiently crafted input; it is one layer, not a guarantee. An output filter that redacts the pattern deterministically before the response ships is a second, independent layer that catches what the first layer missed. Stronger wording and more examples are still prompt-layer fixes with the same failure mode, and relying solely on built-in safety training abandons layering entirely.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-guardrails-and-safe-deployment-02",
+    "d": 7,
+    "s": "Guardrails and Safe Deployment",
+    "q": "A company's Claude-powered assistants inherit each employee's own permissions, checked once when the employee authenticates at the start of the day. At 10:00 a.m. a manager revokes an employee's access to the payroll system after a role change. At 10:15 a.m. the employee asks her assistant to pull a payroll report, and the request succeeds. What is the root cause?",
+    "o": [
+      "The assistant used a shared service account instead of the employee's own identity",
+      "Entitlement was cached from a session-start check instead of verified at the tool boundary on each request",
+      "The system prompt failed to instruct the assistant to refuse payroll requests after a role change",
+      "The manager should have manually revoked the assistant's session token when access was removed"
+    ],
+    "a": 1,
+    "e": "The setup already has the agent inheriting the user's own permissions, so a shared account isn't the issue. The failure is that entitlement was verified once at login and cached, instead of being checked at the tool boundary on every request; a later revocation had no way to take effect mid-session. A system-prompt instruction can't know about a role change that happened after the prompt was written, and manual token revocation per event doesn't scale into a systemic fix.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-identity-secrets-and-key-management-01",
+    "d": 7,
+    "s": "Identity, Secrets, and Key Management",
+    "q": "A company's Claude API key is set as an environment variable inside a deployed container image, and rotating the key currently requires rebuilding and redeploying that image. After a contractor's laptop with local access to the key is stolen, security wants the key rotated within the hour, but the next scheduled deployment is three days away. What does this incident reveal about the key-management design?",
+    "o": [
+      "The key should have been scoped to a workspace with a spend limit instead of an environment variable",
+      "Rotation was designed to require a deploy rather than being a runtime secret-manager change, so a time-sensitive rotation is blocked on the release cycle",
+      "The key should never have been readable from an environment variable at all",
+      "The laptop theft should have triggered a hook to block further API calls automatically"
+    ],
+    "a": 1,
+    "e": "The incident's decisive detail is that rotation is tied to a rebuild-and-redeploy cycle, so an urgent rotation is stuck waiting three days for the next release; the fix is designing rotation as a secret-manager/config change that takes effect without a deploy. A spend limit would reduce damage from misuse but does nothing about the rotation delay itself. Environment-variable injection at runtime is the accepted pattern for secret handling, not the flaw. Hooks govern Claude Code tool execution, not revocation of a stolen API credential.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-ai-application-security-01",
+    "d": 7,
+    "s": "AI Application Security",
+    "q": "A document-review assistant reads legal contracts uploaded by outside counsel and drafts summaries for the internal legal team. The company cannot control how outside counsel formats these documents before upload, and one uploaded contract contains a paragraph formatted to look like a system instruction telling the assistant to also send a copy to an external address. The team wants to keep processing contracts from any outside counsel without manual pre-screening of every upload.",
+    "o": [
+      "Switch the assistant to a larger, more capable model so it better recognizes manipulation attempts",
+      "Deliver the uploaded contract text only inside tool_result content, and give the assistant no email-sending tool at all",
+      "Increase the sampling temperature so responses are less predictable to an attacker",
+      "Add a line to the system prompt asking the model to ignore instructions embedded in uploaded documents"
+    ],
+    "a": 1,
+    "e": "The correct fix combines content isolation (the untrusted document text stays in tool_result, distinguishable from real instructions) with least-privilege tooling: with no email-sending capability, an injected instruction to email a copy has nowhere to go, regardless of whether the model complies with it. A larger model is a trap distractor — better instruction-following can make a model more susceptible to embedded injected instructions, not less. Temperature has no bearing on whether embedded instructions are followed. A system-prompt request not to follow embedded instructions is advisory only; it is not an enforced control and can be talked around by a sufficiently crafted injection.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-ai-application-security-02",
+    "d": 7,
+    "s": "AI Application Security",
+    "q": "A finance-ops agent has a tool that transfers funds between internal accounts. Leadership requires that this tool must never execute without a second human's explicit sign-off, with no exceptions, even if the request comes from an admin user or someone later edits the system prompt. An engineer proposes adding a bold instruction to the system prompt: \"ALWAYS require human approval before calling transfer_funds.\"",
+    "o": [
+      "The bold system-prompt instruction, since Claude reliably follows explicit capitalized directives",
+      "A one-time reminder appended to the first user message of each session",
+      "A deterministic approval gate in the tool-execution harness that blocks the transfer_funds call from completing until a second human explicitly confirms it",
+      "A note in the tool's description field stating that approval is required"
+    ],
+    "a": 2,
+    "e": "\"No exceptions\" is a guarantee, and only code the harness enforces can provide one — text the model reads, no matter how it's phrased or where it's placed, remains a request the model could fail to follow, be argued out of, or simply misjudge. A deterministic gate in the harness can refuse to execute the transfer regardless of what the model outputs. The bold system-prompt line, a session reminder, and a tool-description note are all variations on the same failure: they place the control inside model-readable text rather than inside code that physically stops the call.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-ai-application-security-03",
+    "d": 7,
+    "s": "AI Application Security",
+    "q": "An internal chatbot lets employees query their own HR records through a tool that calls the HR database. Two employees in the same department report that when they ask nearly identical questions, one occasionally sees a fragment of the other's salary data mixed into the response. The engineering team wants to fix the root cause rather than add a warning banner to the chat.",
+    "o": [
+      "Scope every HR-record query to the authenticated identity of the current user at the point the tool executes, rather than trusting the model to filter results in conversation",
+      "Add a system-prompt instruction telling Claude to only discuss the current user's own data",
+      "Fine-tune a smaller, cheaper model specifically for the HR chatbot",
+      "Log every conversation so leaks can be reviewed after the fact"
+    ],
+    "a": 0,
+    "e": "Authorization has to be enforced where the query actually executes, scoped to the authenticated caller, not left to the model's judgment inside the conversation. A system-prompt instruction is advisory and can fail under model error or a crafted request, which is exactly the failure mode already occurring. Model size has no bearing on per-user data scoping. Logging is detective, not preventive; it documents leaks after they've already happened instead of stopping them.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-ai-application-security-04",
+    "d": 7,
+    "s": "AI Application Security",
+    "q": "A security engineer is auditing a Claude-powered agent's supply chain for integrity risk, even though the model itself has not been altered. The agent connects to three MCP servers pulled fresh from a public registry at every deployment with no version pinning, and its long-running memory file accumulates facts across sessions with no validation step before they're written.",
+    "o": [
+      "Confidentiality failure, because MCP servers pulled from a public registry are inherently exposed",
+      "Memory integrity failure, because unvalidated facts can persist into every future session",
+      "Availability failure, because an MCP server might go offline during a deployment",
+      "Supply-chain integrity failure, because unpinned MCP servers can change behavior between deployments without review"
+    ],
+    "a": [
+      1,
+      3
+    ],
+    "e": "The two integrity failure modes actually present are supply-chain integrity (unpinned dependencies pulled fresh each deploy can change agent behavior without any review step) and memory integrity (a persistent memory file that accepts new facts without validation lets a false fact compound forward into every later session). \"Public registry\" describes where the servers come from, not a confidentiality property of the data the agent handles, so that option mislabels the risk. Nothing in the scenario describes downtime, so availability doesn't apply here even though it's a real property in other contexts.",
+    "pattern": "buried-constraint"
+  }
+]

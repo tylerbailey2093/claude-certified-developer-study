@@ -1,0 +1,143 @@
+---
+id: "output-handling"
+domain: 6
+domainName: "Prompt and Context Engineering"
+name: "Output Handling"
+weight: 2.6
+tier: 2
+hot: false
+scope:
+  - "structured output patterns"
+  - "response validation"
+  - "defensive parsing"
+  - "skepticism toward confident output"
+traps:
+  - "schema-valid and semantically correct are different things"
+  - "never index content[0] blindly"
+sources:
+  - label: "Structured outputs"
+    url: "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+authored: true
+---
+
+## What this objective actually tests
+
+This objective tests the discipline of consuming Claude's output as a structurally variable, untrusted-by-default payload — not whether you can write a JSON parser. The recurring exam pattern is code that trusts the response's shape or its confidence without checking either first: `content[0]` indexed blindly, a truncated response sent back for "repair," a fluent answer accepted because it read cleanly.
+
+## Mechanism
+
+### Why skepticism toward confident output is a named concept
+
+An LLM does not flag its own wrong answers. Fluency and hedging language aren't reliable proxies for correctness — a confidently wrong answer looks, on the page, identical to a confidently correct one, unlike most software bugs, which announce themselves as an exception or a crash. Because the failure doesn't announce itself, mitigation has to be structural, not conversational: **require citations** to provided source material for anything that must be trusted; **make fields nullable** so "unknown" is representable instead of forcing a fabricated best guess; **cross-check high-stakes values** against a source of truth outside the model; **gate consequential actions behind human review**. Asking the model to double-check its own answer is not independent verification — it's the same reasoning process re-run, prone to the same blind spot.
+
+### Structured output patterns
+
+Two mechanisms exist beyond asking for a format in prose. **`output_config.format`** with a `json_schema`-typed schema constrains Claude's text response via grammar-constrained decoding — the sampler is restricted so every emitted token keeps the response inside the schema, making malformed JSON and missing or mistyped required fields structurally impossible, not just unlikely. **`strict: true`** on a tool definition gives the equivalent guarantee for `tool_use` blocks. Both cache their compiled grammar for roughly 24 hours (schema or tool-set changes invalidate it), and the constraint machinery adds to input tokens and first-request latency — a real cost/latency tradeoff, not a reason to avoid the feature. SDK helpers wrap this into a typed object rather than a string to re-parse: `client.messages.parse()` with Pydantic in Python, the Zod equivalent in TypeScript.
+
+### Response validation — schema-valid is not semantically correct
+
+The sharpest named trap here. Schema validation checks *shape*: correct types, required fields present, values from an allowed enum. It does not check *truth*. A response can put a name in the `email` field and an email in the `name` field, pass every structural check, and still be nonsense. Two passes are required — structural (largely solved by constrained decoding) and semantic (still the application's job: plausible ranges, cross-field consistency, referential checks against known IDs). "It validated against the schema" is not "it's correct."
+
+### Defensive parsing
+
+**`content` is a list of blocks, not a string.** A response can hold a `text` block, a `thinking` block (extended thinking enabled), one or more `tool_use` blocks, and server-tool-result blocks, in an order that is not guaranteed to put `text` first. `response.content[0].text` is a landmine; iterate the blocks and dispatch by `type`.
+
+**Check `stop_reason` before parsing.** `end_turn` is a natural finish; `stop_sequence` hit a configured stop string; `tool_use` means the model is mid-tool-call; `max_tokens` means generation was cut off mid-stream — content after that point was never produced. Treating a `max_tokens` truncation as "malformed JSON to repair" asks the model to invent the missing tail, which is exactly how fabricated content enters a pipeline that thinks it's just cleaning up. Reading `stop_reason` first turns an opaque parse error into a known condition with a known fix: raise the budget, decompose the task, or continue the tool loop.
+
+## Decision table
+
+| When the stem says... | ...the answer is |
+|---|---|
+| Code reads `response.content[0].text` and intermittently throws | Iterate `content` blocks and dispatch by `type` — shape isn't guaranteed |
+| A JSON parse error correlates with `stop_reason: max_tokens` | Truncated, not malformed — raise the budget or decompose; don't send it back for "repair" |
+| Schema validation passed but values sit in the wrong fields | Expected — schema-valid and semantically correct differ; add domain-level validation |
+| "Output must always be valid, parseable JSON, structurally" | `output_config.format` or `strict: true` — constrained decoding, not a prompt instruction |
+| A high-stakes field must never be fabricated when the model isn't sure | Make it nullable; cross-check against a source of truth |
+| A pipeline's verification step is "ask the model to check its answer again" | Not independent verification — the same process re-run; use a structural check |
+
+## Code examples
+
+Both check `stop_reason` before parsing, iterate blocks by type, and validate the result against the schema — three separate checks, not one.
+
+```python
+from anthropic import Anthropic
+from pydantic import BaseModel, ValidationError
+
+client = Anthropic()
+
+class ExtractedInvoice(BaseModel):
+    invoice_id: str
+    amount_usd: float
+    vendor_name: str | None  # nullable: "unknown" must be representable
+
+def extract_invoice(document_text: str) -> ExtractedInvoice | None:
+    msg = client.messages.create(
+        model="claude-opus-5",
+        max_tokens=300,
+        output_config={"format": {"type": "json_schema",
+                                   "schema": ExtractedInvoice.model_json_schema()}},
+        messages=[{"role": "user", "content": document_text}],
+    )
+    if msg.stop_reason == "max_tokens":  # 1. truncated is not malformed
+        raise RuntimeError("response truncated; raise max_tokens or split the task")
+
+    text_blocks = [b.text for b in msg.content if b.type == "text"]  # 2. by type
+    if not text_blocks:
+        return None
+
+    try:  # 3. semantic validation beyond schema shape
+        invoice = ExtractedInvoice.model_validate_json(text_blocks[0])
+    except ValidationError:
+        return None
+    if invoice.amount_usd < 0 or invoice.amount_usd > 1_000_000:
+        return None  # plausibility check before trusting it
+    return invoice
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
+
+const client = new Anthropic();
+
+const ExtractedInvoice = z.object({
+  invoiceId: z.string(),
+  amountUsd: z.number(),
+  vendorName: z.string().nullable(), // nullable: "unknown" must be representable
+});
+
+async function extractInvoice(documentText: string) {
+  const msg = await client.messages.create({
+    model: "claude-opus-5",
+    max_tokens: 300,
+    output_config: { format: { type: "json_schema", schema: ExtractedInvoice } },
+    messages: [{ role: "user", content: documentText }],
+  });
+
+  if (msg.stop_reason === "max_tokens") {  // 1. truncated is not malformed
+    throw new Error("response truncated; raise max_tokens or split the task");
+  }
+
+  const textBlock = msg.content.find((b) => b.type === "text");  // 2. by type
+  if (!textBlock || textBlock.type !== "text") return null;
+
+  const parsed = ExtractedInvoice.safeParse(JSON.parse(textBlock.text));  // 3.
+  if (!parsed.success) return null;
+  if (parsed.data.amountUsd < 0 || parsed.data.amountUsd > 1_000_000) return null;
+  return parsed.data;
+}
+```
+
+## Named traps, expanded
+
+**"Schema-valid and semantically correct are different things."** Easy to miss because constrained decoding genuinely eliminates parse errors, missing fields, and wrong types, and it's tempting to assume that means the response is right. Wrong because the schema constrains shape, not meaning — a value can sit in a structurally valid position and still be the wrong value. Recognize this whenever a stem treats schema validation as the final check in a high-stakes pipeline; the correct answer adds a domain-level check after it.
+
+**"Never index `content[0]` blindly."** Attractive because in a simple text-only response it works every time, which makes it feel safe until thinking or a tool call shows up first and the assumption breaks in production. Recognize this whenever a stem describes code reading a fixed position that fails intermittently or only under certain configurations — the fix is always to iterate and dispatch by block `type`.
+
+## Recall checks
+
+- Why is a confidently wrong LLM answer harder to catch than a typical software bug?
+- Name two structural mitigations for overconfident output, and why "double-check yourself" doesn't count as one.
+- A response passes JSON Schema validation but has an email address in the `name` field. What did the schema guarantee, and what didn't it?
+- What should change once `stop_reason` reads `max_tokens` instead of `end_turn`, and why is "repair" the wrong move?
+- Why is `response.content[0].text` unsafe in general, even though it often works in testing?

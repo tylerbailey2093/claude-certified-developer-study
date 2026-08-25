@@ -1,0 +1,17 @@
+[
+  {
+    "id": "new-mcp-server-development-01",
+    "d": 8,
+    "s": "MCP Server Development",
+    "q": "An MCP server for a legal-document workflow exposes a saved instruction such as \"Summarize this contract's indemnification clauses,\" which users pick from a menu inside the Claude application rather than the model deciding to run it on its own. Which primitive does this capability map to?",
+    "o": [
+      "A tool, because it performs an action within the document workflow",
+      "A prompt, a user-controlled reusable template invoked explicitly rather than by model decision",
+      "A resource, since it packages reference content for the model to read",
+      "A sampling request, since the server is asking the client to generate a completion"
+    ],
+    "a": 1,
+    "e": "Prompts are the user-controlled primitive: reusable templates a user explicitly selects, never triggered automatically. Tools are model-controlled actions the LLM invokes on its own judgment, which doesn't match a capability chosen from a menu. Resources are application-controlled read-only data pulled into context, not something a user runs. Sampling is a separate MCP mechanism where the server asks the client's model to complete something, unrelated to user-selected templates.",
+    "pattern": "buried-constraint"
+  }
+]

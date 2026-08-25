@@ -1,0 +1,2282 @@
+[
+  {
+    "id": "legacy-001",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "A team must extract invoice fields, validate them against a schema, then write to a database. The steps are identical for every invoice. Which approach fits best?",
+    "o": [
+      "A prompt-chaining workflow with fixed steps in code",
+      "An autonomous agent that decides its own steps each run",
+      "A manager agent delegating to three specialist subagents",
+      "An evaluator-optimizer loop that refines until validation passes"
+    ],
+    "a": 0,
+    "e": "The steps are known in advance and identical every run, which is the definition of a workflow. Agent and hierarchy options add cost, latency, and variability for nothing. Evaluator-optimizer applies where iteration improves quality, not where the path is fixed.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-002",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "A research agent runs searches returning 40,000 tokens of raw results. After several searches its answers degrade. What is the primary architectural reason to move searching into a subagent?",
+    "o": [
+      "Subagents run faster because they execute in parallel",
+      "Each subagent has its own context window, so raw results never enter the parent's context",
+      "Subagents can use models the parent cannot access",
+      "Subagents bypass rate limits with a separate connection pool"
+    ],
+    "a": 1,
+    "e": "Context isolation is the primary reason; the parent receives only the distilled summary. Parallelism is a secondary benefit, and the other two describe capabilities subagents don't have.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-003",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "A compliance requirement states customer data must never leave the company's network. Which agent deployment model is required?",
+    "o": [
+      "Anthropic-hosted managed agents, since Anthropic is compliant by default",
+      "Self-hosted, so the harness and data flow remain inside the company's infrastructure",
+      "Either model, since data is encrypted in transit regardless",
+      "Managed agents with an added output filter"
+    ],
+    "a": 1,
+    "e": "Network isolation requires running the harness yourself. Encryption in transit doesn't satisfy a requirement that data not leave the network, and an output filter doesn't change where execution happens.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-004",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "Every agent run must redact PII from tool output before it enters context, with no exceptions. Where does this belong?",
+    "o": [
+      "An instruction in the system prompt telling Claude to redact PII",
+      "A hook that fires after tool execution and redacts deterministically",
+      "A few-shot example demonstrating redacted output",
+      "A note in CLAUDE.md describing the redaction policy"
+    ],
+    "a": 1,
+    "e": "A prompt instruction is a request the model may not honor; a hook is code that always executes. Any requirement phrased with 'no exceptions' points to a hook rather than any form of instruction.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-005",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "A team connects an MCP server to an agent built with the Claude Agent SDK, but the agent never calls any of its tools. What is the most likely cause?",
+    "o": [
+      "MCP servers require the Anthropic-hosted deployment model",
+      "The server's tools were not added to the agent's allowed tools list",
+      "MCP tools only work in Claude Code, not the Agent SDK",
+      "The server must be restarted after each agent session"
+    ],
+    "a": 1,
+    "e": "Connecting an MCP server does not by itself grant permission to call its tools. The SDK enforces an explicit allow-list, which is the least-privilege default. The other three options describe restrictions that do not exist.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-006",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "An agent occasionally runs for hours, repeating the same tool call. What is the correct primary control?",
+    "o": [
+      "Lower the temperature so its choices are more consistent",
+      "Bound the loop with maximum iterations, a wall-clock timeout, and a token budget",
+      "Switch to a more capable model that will not get stuck",
+      "Increase max_tokens so it can complete its reasoning"
+    ],
+    "a": 1,
+    "e": "Unbounded loops are a harness design failure fixed with explicit bounds. A more capable model reduces but does not eliminate loops, and neither temperature nor max_tokens addresses termination.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-007",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "An agent needs information from a session that ended two days ago. How is this achieved?",
+    "o": [
+      "The model retains prior sessions in its weights automatically",
+      "The application writes to and reads from an external store, since the API is stateless",
+      "Prompt caching persists the earlier session for later retrieval",
+      "Setting a longer context window carries state between sessions"
+    ],
+    "a": 1,
+    "e": "The API is stateless and the model has no memory between calls. Long-term memory is something the application designs and manages. Caching is a cost and latency optimization with a short TTL, not a persistence layer.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-008",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "Which consideration most favors starting with direct API calls rather than an agentic framework?",
+    "o": [
+      "Frameworks cannot support tool use",
+      "Direct calls keep the failure surface visible without an abstraction layer between the team and the model",
+      "Frameworks are only available for TypeScript",
+      "Direct calls are the only way to use streaming"
+    ],
+    "a": 1,
+    "e": "Frameworks buy scaffolding at the cost of an abstraction that can obscure failures. Start direct and adopt a framework when the scaffolding earns its keep. The other options are factually false.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-009",
+    "d": 2,
+    "s": "Understanding Requirements",
+    "q": "A nightly job must classify 80,000 records. Results are reviewed the next business morning. Cost is the main concern. Which approach fits?",
+    "o": [
+      "Synchronous Messages API calls issued in parallel",
+      "The Message Batches API, which processes asynchronous workloads at reduced cost",
+      "Streaming requests to reduce total wall-clock time",
+      "Reducing max_tokens on synchronous calls"
+    ],
+    "a": 1,
+    "e": "Nothing consumes results until morning, the signal for batch and its 50% discount. Parallel synchronous calls don't lower per-token cost, streaming optimizes a dimension nobody measures here, and trimming max_tokens ignores the realtime-versus-batch tradeoff.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-010",
+    "d": 2,
+    "s": "Understanding Requirements",
+    "q": "A requirement states customer records must be processed within the EU. Which infrastructure decision follows most directly?",
+    "o": [
+      "Use a regional endpoint that guarantees geographic routing",
+      "Use a global endpoint for maximum availability",
+      "Encrypt the payload before sending it",
+      "Reduce the retention period on application logs"
+    ],
+    "a": 0,
+    "e": "Residency is met by regional endpoints with guaranteed geographic routing. Global endpoints route dynamically for availability, the opposite of what residency requires. Encryption and log retention are good practice but don't control where processing happens.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-011",
+    "d": 2,
+    "s": "Systems Life Cycle",
+    "q": "An enterprise requires every production model version change to be recorded, reviewed, and approved before release. Which framework does this requirement come from?",
+    "o": [
+      "Agile, which mandates sprint review of all changes",
+      "ITIL-style service management, where change and release management govern production changes",
+      "Waterfall, which requires phase gate sign-off",
+      "DevOps, which automates approvals away"
+    ],
+    "a": 1,
+    "e": "Change records, approval boards, and release management are service management concepts, and a model version change is a production change like any other. Agile and Waterfall describe how work is planned and delivered rather than how production change is governed.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-012",
+    "d": 2,
+    "s": "Systems Life Cycle",
+    "q": "Why can a Claude feature not rely solely on exact-match regression tests?",
+    "o": [
+      "The API response format changes frequently",
+      "Model output is non-deterministic, so correctness must be graded against criteria",
+      "Tests cannot make network calls",
+      "Token counts vary between runs"
+    ],
+    "a": 1,
+    "e": "Non-determinism means the same prompt can produce different valid outputs, so evals grade against criteria rather than asserting string equality. Deterministic code around the model is still unit tested normally.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-013",
+    "d": 2,
+    "s": "Claude API Mechanics",
+    "q": "A request fails with a 400 invalid_request_error. The messages array begins with an entry whose role is 'system'. What is the fix?",
+    "o": [
+      "Move the system entry to the end of the messages array",
+      "Pass the content in the top-level system parameter instead",
+      "Change its role to 'assistant'",
+      "Add a cache_control block to the entry"
+    ],
+    "a": 1,
+    "e": "The Messages API takes system as a top-level parameter; there is no system role inside messages. Reordering an invalid role doesn't make it valid, and cache_control is unrelated to request schema.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-014",
+    "d": 2,
+    "s": "Claude API Mechanics",
+    "q": "A batch of 5,000 classifications completes with no errors, but labels are mismatched to records. The pipeline zips results positionally against the input list. What is wrong?",
+    "o": [
+      "Batch requests silently use a smaller model",
+      "Batch results return in nondeterministic order and must be joined on custom_id",
+      "Prompt caching returned another request's cached output",
+      "The batch exceeded its window and returned partial results"
+    ],
+    "a": 1,
+    "e": "Batch requests process concurrently and results are not guaranteed to return in submission order, so custom_id is the join key. Caching never returns another request's output, and batch honors the model parameter.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-015",
+    "d": 2,
+    "s": "Claude API Mechanics",
+    "q": "After a release added a current timestamp to the top of a cached system prompt, cache_read_input_tokens dropped to near zero. Why?",
+    "o": [
+      "The prompt now exceeds the maximum cacheable length",
+      "The cached prefix differs on every request, so no two requests share a prefix",
+      "The 5-minute TTL stops refreshing when a prompt contains variables",
+      "Timestamps are explicitly excluded from cacheable content"
+    ],
+    "a": 1,
+    "e": "Prompt caching requires an exact prefix match. A value that changes every request, placed at the top of the prefix, means every call is a cache write and never a read. The fix is placement, not TTL.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-016",
+    "d": 2,
+    "s": "Claude API Mechanics",
+    "q": "A streaming endpoint logs HTTP 200 for every upstream call, yet users report answers stopping mid-sentence with no error shown. What is the most likely explanation?",
+    "o": [
+      "The client disconnected and the server did not notice",
+      "An error event arrived in the stream after the 200 status was committed",
+      "The stream buffered incorrectly and dropped the final chunk",
+      "The model returned stop_reason end_turn prematurely"
+    ],
+    "a": 1,
+    "e": "Because the HTTP status is sent before generation finishes, streaming responses can carry error events after a 200. A streaming client needs the same error branching as a non-streaming one, plus a policy for partial output already shown.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-017",
+    "d": 2,
+    "s": "Claude API Mechanics",
+    "q": "A pipeline analyzes 60-page contracts including tables and signature blocks. The team currently runs a separate OCR step and sends extracted plain text. What does sending the PDF as a document block change?",
+    "o": [
+      "Nothing, since PDF support performs the same text extraction internally",
+      "Pages are processed visually as well as textually, so charts, tables, and layout survive without separate OCR",
+      "PDFs bypass token costs because they are treated as attachments",
+      "The document must first be converted to .docx for full support"
+    ],
+    "a": 1,
+    "e": "PDF support runs through vision: pages are rendered as images alongside extracted text, so visual structure is preserved. Budget roughly 1,500 to 3,000 tokens per page. Office formats like .docx are the ones needing conversion, not PDFs.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-018",
+    "d": 2,
+    "s": "Claude API Mechanics",
+    "q": "A legal team queries the same 90-page contract dozens of times a day. Requests are large and slow. Which change most directly addresses this?",
+    "o": [
+      "Upload the document once via the Files API and reference it by file_id",
+      "Split the contract across several parallel synchronous requests",
+      "Convert the PDF to plain text to remove image token costs",
+      "Raise max_tokens so the whole document fits in one response"
+    ],
+    "a": 0,
+    "e": "The Files API lets you upload once and reference by file_id across requests, keeping payloads small instead of re-sending the document every time. Converting to text discards the visual structure contract review depends on, and max_tokens governs output rather than input.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-019",
+    "d": 2,
+    "s": "Claude API Mechanics",
+    "q": "An application answers questions from supplied source documents, and reviewers must verify each answer against the original text. Which feature addresses this most directly?",
+    "o": [
+      "Extended thinking, so reviewers can read the model's reasoning",
+      "Citations enabled on the document block, referencing the exact source passages",
+      "A higher effort level to improve accuracy",
+      "Structured outputs with a confidence score field"
+    ],
+    "a": 1,
+    "e": "Citations grounds responses in supplied documents with references to the specific passages used, which is what verification requires. Thinking shows reasoning rather than sourcing, effort doesn't create traceability, and a self-reported confidence score is not evidence.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-020",
+    "d": 2,
+    "s": "Claude API Mechanics",
+    "q": "An enterprise has an existing AWS commitment and wants Claude billed through it. What is the most relevant integration consideration?",
+    "o": [
+      "Claude is unavailable outside the first-party API",
+      "Model identifiers and feature availability can differ, and authentication uses the cloud provider's IAM",
+      "The Messages API request format is entirely different on cloud platforms",
+      "Prompt caching cannot be used through cloud vendors"
+    ],
+    "a": 1,
+    "e": "Claude runs on Amazon Bedrock, Google Cloud, and Microsoft Foundry. The practical differences are model ID conventions, lag in feature and beta availability, endpoint types, and provider IAM in place of an Anthropic API key.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-021",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A service fans out 300 concurrent Claude requests when a job starts and immediately receives 429s. What is the correct change?",
+    "o": [
+      "Wrap each call in a retry loop with a fixed short delay",
+      "Limit concurrency with a queue or semaphore and ramp traffic gradually",
+      "Switch to a larger model, which has higher rate limits",
+      "Disable streaming to close connections faster"
+    ],
+    "a": 1,
+    "e": "Rate limits are per-organization and sharp ramps can trip acceleration limits, so shaping concurrency is the fix. A fixed-delay retry loop increases volume at the worst moment and ignores retry-after. Model tier does not determine rate limits.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-022",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A team hand-rolls a retry decorator around every call made through the official SDK. What is the concern?",
+    "o": [
+      "The SDK does not support retries, so this is necessary",
+      "The SDK already retries transient failures with backoff and honors retry-after, so a second layer multiplies request volume",
+      "Retries are prohibited by the API terms",
+      "Retry logic belongs in the model configuration"
+    ],
+    "a": 1,
+    "e": "Official SDKs retry connection errors, 408, 409, 429, and 5xx twice by default with exponential backoff, honoring retry-after, and the count is configurable. Layering a custom fixed-delay retry compounds load during exactly the incident it should survive.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-023",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A team is using Claude Code to migrate a large legacy module to a new framework. Which practice most reduces risk?",
+    "o": [
+      "Complete the migration in one large change so the codebase is never in a mixed state",
+      "Work in bounded increments with tests passing between each, and avoid adding behavior in the same change",
+      "Skip code review for AI-generated changes since the model follows existing patterns",
+      "Refactor and add the new features together to avoid touching files twice"
+    ],
+    "a": 1,
+    "e": "Incremental refactoring with green tests between steps makes large-scale migration safe, and separating refactoring from behavior change keeps failures attributable. AI-generated code needs the same review rigor as human-written code.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-024",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A team wants a coding standard applied automatically in every Claude Code session in a repository, without anyone re-typing it. Where should it live?",
+    "o": [
+      "In the first message of each session",
+      "In the project's CLAUDE.md, committed to version control",
+      "In a user's personal notes outside the repository",
+      "In the description of each custom tool"
+    ],
+    "a": 1,
+    "e": "CLAUDE.md loads automatically and, when committed, applies for everyone on the project. Choose the instruction surface matching the durability required; a typed message lasts one session.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-025",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "An application summarizes documents uploaded by end users. Where should the uploaded content be placed?",
+    "o": [
+      "Concatenated into the system prompt so Claude treats it as authoritative",
+      "In a user turn, clearly delimited and separated from trusted instructions",
+      "In the tool description so it is available to every tool",
+      "Split evenly between the system prompt and the user turn"
+    ],
+    "a": 1,
+    "e": "Untrusted content must stay structurally separate from trusted instructions and be clearly delimited. Placing user content in the system prompt collapses the trust boundary and breaks prompt caching.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-026",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "An extraction schema requires a contract_end_date field. Some contracts genuinely have none, and the model fabricates dates for those. What schema change helps most?",
+    "o": [
+      "Add an instruction telling the model not to guess",
+      "Make the field explicitly nullable so declining is representable in the schema",
+      "Change the field type from date to string",
+      "Mark the field required so the model pays more attention to it"
+    ],
+    "a": 1,
+    "e": "If the schema cannot express 'not present', the model must produce something. Making it nullable gives a valid way to decline. Marking it required makes fabrication more likely, not less.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-027",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A long Claude Code session began with a database migration and has drifted into unrelated frontend work. Quality has declined. What is the best practice?",
+    "o": [
+      "Increase the model's effort level to compensate",
+      "Start a fresh session for the new task rather than carrying unrelated context",
+      "Add a message restating that the earlier task is complete",
+      "Switch to a model with a larger context window"
+    ],
+    "a": 1,
+    "e": "Session hygiene means starting fresh at task boundaries. Carrying unrelated context degrades quality, wastes tokens, and risks contradictory instructions. A larger window delays the problem without solving it.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-028",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A team has installed eleven plugins across their Claude Code projects, several with overlapping capabilities. What is the most likely consequence?",
+    "o": [
+      "Sessions will fail to start because of a plugin limit",
+      "More tokens spent on tool definitions per request and greater ambiguity when selecting a tool",
+      "Plugins will automatically deduplicate their overlapping tools",
+      "Prompt caching will be disabled"
+    ],
+    "a": 1,
+    "e": "Every installed plugin expands the tool surface, costing tokens on every request and increasing the chance the model picks the wrong tool. Plugins should be managed as dependencies and installed deliberately.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-029",
+    "d": 2,
+    "s": "Configuration Management",
+    "q": "A production service's output quality drops on a day with no deploy and no prompt change. The model is specified by an alias. What is the remediation?",
+    "o": [
+      "Add post-processing to restore the previous output shape",
+      "Pin an explicit dated model identifier and gate future upgrades on an eval re-run",
+      "Lower the temperature to stabilize the output",
+      "Move the alias into an environment variable"
+    ],
+    "a": 1,
+    "e": "An unpinned alias lets the underlying model change without a deploy, matching quality shifting on a day nothing shipped. Moving the alias to an environment variable relocates the config without stopping the drift.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-030",
+    "d": 2,
+    "s": "Configuration Management",
+    "q": "Which file should be committed so a team shares the same Claude Code permission rules and hooks?",
+    "o": [
+      ".claude/settings.local.json",
+      ".claude/settings.json",
+      "A .env file in the repository root",
+      "The user-level ~/.claude/settings.json"
+    ],
+    "a": 1,
+    "e": "Project settings.json is the shared, committed configuration. The .local.json variant is personal and gitignored, user-level settings apply to one developer, and secrets never belong in a committed file.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-031",
+    "d": 2,
+    "s": "Configuration Management",
+    "q": "How should prompts be managed in a production Claude application?",
+    "o": [
+      "Embedded as string literals near the code that uses them, for locality",
+      "Versioned in source control with review, tied to eval results, and rollback-capable",
+      "Stored in a database and edited directly in production for fast iteration",
+      "Regenerated by the model at deploy time to stay current"
+    ],
+    "a": 1,
+    "e": "Prompts are code. Version them, review them, tie each version to eval results, and make rollback as fast as a code rollback. Editing directly in production removes the review and eval gate.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-032",
+    "d": 3,
+    "s": "Claude Code Operation",
+    "q": "A CI pipeline needs Claude Code to run non-interactively and return machine-parseable results. Which configuration applies?",
+    "o": [
+      "Interactive mode with auto-approval enabled",
+      "Headless mode with a JSON output format",
+      "Streaming mode with verbose output",
+      "A custom slash command invoked at build time"
+    ],
+    "a": 1,
+    "e": "Headless mode is the non-interactive execution path for CI and scripting, and a JSON output format makes results parseable. Interactive and streaming modes both assume a human is present.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-033",
+    "d": 3,
+    "s": "Claude Code Operation",
+    "q": "A Skill written to check brand voice in draft articles keeps firing on unrelated JSON config edits. What is the fix?",
+    "o": [
+      "Move the Skill from the project directory to the user directory",
+      "Rewrite the description to state precisely which files and situations it applies to",
+      "Convert the Skill into a hook so it only runs on demand",
+      "Reduce the length of the Skill's instructions"
+    ],
+    "a": 1,
+    "e": "Claude decides whether to load a Skill by reading its description, so the description functions as the trigger and should be written like a search query. Broad wording matches everything. Location doesn't affect matching, and body length is irrelevant since progressive disclosure keeps it out of context until the Skill fires.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-034",
+    "d": 3,
+    "s": "Claude Code Operation",
+    "q": "CLAUDE.md files exist at the user level and in a project directory with different instructions. What happens?",
+    "o": [
+      "Only the user-level file is used",
+      "They are merged, with the more specific project-level context layering onto the broader level",
+      "The session fails until the conflict is resolved",
+      "Only the file in the current working directory is used"
+    ],
+    "a": 1,
+    "e": "CLAUDE.md is hierarchical across enterprise, user, project, and subdirectory levels, and the levels merge with more specific context layering on. This is why shared project rules belong in the committed project file.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-035",
+    "d": 4,
+    "s": "Debugging and Error Handling",
+    "q": "An application receives correct raw model output but writes wrong values to its database. Where should debugging focus?",
+    "o": [
+      "The model layer: the prompt and model selection",
+      "The integration layer: parsing, block handling, and data joins",
+      "The context window, which is likely exhausted",
+      "The temperature setting, which is producing variable output"
+    ],
+    "a": 1,
+    "e": "If the raw response is correct and the stored result is wrong, the defect is in the code between the two. Always inspect the raw response before blaming the model; this isolation step is the core debugging discipline.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-036",
+    "d": 4,
+    "s": "Debugging and Error Handling",
+    "q": "A team uses an LLM-as-judge to score summary quality. Scores are stable and everyone trusts them, but production complaints keep rising. What is missing?",
+    "o": [
+      "A larger model for the judge",
+      "Validation of the judge against human labels, since a judge is a model and inherits model failure modes",
+      "More test cases in the eval set",
+      "A lower temperature on the judge"
+    ],
+    "a": 1,
+    "e": "A judge produces consistent scores whether or not it measures the thing you care about, so it must be calibrated against human expert judgment before its output is trusted. Consistency is not accuracy. Scaling the judge or the set just multiplies an unvalidated signal.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-037",
+    "d": 4,
+    "s": "Debugging and Error Handling",
+    "q": "Which signal in production monitoring most directly indicates a silent regression rather than an outright failure?",
+    "o": [
+      "A spike in 429 rate limit errors",
+      "A rising schema validation failure rate while HTTP requests still succeed",
+      "An increase in total monthly spend",
+      "A drop in overall request volume"
+    ],
+    "a": 1,
+    "e": "Requests returning 200 while output quality degrades is the failure mode no error dashboard catches, which is why quality signals like schema failure, truncation, and refusal rates need their own alerting. Rate limit errors are visible failures, and volume and spend move for many reasons.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-038",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "Which statement about tokens is correct?",
+    "o": [
+      "Token counts are identical across all Claude models",
+      "Token counts are model-specific and should be re-measured when migrating models",
+      "One token always equals one word",
+      "Only input text is tokenized; output is billed by character"
+    ],
+    "a": 1,
+    "e": "Tokenization is model-specific, so counts measured against one model don't transfer. Newer models use a different tokenizer that can produce meaningfully more tokens for identical text, which changes effective cost even at a flat rate.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-039",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "A team fills a 1M-token context window with retrieved documents on every request. What is the main concern?",
+    "o": [
+      "The request will be rejected for exceeding limits",
+      "Retrieval quality degrades in very long contexts and cost rises, so advertised context is not effective context",
+      "Thinking will be automatically disabled",
+      "The response will always hit max_tokens"
+    ],
+    "a": 1,
+    "e": "Context is a finite resource with diminishing returns: recall degrades as the window fills and every token is billed. Filling the window because capacity exists is a design smell rather than a hard failure.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-040",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "A classification task produces inconsistent output formatting. Which prompting technique most directly addresses this?",
+    "o": [
+      "Zero-shot with a longer instruction",
+      "Multi-shot, providing several diverse examples of the desired output format",
+      "Raising max_tokens to give more room for formatting",
+      "Increasing temperature to encourage variety"
+    ],
+    "a": 1,
+    "e": "Few-shot examples establish format and handle edge cases more reliably than prose instruction. Diverse canonical examples beat many similar ones, and the block belongs in the cached prefix to control cost.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-041",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "Which statement about thinking tokens is correct?",
+    "o": [
+      "They are free because they are not shown to the user",
+      "They are billed at output token rates",
+      "They are billed at cached input rates",
+      "They count toward max_tokens but are not billed"
+    ],
+    "a": 1,
+    "e": "Thinking tokens bill at output rates even when collapsed, making them the most commonly missed line in a cost model. They also consume max_tokens before the visible answer starts, which is why a tight budget carried over from an older model causes mysterious truncation.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-042",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "Which transport does Claude API streaming use?",
+    "o": [
+      "WebSockets, providing full-duplex communication",
+      "Server-sent events, a one-way server-to-client stream",
+      "Long polling over repeated HTTP requests",
+      "gRPC bidirectional streaming"
+    ],
+    "a": 1,
+    "e": "Claude streaming uses server-sent events, one-way from server to client. Teams often add a WebSocket between their browser client and their own server when the client needs to send mid-stream, but that is their transport layer, not the Claude API's.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-043",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A team builds in a language with no official Anthropic SDK and calls the REST API directly. What do they take on?",
+    "o": [
+      "Nothing; the API behaves identically either way",
+      "Responsibility for retries with backoff, SSE parsing, and timeout handling the SDK would provide",
+      "A different pricing tier for raw HTTP access",
+      "A requirement to implement their own authentication scheme"
+    ],
+    "a": 1,
+    "e": "The SDKs wrap the same REST API but add retries, streaming assembly, timeout handling, and typed models. Calling raw HTTP means inheriting those responsibilities. Pricing and authentication are unchanged.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-044",
+    "d": 5,
+    "s": "Model Selection and Tradeoffs",
+    "q": "A high-volume, latency-sensitive routing step classifies incoming messages into six categories. Which tier fits best?",
+    "o": [
+      "The most capable available model, for accuracy",
+      "The fastest, lowest-cost tier, validated with evals",
+      "The mid-tier model with maximum effort",
+      "Whichever tier the rest of the application already uses"
+    ],
+    "a": 1,
+    "e": "Narrow, high-volume, latency-sensitive classification is what the fast, low-cost tier is for, provided evals confirm the quality bar. Defaulting to the most capable model for every task is the classic overprovisioning mistake.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-045",
+    "d": 5,
+    "s": "Model Selection and Tradeoffs",
+    "q": "After migrating to a newer model, requests that previously worked return 400 errors on the thinking parameter. What is the likely cause?",
+    "o": [
+      "The API key lacks permission for the new model",
+      "The newer model runs adaptive thinking and rejects manual thinking budgets",
+      "The context window shrank below the request size",
+      "Thinking is only available on the Batch API"
+    ],
+    "a": 1,
+    "e": "Breaking behavior changes across releases are explicitly in scope. Newer models use adaptive thinking with effort as the control and reject manual budget_tokens, which is why migration means reading the guide and re-running evals rather than swapping a model string.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-046",
+    "d": 5,
+    "s": "Model Selection and Tradeoffs",
+    "q": "A team migrating to Opus 5 finds their requests now return 400 when they set temperature to 0 for deterministic extraction. What should they do?",
+    "o": [
+      "Set temperature to 1 explicitly and accept the variability",
+      "Remove the sampling parameter and control output using effort plus a structured output schema",
+      "Downgrade to a model that still accepts temperature",
+      "Wrap the call in a retry loop until it succeeds"
+    ],
+    "a": 1,
+    "e": "Non-default sampling parameters return 400 on the newest models; effort has replaced them as the control surface. For deterministic extraction specifically, a structured output schema constrains the shape far more reliably than temperature ever did.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-047",
+    "d": 5,
+    "s": "Cost and Token Management",
+    "q": "A team wants to cut cost on a chat feature with a large static system prompt and steady traffic. Which lever should they try first?",
+    "o": [
+      "Downgrade to a smaller model tier",
+      "Add a cache_control breakpoint after the static system prompt",
+      "Reduce max_tokens by half",
+      "Increase temperature to shorten responses"
+    ],
+    "a": 1,
+    "e": "Caching a large stable prefix under steady traffic is the highest-return, lowest-risk lever, and cached reads cost roughly a tenth of normal input. Model downgrade comes last because it changes behavior and invalidates existing evals.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-048",
+    "d": 5,
+    "s": "Cost and Token Management",
+    "q": "Where should cache_control breakpoints be placed for best cache utilization?",
+    "o": [
+      "At the end of the most recently added user message only",
+      "At stability boundaries, with the most stable content ordered first in the prompt",
+      "Randomly distributed to increase the chance of a hit",
+      "Only on tool definitions, since tools change least"
+    ],
+    "a": 1,
+    "e": "Caching matches a prefix in the order tools, system, then messages, so breakpoints at stability boundaries with stable content first prevent a late change from invalidating everything behind it. Multiple breakpoints can hit independently.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-049",
+    "d": 6,
+    "s": "Context Engineering",
+    "q": "An agent calls an API returning 40,000 tokens of JSON, of which roughly 200 tokens are relevant. What is the most effective mitigation?",
+    "o": [
+      "Increase the context window by switching models",
+      "Prune or summarize the tool output before it enters context",
+      "Lower the effort level to reduce token spend",
+      "Cache the tool result so subsequent calls are cheaper"
+    ],
+    "a": 1,
+    "e": "Tool output pruning addresses the source of context bloat directly and is usually the largest single source in agentic systems. A larger window absorbs the waste without eliminating it, and caching a large useless payload still carries it in context.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-050",
+    "d": 6,
+    "s": "Context Engineering",
+    "q": "What is the main tradeoff of compaction in a long-running session?",
+    "o": [
+      "It requires a larger model tier",
+      "It is lossy, so what to preserve is a design decision",
+      "It disables tool use for the remainder of the session",
+      "It resets the model's instructions to defaults"
+    ],
+    "a": 1,
+    "e": "Compaction summarizes older turns and replaces them, necessarily discarding detail. Deciding what must survive, typically decisions and outcomes rather than transcript detail, is a design choice rather than an automatic behavior.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-051",
+    "d": 6,
+    "s": "Prompt Engineering",
+    "q": "Which content belongs in the system parameter rather than the user turn?",
+    "o": [
+      "The specific document to be analyzed on this request",
+      "The durable role, constraints, and behavioral rules that apply to every request",
+      "The end user's question",
+      "Tool results returned from the previous turn"
+    ],
+    "a": 1,
+    "e": "Durable behavior belongs in system; request-specific data belongs in the user turn. Putting per-request data in system also breaks prompt caching and blurs the boundary between trusted instructions and untrusted content.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-052",
+    "d": 6,
+    "s": "Prompt Engineering",
+    "q": "A prompt change fixes a reported failure case. What should happen next?",
+    "o": [
+      "Ship it, since the reported case now passes",
+      "Re-run the full eval set, because a fix for one case commonly regresses others",
+      "Revert the previous prompt version to keep history clean",
+      "Raise the effort level to reinforce the change"
+    ],
+    "a": 1,
+    "e": "Iterative refinement means changing one thing and re-running the eval set before keeping it. Prompt edits frequently trade one failure for others, which is exactly why the eval set must exist before tuning begins.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-053",
+    "d": 6,
+    "s": "Output Handling",
+    "q": "Application code reads response.content[0].text and intermittently throws. What is the defensive fix?",
+    "o": [
+      "Wrap the access in a try/except and ignore failures",
+      "Iterate content blocks and handle them by type, since responses may contain thinking or tool_use blocks",
+      "Set max_tokens higher so the text block always appears first",
+      "Disable thinking so only text blocks are returned"
+    ],
+    "a": 1,
+    "e": "Response content is a list of blocks whose types and order vary, so code must select by type rather than position. Suppressing the exception hides the bug, and constraining the model to avoid the situation is fragile.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-054",
+    "d": 6,
+    "s": "Output Handling",
+    "q": "An extraction service hits a JSON parse error. Logs show stop_reason max_tokens and text ending mid-array. A junior engineer proposes sending the truncated text back for repair. What is better?",
+    "o": [
+      "Accept the repair loop but validate the repaired output against the schema",
+      "Detect stop_reason max_tokens before parsing and either raise the budget or decompose the task",
+      "Lower temperature so the model produces more compact JSON",
+      "Switch to the Batch API, which does not enforce max_tokens"
+    ],
+    "a": 1,
+    "e": "Truncated is not malformed. The missing content was never generated, so a repair loop asks the model to invent it, which is exactly where fabricated records come from. Reading stop_reason first turns a mysterious parse error into a known condition with a known fix.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-055",
+    "d": 7,
+    "s": "AI Application Security",
+    "q": "A support agent reads customer tickets and can call a refund tool. A customer pastes text into a ticket that reads like an internal instruction authorising a full refund. The agent issues it. Which change prevents recurrence?",
+    "o": [
+      "Add a system prompt line telling Claude that ticket text is never authoritative",
+      "Require an approval step for refunds and scope the tool so the agent cannot issue one unilaterally",
+      "Lower the temperature so the agent behaves more predictably",
+      "Move to a larger model with stronger instruction following"
+    ],
+    "a": 1,
+    "e": "Ticket content is untrusted input and the injection succeeded because the tool permitted an irreversible financial action without a gate. Least privilege at the tool boundary plus human approval is the enforceable control. A system prompt line is a request, temperature is unrelated to injection, and a model that follows instructions better can follow injected ones better too.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-056",
+    "d": 7,
+    "s": "Guardrails and Safe Deployment",
+    "q": "An agent acts on behalf of a logged-in user. Which access model is correct?",
+    "o": [
+      "The agent uses a shared service account with broad permissions for reliability",
+      "The agent inherits the calling user's permissions, verified at the tool boundary per request",
+      "The model decides which records the user may see based on the system prompt",
+      "Access is checked once at session start and cached for the session"
+    ],
+    "a": 1,
+    "e": "Least privilege means an agent never holds a superset of the user's permissions, and entitlement is verified at the tool boundary on each request. Access control must never be delegated to the model, and session-start checks miss mid-session permission changes.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-057",
+    "d": 7,
+    "s": "Claude Hooks",
+    "q": "A team writes a PreToolUse hook to block destructive commands. During an incident they discover the hook crashed on a malformed payload and the command ran anyway. What went wrong?",
+    "o": [
+      "PreToolUse hooks cannot block tool execution",
+      "The script exited with code 1, which is a non-blocking error, so the action proceeded",
+      "Hooks only run in interactive mode, not headless",
+      "The matcher was case-insensitive and failed to match"
+    ],
+    "a": 1,
+    "e": "Only exit code 2 blocks and returns stderr to the model as the reason. Exit 1 is treated as a non-blocking hook error and the tool call proceeds, so a crashing guard script fails open rather than closed. Guard scripts need their own error handling.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-058",
+    "d": 7,
+    "s": "Identity, Secrets, and Key Management",
+    "q": "A mobile application calls Claude to power an in-app assistant. Where should the API key live?",
+    "o": [
+      "Bundled in the mobile application, obfuscated at build time",
+      "On a backend service the app calls, with the key never shipped to the client",
+      "In the app's local secure storage, written on first launch",
+      "In an environment variable read by the mobile runtime"
+    ],
+    "a": 1,
+    "e": "Any key shipped to a client is compromised the moment it ships, and obfuscation only delays extraction. The app should call your backend, which holds the key from a secret manager and can also enforce per-user authorization and rate limiting.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-059",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "A logistics company runs three separate Claude applications. All three need to query the same warehouse routing service, and the routing team wants to own and version that capability on its own release cycle. Which approach fits?",
+    "o": [
+      "Duplicate the routing tool definition inside each application",
+      "Expose the routing operations through an MCP server that all three applications connect to",
+      "Embed the routing rules in each application's system prompt so no integration is needed",
+      "Have each application call the routing service through a built-in tool"
+    ],
+    "a": 1,
+    "e": "Two phrases decide this: reusable across multiple applications, and maintained independently on its own cycle. That combination is the MCP server signal. Duplicated definitions drift apart the moment one team edits theirs, prompt-embedded rules are neither live nor maintainable, and built-in tools do not reach arbitrary internal services.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-060",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "A custom tool receives a malformed customer ID and its implementation raises an unhandled exception, ending the agent run. What is the better design?",
+    "o": [
+      "Catch the exception and return an empty result so the agent continues",
+      "Return a tool_result marked as an error with a message the model can act on, such as the expected ID format",
+      "Retry the tool call three times before failing",
+      "Add the ID format to the system prompt so the model never sends a bad one"
+    ],
+    "a": 1,
+    "e": "Returning an actionable error lets the model correct itself and retry, which is the point of the tool-result error channel. An empty result silently hides the failure, blind retries repeat the same bad input, and a system prompt note is a request rather than a handled failure path.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-061",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "An agent has 40 registered tools and frequently selects the wrong one. Which change addresses the root cause?",
+    "o": [
+      "Increase the effort level so the model reasons harder about selection",
+      "Consolidate overlapping tools and sharpen each description to say when to use it and when not to",
+      "Rename the tools alphabetically so selection is deterministic",
+      "Move the tool definitions from the request into the system prompt"
+    ],
+    "a": 1,
+    "e": "The model selects tools by reading their descriptions, so ambiguity between overlapping tools is a description and tool-set design problem. A large surface also costs tokens on every request. Effort does not fix ambiguous documentation.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-062",
+    "d": 8,
+    "s": "MCP Server Development",
+    "q": "An MCP server must run on a developer's own machine, spawned by the client, with no network exposure. Which transport applies?",
+    "o": [
+      "Streamable HTTP with OAuth",
+      "stdio, communicating over standard input and output",
+      "HTTP with Server-Sent Events",
+      "WebSocket with a bearer token"
+    ],
+    "a": 1,
+    "e": "stdio is the local transport where the client spawns the server as a subprocess and communicates over standard streams, with no network involved. Streamable HTTP is the current standard for remote servers, and the older HTTP+SSE transport is deprecated.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-063",
+    "d": 8,
+    "s": "MCP Server Development",
+    "q": "An MCP server exposes a read-only database schema that the client should pull into context. Which primitive fits?",
+    "o": [
+      "A tool, since the model needs to retrieve it",
+      "A resource, which exposes read-only data controlled by the application",
+      "A prompt, since it provides reference context",
+      "A sampling request back to the client"
+    ],
+    "a": 1,
+    "e": "Resources are the read-only data primitive, controlled by the application or client. Tools are model-controlled actions, and prompts are user-invoked reusable templates. Knowing which party controls each primitive is the testable distinction.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-064",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "A team wants Claude Code to follow their internal code review checklist consistently across projects. Claude can already read code and comment on it. Which approach fits best?",
+    "o": [
+      "A custom tool that performs the review",
+      "An MCP server exposing a review endpoint",
+      "A Skill containing the checklist and review procedure",
+      "A built-in tool with a longer description"
+    ],
+    "a": 2,
+    "e": "A Skill changes how Claude does something it can already do, which is exactly this case: the capability exists and what is missing is the procedure. A tool or MCP server would add a capability that is not needed, and built-in tool descriptions are not yours to author.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "new-agent-construction-with-claude-01",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "An engineering team configures a Claude Agent SDK session with allowed_tools=[\"Read\"] and permission_mode=\"bypassPermissions\", intending to auto-approve only the Read tool while every other tool still prompts for confirmation. During a run, the agent executes a Bash command and a file Write with no prompt at all. What explains this?",
+    "o": [
+      "bypassPermissions only applies to tools that are absent from allowed_tools, so listing Read there was redundant and blocked nothing",
+      "The Read entry must be written in the scoped form Read(path) before bypassPermissions can be constrained by it",
+      "bypassPermissions approves nearly every tool that reaches the permission-mode step, and allowed_tools does not narrow that; blocking a tool under this mode requires disallowed_tools or a hook instead",
+      "The SDK ignores permission_mode entirely unless a canUseTool callback is also supplied in the session options"
+    ],
+    "a": 2,
+    "e": "bypassPermissions approves almost everything that reaches the mode-check step in the evaluation order, and allowed_tools only pre-approves the tools named in it earlier in the flow -- it never narrows what the mode itself later approves. To keep a tool blocked under bypassPermissions you need disallowed_tools or a hook, not the allow-list. Option A inverts what allowed_tools does. Option B invents a syntax requirement that has no bearing on why Bash and Write ran. Option D is false: permission_mode governs behavior whether or not a canUseTool callback exists.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agent-construction-with-claude-02",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "A financial-services agent built on the Claude Agent SDK must never let a Bash command containing an API key or database password reach execution, regardless of which permission mode the deploying team selects later. Security also wants this enforced identically for any command string that might contain a secret, not just a fixed list of banned commands known today. Which approach satisfies this?",
+    "o": [
+      "Add each currently known secret-leaking command pattern to disallowed_tools as a separate Bash(...) rule",
+      "Register a PreToolUse hook that inspects the Bash command text at call time and returns a deny decision whenever it matches a secret pattern",
+      "Instruct Claude in the system prompt to refuse any Bash command that appears to contain credentials",
+      "Set permission_mode to \"plan\" so no Bash command can execute automatically"
+    ],
+    "a": 1,
+    "e": "Only a PreToolUse hook runs custom code against the actual command text at call time, so it can deny dynamically for any pattern rather than a pre-enumerated list, and a hook deny holds even under bypassPermissions. Option A only covers commands someone thought to list in advance, not every possible command string. Option C is a prompt instruction the model can fail to follow -- not a guarantee. Option D blocks all Bash equally rather than performing content inspection, and plan mode just routes calls to a callback for approval -- it doesn't deny automatically by itself.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-agent-construction-with-claude-03",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "A developer wants to send messages directly to the Claude API and hand-write their own loop that reads tool_use blocks, executes the matching tools, and appends tool_result blocks -- without adopting the Agent SDK's built-in tool set, system prompt conventions, or session and hook framework. Which building block matches this requirement?",
+    "o": [
+      "The Messages API, implementing the tool-use loop directly in application code",
+      "The Claude Agent SDK's query() function with allowed_tools set to an empty list",
+      "Claude Managed Agents, configured with a custom environment",
+      "The Claude Code CLI run in headless mode with an output-format flag"
+    ],
+    "a": 0,
+    "e": "The Agent SDK exists specifically to run the tool loop, tool set, and session machinery for you; wanting to implement that loop by hand is exactly the case the Messages API is for. Option B still runs the Agent SDK's own loop and conventions -- an empty allow-list doesn't remove the SDK's harness behavior underneath it. Option C hands the loop and sandbox to Anthropic's managed infrastructure, the opposite of writing it yourself. Option D still drives Claude Code's own agent loop as a subprocess, not a hand-written one.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-agent-construction-with-claude-04",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "A team is building an internal support-ticket agent. They do not want to operate their own sandbox, session persistence, or tool-execution infrastructure, and they are willing to accept less direct control over the exact runtime in exchange for Anthropic operating it for them. Which option fits this requirement?",
+    "o": [
+      "The Claude Agent SDK, running self-hosted inside their own Kubernetes cluster",
+      "The raw Messages API with a hand-rolled polling loop for tool execution",
+      "An MCP server that exposes the ticket system's operations as tools",
+      "Claude Managed Agents, using an Anthropic-managed cloud sandbox environment"
+    ],
+    "a": 3,
+    "e": "Managed Agents is the product built specifically to remove sandbox and session-infrastructure ownership from the team, at the cost of direct control over the runtime -- exactly the tradeoff named in the stem. Option A is the self-hosted path, which keeps that operational burden, the opposite of what's being asked for. Option B still requires the team to own execution infrastructure themselves. Option C is a tool source, not a place for an agent loop to run at all -- it doesn't answer where the agent executes.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agent-construction-with-claude-05",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "A team connects an MCP server to a Claude Agent SDK session and wants to understand exactly how permission to call that server's tools is decided. Select the two statements that are accurate.",
+    "o": [
+      "Once the MCP server is connected, all of its tools become callable without needing any allow-list entry",
+      "Calling one of the server's tools requires an explicit allow rule, such as naming the tool directly or using a wildcard anchored to that server's literal name",
+      "Writing allowed_tools=[\"mcp__*\"] auto-approves every tool from every connected MCP server",
+      "A PreToolUse hook can still deny a call to one of the server's tools even when an allow rule matches that call"
+    ],
+    "a": [
+      1,
+      3
+    ],
+    "e": "Connecting a server only makes its tools visible; calling one still needs an explicit allow rule scoped to that server, such as mcp__ops__lookup_order or mcp__ops__*, which makes the second option correct. A PreToolUse hook runs before allow rules in the evaluation order, so a hook deny overrides a matching allow rule, which makes the fourth option correct. The first option is the classic trap -- connection is not permission. The third option is wrong because an unanchored wildcard like mcp__* in allowed_tools is ignored with a startup warning; the server segment must be a literal, glob-free name.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-claude-api-mechanics-01",
+    "d": 2,
+    "s": "Claude API Mechanics",
+    "q": "A support bot caches a large product-docs system prompt behind one breakpoint and holds a strong cache-read rate for weeks. During a routine release, an engineer unconditionally appends one new tool definition to the request's tool list, gated behind a feature flag that only 5% of traffic can trigger, while the system prompt and message-building code are left untouched. Cache-read tokens then drop to zero on every request, including the 95% that never touch the new tool. What explains the drop?",
+    "o": [
+      "The feature flag itself disables caching for flagged requests regardless of payload content",
+      "The cache prefix is rendered as tools, then system, then messages, so any change to the tools array invalidates the cached system and message segments too, not just the tools segment",
+      "Adding a tool definition pushes the request past the maximum of four cache breakpoints, so the write silently fails",
+      "Tool definitions are excluded from the cacheable prefix entirely, so introducing one always forces a full-price request"
+    ],
+    "a": 1,
+    "e": "Correct: the cache is a strict prefix match rendered in the fixed order tools -> system -> messages, and a change at any level invalidates that level plus everything downstream, so an edited tools array busts the system and message caches even though those literal blocks never changed. Option A fails because feature flags are a runtime branch, not a caching input -- the tool entry itself is present in the payload for all 100% of requests regardless of who exercises it. Option C fails because this scenario uses a single breakpoint, well under the limit of four, so the breakpoint cap is not in play. Option D fails because it reverses the real rule: tools sit at the very front of the cacheable hierarchy, not outside it.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-claude-api-mechanics-02",
+    "d": 2,
+    "s": "Claude API Mechanics",
+    "q": "A data team submits 40,000 documents to the Message Batches API for classification, expecting the batch to finish well inside their six-hour reporting window. To save engineering time, they write the results-processing code to zip the downloaded results directly against the original 40,000-item input list by array position, and they build no handling for a batch that doesn't fully complete. Which two of the following are real risks in this design? (Select two.)",
+    "o": [
+      "Results can return in a different order than requests were submitted, so a positional zip can silently pair a result with the wrong input document",
+      "A batch that hasn't finished processing within 24 hours expires, losing whatever requests are still unfinished, so a design with no fallback for that case can silently lose data",
+      "The Batches API only applies its cost discount to requests that finish within the first hour, so slower requests are billed at full synchronous price",
+      "A single batch submission is capped at 1,000 requests, so the 40,000-document submission would be rejected outright"
+    ],
+    "a": [
+      0,
+      1
+    ],
+    "e": "Correct (both): batch requests are processed independently and concurrently, so completion order carries no relationship to submission order -- only a custom_id join is safe, making a positional zip a real data-integrity bug; separately, a batch that has not finished within 24 hours expires and drops unfinished requests, so skipping fallback handling for that case risks silent data loss even though most batches finish in under an hour. Option C fails because the batch discount is a flat percentage off standard pricing applied to all usage in the batch, not a time-boxed promotion tied to how fast a given request completes. Option D fails because the per-batch request ceiling is far larger than 1,000 -- the number is fabricated and would not cause 40,000 documents to be rejected at submission.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-claude-application-design-01",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A platform team pushes a managed-settings.json policy through the claude.ai console that disables one bash command for every engineer at the company. One engineer, annoyed that the command is blocked, adds an explicit allow rule for that same command to their own ~/.claude/settings.json. The command stays blocked when they try to run it. Which explains the behavior?",
+    "o": [
+      "Managed settings sit at the top of the precedence order and override the same key set anywhere below them",
+      "User-scope settings always take precedence over any other scope, so the allow rule should have worked",
+      "Settings.json changes require a session restart before they take effect, and the restart hasn't happened yet",
+      "Command permissions are controlled by CLAUDE.md, not by settings.json, so the allow rule had no effect"
+    ],
+    "a": 0,
+    "e": "Managed settings are the highest level in Claude Code's precedence order (managed > command line > project local > shared project > user), so a key set there overrides the same key set at any lower level, including a user's own file. Option 1 inverts the actual order. Option 2 misdiagnoses the cause as timing, but restarting changes nothing since managed still wins after reload. Option 3 confuses CLAUDE.md, which is advisory memory, with settings.json, which is the enforced permission layer that actually governs commands.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-claude-application-design-02",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A team is building a research assistant that runs in Claude Desktop. They want the assistant to always be able to call the company's internal ticket-lookup service in every conversation the user starts on that machine, without the user re-explaining what the service is or how to call it each time they open a new chat. Where should this capability be defined?",
+    "o": [
+      "Restate the ticket-lookup service's API in the first message of every conversation",
+      "Add the service description to a claude.ai Project's custom instructions",
+      "Connect the ticket-lookup service as an MCP server in Claude Desktop's local configuration",
+      "Paste the service's documentation into the system prompt of a single raw API call"
+    ],
+    "a": 2,
+    "e": "On Claude Desktop, the instruction surface for tool capability is the connected tooling itself; an MCP server configured locally persists across every conversation on that machine without the user restating anything. Option 0 is the opposite of persistent - it requires re-explaining every time. Option 1 lives in a different product (claude.ai Projects) and would only apply inside that Project's chats, not the Desktop app. Option 3 is scoped to one API call, not a standing capability.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-claude-application-design-03",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A team wants every chat inside a claude.ai Project to follow a house formatting style, and separately wants a guarantee that customer PII never appears in any reply, verified before a response reaches the user, with no exceptions. They plan to write both rules into the Project's custom instructions field.",
+    "o": [
+      "This works for both rules, since Project instructions apply automatically to every chat in the Project",
+      "Neither rule belongs in Project instructions, because claude.ai has no persistent instruction surface at all",
+      "Only the PII rule belongs in Project instructions; the formatting rule should be a per-chat Style instead",
+      "The formatting rule fits there, but a must-never PII guarantee needs enforcement claude.ai's UI configuration can't provide"
+    ],
+    "a": 3,
+    "e": "claude.ai Project instructions are UI configuration with no code-level enforcement - fine for a preference like formatting, but a hard guarantee has to be checked deterministically before a response ships, which requires application-level validation or a different interface entirely, not a persuadable instruction. Option 0 wrongly treats both rules as equivalent in kind. Option 1 is false; Project instructions do persist across the Project's chats. Option 2 swaps the two rules' correct treatment backwards.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-claude-application-design-04",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A team is deciding how a multi-step support-ticket application should be structured: whether one Claude call should route escalations to a second, specialized call, or whether a single call should handle each ticket end to end. Which objective actually covers the decision they are making?",
+    "o": [
+      "Claude Application Design, because it concerns Claude's behavior across an application",
+      "Agents and Workflows, because this is workflow pattern selection between routing and a single end-to-end call",
+      "Claude Application Design, because instruction placement is what determines which pattern gets chosen",
+      "Tools and MCPs, because the ticket data has to be retrieved through an external tool"
+    ],
+    "a": 1,
+    "e": "Choosing between routing and a single end-to-end call is workflow pattern selection, which sits in Agents and Workflows, not Claude Application Design - the two objectives are explicitly separated. Option 0 is too vague to be the actual tested skill. Option 2 invents a causal relationship that doesn't hold; instruction placement and pattern choice are separate decisions. Option 3 misidentifies the domain based on incidental tool use rather than the structural decision actually being asked about.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-claude-application-design-05",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "An internal support application appends each customer's ticket text directly onto the end of the system prompt before sending the request, on the theory that content in the system prompt gets the most attention from the model. The same system prompt template is reused across several thousand tickets per day. A security reviewer flags the design during a routine review. Select the two problems this design actually causes.",
+    "o": [
+      "It collapses the trust boundary between trusted instructions and untrusted ticket content",
+      "It reduces the maximum number of output tokens available for the response",
+      "It prevents the system prompt prefix from being cached, since the prefix now varies with every ticket",
+      "It disables tool use for the remainder of the conversation"
+    ],
+    "a": [
+      0,
+      2
+    ],
+    "e": "Appending untrusted ticket text to the system prompt collapses the structural signal that separates instructions from data, and it breaks prompt caching because caching depends on a stable, reused prefix - at several thousand tickets a day that turns into thousands of full-price prefills instead of cache hits. Output token limits and tool availability are governed by separate parameters entirely; neither is affected by what text sits in the prompt prefix.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-claude-application-design-06",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A security team wants a guarantee that no commit ever leaves a repository containing a string matching an API-key pattern, for every engineer, every time, regardless of what any individual session's instructions say. An engineer proposes satisfying this by adding a bullet to the repo's CLAUDE.md telling Claude to check for secrets before committing.",
+    "o": [
+      "This is sufficient, since CLAUDE.md loads automatically in every session for every engineer",
+      "This is sufficient as long as the bullet is placed near the top of the file, where the model gives it more weight",
+      "This is insufficient; a pre-commit hook that blocks the commit is needed to make the check unconditional",
+      "This is insufficient; the rule should instead be duplicated into every engineer's user-scope settings.json"
+    ],
+    "a": 2,
+    "e": "CLAUDE.md is advisory text the model reads as guidance, not an enforced control, so it cannot deliver a no-exceptions guarantee; only a hook that runs deterministically on the commit event can block every violating commit regardless of session instructions. Option 0 confuses durability (loads everywhere) with enforcement (isn't optional). Option 1 misconceives how instruction weight works - placement doesn't create a guarantee. Option 3 just duplicates the same advisory text into a policy file's wrong slot without adding any enforcement mechanism.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-claude-application-design-07",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A developer builds a Claude Code plugin containing a skills/ folder with one skill and an agents/ folder with one custom agent, but never creates a .claude-plugin/plugin.json manifest, assuming the plugin cannot load without one. A teammate installs the plugin locally to test it anyway.",
+    "o": [
+      "The plugin loads; the manifest is optional and Claude Code auto-discovers components from the directory layout",
+      "The plugin fails to load entirely; a manifest is required for any plugin to be recognized",
+      "Only the skill loads; agents require an explicit manifest entry before they can be discovered",
+      "The plugin loads, but only if the folders are renamed to commands/ and hooks/"
+    ],
+    "a": 0,
+    "e": "The plugin manifest is optional - when it is absent, Claude Code auto-discovers components straight from the directory layout, including skills/ and agents/, so both the skill and the agent load. Option 1 states a hard requirement that doesn't exist. Option 2 invents an asymmetry between skills and agents that isn't real. Option 3 describes an unnecessary rename; commands/ is an alternate location for skills specifically, not a substitute for agents/, and hooks/ is a different component type altogether.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-claude-application-design-08",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A SaaS analytics vendor's Claude-powered assistant was originally built for one internal team and used a single long-running session that accumulated context across the whole day. Now that the product serves multiple paying customers, engineers notice the assistant sometimes references a different customer's dashboard names in its answers, and they file it as a context-window performance issue to be fixed by summarizing older turns.",
+    "o": [
+      "Correct framing; summarizing the session's earlier turns will resolve the issue",
+      "Correct framing; switching to a model with a larger context window will resolve the issue",
+      "Incorrect framing; the fix is to remind the assistant at the start of each reply which customer it is currently serving",
+      "Incorrect framing; this is a session-isolation requirement, and each customer needs its own session with no shared context"
+    ],
+    "a": 3,
+    "e": "Cross-customer leakage is a security boundary failure, not a context-quality problem - the only structural fix is a session per tenant with no shared context. Options 0 and 1 both treat it as something to manage rather than prevent, and neither stops the underlying sharing that causes the leak. Option 2 adds an advisory reminder, which is still just an instruction the model could fail to fully apply, not a boundary that structurally prevents one customer's data from reaching another's session.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-claude-code-operation-01",
+    "d": 3,
+    "s": "Claude Code Operation",
+    "q": "A team wants every change touching src/payments/ to run a compliance script before a commit can happen, with no path for the agent to skip the step even if it judges the script unnecessary. Where should this rule live?",
+    "o": [
+      "A .claude/rules/payments.md file scoped to that path with paths frontmatter",
+      "A PreToolUse hook in settings.json that matches the commit command and runs the script first",
+      "A Skill named payments-compliance with a description telling Claude when to run it",
+      "A line in the project CLAUDE.md stating the compliance script must always run first"
+    ],
+    "a": 1,
+    "e": "A hook bound to a lifecycle event like PreToolUse is the only mechanism here that is code, not context — it runs regardless of what Claude decides. A path-scoped rule and a CLAUDE.md instruction are both context Claude reads and can deviate from under ambiguity; a Skill is discretionary and triggers on a description match, not on every matching commit. Any stem requiring a step with no possible skip is describing a hook.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-claude-code-operation-02",
+    "d": 3,
+    "s": "Claude Code Operation",
+    "q": "An engineer wants Claude Code to work through a long backlog of small refactors overnight with far fewer approval prompts, but still wants any command that reaches outside the repository or resembles a prompt-injection attempt blocked automatically rather than approved. Which permission mode fits both requirements?",
+    "o": [
+      "bypassPermissions, since it removes prompting entirely for the overnight run",
+      "acceptEdits, since file writes and common filesystem commands stop requiring approval",
+      "auto, since a classifier model reviews actions and still blocks scope escalation and injection",
+      "dontAsk, since it denies anything outside the existing allow rules without prompting"
+    ],
+    "a": 2,
+    "e": "auto hands most approval decisions to a separate classifier that still screens for scope escalation, untrusted infrastructure, and prompt injection, which is exactly the combination the stem asks for. bypassPermissions skips checks entirely, which drops the safety requirement. acceptEdits only auto-approves writes and common filesystem commands, leaving other shell and network activity still gated, and adds no injection screening of its own. dontAsk denies anything not already allow-listed instead of approving more of the backlog, so it doesn't reduce prompts the way the stem wants.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-claude-hooks-01",
+    "d": 7,
+    "s": "Claude Hooks",
+    "q": "An engineering team adds a CLAUDE.md rule stating Claude Code must never run `git push --force` against the main branch. During a migration, a contributor pastes instructions from a Slack thread into the chat that override this rule, and the agent force-pushes to main anyway. Which control would have prevented this regardless of what instructions the agent received during that session?",
+    "o": [
+      "A more detailed CLAUDE.md rule listing examples of what counts as a force push",
+      "A PreToolUse hook matching the Bash tool that inspects the command and exits 2 to block any force push targeting main",
+      "A PostToolUse hook that reverts the push once it detects one occurred",
+      "A system-prompt instruction paired with a lower sampling temperature"
+    ],
+    "a": 1,
+    "e": "A rule that must always hold needs a deterministic control, not a prompt instruction that pasted text can override. A PreToolUse hook runs before the tool executes and, on exit 2, blocks it outright regardless of what the model was told in-session. More detailed CLAUDE.md wording is still a request, not a guarantee. PostToolUse fires after the push already happened, and a force push can rewrite history other developers have already pulled, so it cannot reliably undo the damage. Temperature affects sampling variance, not policy compliance.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-configuration-management-01",
+    "d": 2,
+    "s": "Configuration Management",
+    "q": "A platform team distributes an internal plugin through a private marketplace. To signal a new release, they bump the version field in the marketplace catalog entry from 1.2.0 to 1.3.0, but forget that the plugin's own plugin.json manifest still declares version 1.2.0. Team members run the plugin update command afterward.",
+    "o": [
+      "Users receive version 1.3.0, because the marketplace entry takes precedence for signaling new releases",
+      "Claude Code throws a version-conflict error and blocks the update until the two files agree",
+      "Users keep the cached 1.2.0 build, because Claude Code resolves the version from plugin.json first, silently masking the marketplace entry's value",
+      "Claude Code merges the two version strings and installs whichever one is numerically higher"
+    ],
+    "a": 2,
+    "e": "Claude Code resolves a plugin's version from its own plugin.json manifest before consulting the marketplace catalog entry, and does so without warning, so a stale manifest version silently masks a version bump made only in the marketplace entry. Assuming the marketplace entry wins gets the precedence backwards. There is no conflict error raised when the two disagree; the mismatch is silent, which is exactly the danger the mechanism creates. There is no merge-and-take-higher behavior either — one field wins outright, and it isn't the marketplace entry.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-configuration-management-02",
+    "d": 2,
+    "s": "Configuration Management",
+    "q": "A model an application depends on moves from Active to Deprecated status. Anthropic names a recommended replacement and sets a retirement date roughly 90 days out. The on-call engineer's instinct is to switch the pinned model identifier in every environment, including production, the same day the deprecation notice arrives.",
+    "o": [
+      "Leave the deprecated model pinned everywhere until the retirement date, to avoid any risk of a behavior change before then",
+      "Switch every environment, including production, immediately, since deprecated models are already less reliable",
+      "Remove the explicit model pin entirely and switch to an alias, so future deprecations are absorbed automatically",
+      "Test the replacement model against the existing eval suite first, then roll the pin forward once results clear the bar, well before the retirement date"
+    ],
+    "a": 3,
+    "e": "Configuration-management discipline gates any pinned-model change on an eval re-run before promoting it to production, and does so with enough runway before a hard deadline to absorb a failed evaluation. Waiting until the retirement date risks a forced, untested cutover with no time to react if the replacement regresses. Switching immediately without running the eval suite reintroduces exactly the 'quality shifted with no controlled deploy' risk that pinning exists to prevent. Removing the pin in favor of an alias trades one drift problem for a worse one, since an alias updates on Anthropic's schedule rather than on a schedule the team controls.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-configuration-management-03",
+    "d": 2,
+    "s": "Configuration Management",
+    "q": "A team lead wants two things guaranteed on every Claude Code invocation across the team, with no reliance on the model choosing to comply: a specific destructive shell command must always be blocked outright, and a formatter script must always run after every file edit. Select the two configuration mechanisms that actually guarantee this behavior regardless of what Claude decides.",
+    "o": [
+      "A CLAUDE.md instruction telling Claude never to run that command and to run the formatter after every edit",
+      "A permissions.deny rule in the shared, committed project settings.json blocking the command",
+      "A PostToolUse hook configured in settings.json that runs the formatter after every file edit",
+      "A longer, more detailed instruction appended to every request asking Claude to follow both rules"
+    ],
+    "a": [
+      1,
+      2
+    ],
+    "e": "Permission rules and hooks configured in settings.json are enforced by the Claude Code client itself, independent of what the model decides to do on any given turn, which is exactly what 'guaranteed, no exceptions' requires. A CLAUDE.md instruction is delivered as context the model reads and tries to follow, not a control the client enforces, so however clearly it's worded it remains a request rather than a guarantee. Appending a longer instruction to every request has the identical failure mode as the CLAUDE.md option: rewording or relocating a plain-language instruction doesn't change the fact that it's advisory, not deterministic.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-cost-and-token-management-01",
+    "d": 5,
+    "s": "Cost and Token Management",
+    "q": "A real-time chat assistant carries a 40KB frozen system prompt and receives traffic all day. Every response must still return to the user immediately, so nothing in the pipeline can tolerate an asynchronous delay. The team wants to cut cost without breaking that latency requirement. Which change fits?",
+    "o": [
+      "Route the requests through the Batch API for its 50% token discount",
+      "Add a cache_control breakpoint after the frozen system prompt",
+      "Downgrade the chat assistant to a cheaper model tier",
+      "Cut max_tokens in half to shrink every response"
+    ],
+    "a": 1,
+    "e": "A cache breakpoint after the stable, unchanging system prompt is the highest-return, lowest-risk lever here, and it doesn't touch response timing at all. The Batch API is wrong for a nameable reason beyond just being scored in Domain 2 API Mechanics rather than this objective: batch processing is inherently asynchronous and can't satisfy an 'answer must return immediately' constraint, so it fails the stem's own requirement regardless of its 50% discount. A model downgrade is the last lever in the optimization order, not the first, because it invalidates existing evals. Cutting max_tokens risks truncating legitimate responses and doesn't address the actual cost driver, which is the repeated 40KB prefix.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-cost-and-token-management-02",
+    "d": 5,
+    "s": "Cost and Token Management",
+    "q": "A research agent runs for hours a day on Claude Opus 5 at effort xhigh. Finance flags the output-token line item as unexpectedly high, even though every visible response in the transcript is a short paragraph. An engineer dismisses this as a metering bug and opens a support ticket. What actually explains the line item?",
+    "o": [
+      "It is a metering bug, and the support ticket is the right next step",
+      "output_tokens includes thinking_tokens, and effort xhigh on Opus 5 drives far more reasoning tokens than the short visible answer suggests",
+      "cache_creation_input_tokens is being double-counted into the output-token total",
+      "The pricing page's output rate for Claude Opus 5 must be incorrect and needs verification"
+    ],
+    "a": 1,
+    "e": "Thinking tokens are billed at the model's output rate and reported inside output_tokens_details.thinking_tokens, which is a labeled subset of output_tokens rather than a separate free category. A long-running agent at effort xhigh generates substantial internal reasoning even when the final visible text is short, and that reasoning is billed the same as any other output token. Option A dismisses documented, correct behavior instead of reading the usage breakdown. Option C names the wrong field — cache creation tokens are priced and reported separately from output tokens, not merged into them. Option D assumes a pricing error rather than checking the actual usage breakdown, which is the first thing to verify.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-debugging-and-error-handling-01",
+    "d": 4,
+    "s": "Debugging and Error Handling",
+    "q": "A structured-extraction pipeline sends Claude's JSON output to a downstream parser, and one response stops with stop_reason max_tokens while the JSON object is still open. An on-call engineer patches this by sending the same partial JSON back to Claude and asking it to fill in the closing braces and any remaining fields, then ships the fix. Bad records keep appearing in production afterward. What is the most likely explanation?",
+    "o": [
+      "The completion request should have used a lower temperature to reduce variance in the filled-in fields",
+      "The missing fields were never generated the first time, so asking Claude to supply them produces fabricated values rather than recovered ones",
+      "The original request needed a stop sequence so the JSON object would close cleanly before the token limit",
+      "The parser should retry the original request from scratch using the same max_tokens value"
+    ],
+    "a": 1,
+    "e": "Truncation means the trailing content was never produced, so a repair pass isn't recovering anything — it's asking the model to invent plausible-looking values for fields it never actually generated, which is why bad records persist. Temperature doesn't address a missing generation. A stop sequence controls where a response stops on purpose, not truncation caused by hitting max_tokens. Retrying with the same max_tokens reproduces the identical truncation instead of fixing it; the fix is to raise the budget or decompose the task and regenerate from scratch.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-guardrails-and-safe-deployment-01",
+    "d": 7,
+    "s": "Guardrails and Safe Deployment",
+    "q": "A team deploys a customer-support agent with a system-prompt rule telling Claude to never reveal a customer's full account number. During testing, a cleverly worded support ticket causes the agent to include a full account number in its reply anyway, even though the system-prompt rule was in place the entire time. Which addition would have reliably stopped this from reaching the customer?",
+    "o": [
+      "Rewrite the system-prompt rule with stronger wording and more emphatic language",
+      "Add an output filter that redacts account-number patterns before the response is sent",
+      "Add more few-shot examples of refusals to the system prompt",
+      "Rely on the model's built-in safety training without any additional layer"
+    ],
+    "a": 1,
+    "e": "A system-prompt rule is a request the model can still be talked out of by a sufficiently crafted input; it is one layer, not a guarantee. An output filter that redacts the pattern deterministically before the response ships is a second, independent layer that catches what the first layer missed. Stronger wording and more examples are still prompt-layer fixes with the same failure mode, and relying solely on built-in safety training abandons layering entirely.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-guardrails-and-safe-deployment-02",
+    "d": 7,
+    "s": "Guardrails and Safe Deployment",
+    "q": "A company's Claude-powered assistants inherit each employee's own permissions, checked once when the employee authenticates at the start of the day. At 10:00 a.m. a manager revokes an employee's access to the payroll system after a role change. At 10:15 a.m. the employee asks her assistant to pull a payroll report, and the request succeeds. What is the root cause?",
+    "o": [
+      "The assistant used a shared service account instead of the employee's own identity",
+      "Entitlement was cached from a session-start check instead of verified at the tool boundary on each request",
+      "The system prompt failed to instruct the assistant to refuse payroll requests after a role change",
+      "The manager should have manually revoked the assistant's session token when access was removed"
+    ],
+    "a": 1,
+    "e": "The setup already has the agent inheriting the user's own permissions, so a shared account isn't the issue. The failure is that entitlement was verified once at login and cached, instead of being checked at the tool boundary on every request; a later revocation had no way to take effect mid-session. A system-prompt instruction can't know about a role change that happened after the prompt was written, and manual token revocation per event doesn't scale into a systemic fix.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-identity-secrets-and-key-management-01",
+    "d": 7,
+    "s": "Identity, Secrets, and Key Management",
+    "q": "A company's Claude API key is set as an environment variable inside a deployed container image, and rotating the key currently requires rebuilding and redeploying that image. After a contractor's laptop with local access to the key is stolen, security wants the key rotated within the hour, but the next scheduled deployment is three days away. What does this incident reveal about the key-management design?",
+    "o": [
+      "The key should have been scoped to a workspace with a spend limit instead of an environment variable",
+      "Rotation was designed to require a deploy rather than being a runtime secret-manager change, so a time-sensitive rotation is blocked on the release cycle",
+      "The key should never have been readable from an environment variable at all",
+      "The laptop theft should have triggered a hook to block further API calls automatically"
+    ],
+    "a": 1,
+    "e": "The incident's decisive detail is that rotation is tied to a rebuild-and-redeploy cycle, so an urgent rotation is stuck waiting three days for the next release; the fix is designing rotation as a secret-manager/config change that takes effect without a deploy. A spend limit would reduce damage from misuse but does nothing about the rotation delay itself. Environment-variable injection at runtime is the accepted pattern for secret handling, not the flaw. Hooks govern Claude Code tool execution, not revocation of a stolen API credential.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-llm-fundamentals-01",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "A team runs requests against a model with a 200,000-token context window. Their conversation history sits at 190,000 tokens, and they set max_tokens to 64,000 hoping to get a long generated report back in one call, but the response cuts off well short of 64,000 output tokens. A teammate insists this must be a bug because max_tokens should guarantee that many output tokens regardless of input length. Which explanation is correct?",
+    "o": [
+      "It is a bug: max_tokens is a fixed allocation reserved before the request starts, entirely separate from the context window.",
+      "The cutoff means the model exceeded its training data limit, which is unrelated to context window size.",
+      "max_tokens sets a ceiling, not a guarantee: input and output share one context-window budget, so once input plus generated tokens reach that shared ceiling, generation stops even if max_tokens has not been reached.",
+      "max_tokens only applies to text output; thinking tokens are counted separately and unlimited, so the report was truncated by a content filter instead."
+    ],
+    "a": 2,
+    "e": "Correct answer C: the context window is one shared budget covering the system prompt, messages, tool definitions, and all output for the turn, including thinking. At 190,000 tokens of input against a 200,000-token window, only 10,000 tokens of room remain regardless of what max_tokens is set to, so generation stops early. Option A is wrong because it treats max_tokens as an independent reservation rather than a ceiling within the shared budget. Option B invents an unrelated concept (training data size) that has nothing to do with the context window limit being described. Option D is wrong because thinking tokens count toward the same window and are not unlimited, and nothing in the scenario suggests a content filter.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-llm-fundamentals-02",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "A study guide author is deciding where to place four related topics inside a blueprint that separates a 'Model Selection and Optimization' domain from a 'Prompt and Context Engineering' domain: zero-shot, single-shot, and multi-shot prompting; and structuring a prompt with XML tags plus managing long conversation history via context compaction. Select the two statements below that correctly describe where each topic belongs.",
+    "o": [
+      "Zero-shot, single-shot, and multi-shot prompting belong in Prompt and Context Engineering, since choosing how many examples to include is fundamentally about crafting the prompt's text.",
+      "Zero-shot, single-shot, and multi-shot prompting belong in Model Selection and Optimization, not Prompt and Context Engineering, despite reading like a general prompting topic.",
+      "XML tag structuring belongs in Model Selection and Optimization because it affects which model tier is chosen for a task.",
+      "XML tag structuring and context compaction both belong in Prompt and Context Engineering, since they concern how a single request's content is organized and managed."
+    ],
+    "a": [
+      1,
+      3
+    ],
+    "e": "Correct answers B and D. B is correct because the blueprint deliberately places example-count prompting techniques (zero/single/multi-shot) under Model Selection and Optimization rather than Prompt and Context Engineering, even though it reads like a pure prompt-writing topic. D is correct because XML tag structuring and context compaction are exactly the kind of within-request content organization that Prompt and Context Engineering does own. Option A fails because it states the intuitive-but-wrong placement directly contradicted by the blueprint's explicit scope split. Option C fails because XML tags are a formatting technique with no connection to model tier selection, which is a separate objective entirely.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-llm-fundamentals-03",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "A finance team wants an automated pipeline that must produce the exact same invoice-categorization output every single time it processes the same invoice text, byte-for-byte, so they can diff outputs across nightly runs without any manual review. An engineer proposes setting temperature to 0 on every call and calling it done. Which response correctly evaluates this proposal?",
+    "o": [
+      "The proposal is sound: temperature 0 is defined as fully deterministic, so identical inputs are guaranteed to produce identical outputs on every call.",
+      "The team should instead set top_p to 0 alongside temperature 0, since together these are documented to eliminate all output variance.",
+      "The team should raise max_tokens to guarantee stability, since truncated responses are the only source of run-to-run variance at temperature 0.",
+      "Temperature 0 makes decoding greedy but does not guarantee byte-identical output across calls; floating-point non-associativity and request batching can still shift results, so a hard byte-for-byte guarantee cannot come from a sampling parameter alone."
+    ],
+    "a": 3,
+    "e": "Correct answer D: temperature 0 selects the highest-probability token at each step (greedy decoding), but infrastructure-level effects such as GPU floating-point non-associativity and batching with other concurrent requests mean two calls with identical input and parameters are still not guaranteed to match exactly. A pipeline that must diff outputs byte-for-byte needs a deterministic check outside the sampling parameter, not a parameter tweak alone. Option A states the common misconception that temperature 0 equals a determinism guarantee. Option B fabricates a documented top_p combination that does not exist. Option C misattributes the variance to output truncation, which is not the mechanism described in the scenario.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-llm-fundamentals-04",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "A team hard-codes a per-request token budget of 3,000 tokens for a summarization prompt, calibrated by counting tokens on one model during development. Six months later they migrate the same prompt template to a newer model generation with an updated tokenizer, without re-measuring anything, and the pipeline starts truncating input that used to fit comfortably. Which practice would have prevented this?",
+    "o": [
+      "Increase max_tokens instead of re-counting, since max_tokens and input token budgets are governed by the same underlying tokenizer figure.",
+      "Re-run token counting against the new model after any migration, since token counts are model-specific and a count calibrated on one model's tokenizer does not reliably transfer to another.",
+      "Switch to counting words instead of tokens, since word counts are consistent across all model generations and avoid the tokenizer dependency entirely.",
+      "Nothing could have prevented this: token budgets calibrated on one model are guaranteed to transfer exactly to any newer model in the same family."
+    ],
+    "a": 1,
+    "e": "Correct answer B: token counts depend on the specific tokenizer a model version uses, so a budget measured against one model's tokenizer is not safe to reuse unmeasured after a migration; re-counting against the new model is what prevents the silent truncation. Option A confuses two different limits: max_tokens governs output length, not the input token budget being described, so raising it does not address the input-side miscount. Option C is wrong because the token-to-word ratio itself varies by content type and by tokenizer, so word counts are not a stable substitute. Option D asserts a guarantee that directly contradicts the scenario, which demonstrates the opposite.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-mcp-server-development-01",
+    "d": 8,
+    "s": "MCP Server Development",
+    "q": "An MCP server for a legal-document workflow exposes a saved instruction such as \"Summarize this contract's indemnification clauses,\" which users pick from a menu inside the Claude application rather than the model deciding to run it on its own. Which primitive does this capability map to?",
+    "o": [
+      "A tool, because it performs an action within the document workflow",
+      "A prompt, a user-controlled reusable template invoked explicitly rather than by model decision",
+      "A resource, since it packages reference content for the model to read",
+      "A sampling request, since the server is asking the client to generate a completion"
+    ],
+    "a": 1,
+    "e": "Prompts are the user-controlled primitive: reusable templates a user explicitly selects, never triggered automatically. Tools are model-controlled actions the LLM invokes on its own judgment, which doesn't match a capability chosen from a menu. Resources are application-controlled read-only data pulled into context, not something a user runs. Sampling is a separate MCP mechanism where the server asks the client's model to complete something, unrelated to user-selected templates.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-model-selection-and-tradeoffs-01",
+    "d": 5,
+    "s": "Model Selection and Tradeoffs",
+    "q": "A compliance workflow synthesizes conflicting clauses across long contracts using Claude Sonnet 5 at effort high, and the evals gating this workflow were all tuned against that configuration. Latency is now a concern, so an engineer proposes switching the workflow to Claude Haiku 4.5 at effort low to speed things up while keeping quality about the same. What is wrong with this proposal?",
+    "o": [
+      "Nothing is wrong — Haiku 4.5 at effort low will reliably match Sonnet 5's quality on this task",
+      "Claude Haiku 4.5 has no effort parameter, and swapping tiers invalidates the evals that were tuned on Sonnet 5's behavior",
+      "Effort low always increases latency compared to effort high, so the proposal will make the workflow slower",
+      "Claude Sonnet 5 does not support adaptive thinking, so the current baseline is already misconfigured"
+    ],
+    "a": 1,
+    "e": "Haiku 4.5 is differently shaped, not just cheaper: it runs extended thinking only and has no effort parameter at all, so 'effort low' on Haiku isn't a valid configuration to begin with. Even setting that aside, a tier swap invalidates every eval run against the old model, which is exactly what the workflow's evals were tuned on — the correct move is to step effort down on Sonnet 5 first, not swap tiers. Option A ignores both problems. Option C inverts the actual relationship between effort and latency (lower effort reduces reasoning depth and typically latency, it doesn't guarantee the opposite outcome described). Option D is a false factual claim — Sonnet 5 does support adaptive thinking.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-software-engineering-foundations-01",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A data pipeline calls Claude to extract structured fields from support tickets, and the extracted JSON is inserted directly into a downstream Postgres table without any application-level validation. The team currently prompts Claude with 'respond only with JSON matching this schema.' Occasionally a field's type mismatches the column type and the insert fails. Which change most directly prevents malformed JSON from being emitted in the first place?",
+    "o": [
+      "Add a stricter instruction telling Claude to double-check its output before responding",
+      "Set output_config.format to a json_schema definition matching the required fields and types",
+      "Wrap the insert statement in a try/except block and log failures for manual review",
+      "Increase max_tokens so the response is never truncated mid-object"
+    ],
+    "a": 1,
+    "e": "output_config.format with a json_schema type uses grammar-constrained decoding, so every generated token is restricted to stay inside the schema — malformed JSON and type mismatches become structurally impossible, not just less likely. A prompt instruction is a soft request the model can still violate. Wrapping the insert in try/except only catches the failure after it happens, it does not prevent the malformed output. Raising max_tokens addresses truncation, not field-type mismatches, which is a different failure mode.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-software-engineering-foundations-02",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A backend service calls an internal REST endpoint to create a customer record, and its client library automatically retries any non-2xx response by resubmitting the same request body. During a traffic spike the endpoint starts returning 409 responses, because an earlier request actually succeeded server-side but its response timed out on the client before arriving, so the client never learned it had already succeeded. What is the correct fix?",
+    "o": [
+      "Increase the client's retry count so the 409 eventually succeeds",
+      "Treat 409 as equivalent to 429 and apply the same exponential backoff strategy",
+      "Have the client check whether the record already exists before resubmitting the create request, rather than blindly retrying with the same body",
+      "Switch the endpoint from REST to GraphQL to avoid status-code ambiguity"
+    ],
+    "a": 2,
+    "e": "409 Conflict means the resource already exists in a state that conflicts with the request; the fix is to inspect current state before acting, not to resend the identical request. Increasing retries just repeats the same failure forever, since the conflict never resolves itself. 429 is a rate-limit signal where backoff helps; 409 is a state-conflict signal where backoff does nothing, so treating them the same is a category error. Swapping protocols doesn't touch the actual bug, which is a missing idempotency check.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-software-engineering-foundations-03",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A nightly reconciliation script kicks off at 1 AM and immediately submits all 900 of the day's transaction records to Claude for anomaly review at once, using asyncio.gather with no concurrency cap. Within the first thirty seconds most requests fail with 429 responses, and the on-call engineer's instinct is to just add a longer fixed delay before each retry. What is the more durable fix?",
+    "o": [
+      "Bound concurrency with a semaphore or queue and ramp the request rate up gradually instead of firing all 900 at once",
+      "Keep the current fan-out pattern but add a longer fixed delay before each retry",
+      "Switch the reconciliation job to a larger, higher-throughput model so more requests succeed per second",
+      "Disable the SDK's built-in retry behavior so failed requests fail fast instead of queuing"
+    ],
+    "a": 0,
+    "e": "The root cause is unbounded fan-out, not slow retries — bounding concurrency and ramping traffic gradually is what actually keeps the request rate under the limit. A longer fixed delay treats the symptom on each failed call but the next batch still fires all 900 at once and trips the same limit. Model tier does not change organization-level rate limits, so a larger model doesn't help. Disabling the SDK's own retry/backoff removes a mechanism that was already helping and makes the failure mode worse, not better.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-software-engineering-foundations-04",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A platform team's incident postmortem shows that during a partial Claude API outage, request volume to the API nearly tripled because a wrapper library retried every failed call five times with a fixed one-second delay on top of the official SDK client used underneath it. The wrapper also kept retrying 400 responses caused by a recently introduced malformed-request bug, which never succeeded no matter how many attempts were made. Select the two changes the team should make.",
+    "o": [
+      "Remove the custom wrapper's retry loop and rely on the SDK's built-in max_retries and backoff, which already honors retry-after",
+      "Increase the SDK's own max_retries from its default of 2 to a much higher number, in addition to keeping the wrapper",
+      "Stop retrying 400-class responses, since they indicate a malformed request that will not succeed regardless of attempts",
+      "Add a circuit breaker that halts all traffic to the API for 24 hours after any single failure"
+    ],
+    "a": [
+      0,
+      2
+    ],
+    "e": "Removing the redundant wrapper eliminates the double-retry layer that multiplied load during the outage, and the SDK's own max_retries/backoff already honors retry-after. Not retrying 400s is correct because that status is a client error the SDK never retries by default — resending a malformed request cannot succeed. Raising max_retries while keeping the wrapper in place makes the storm worse, since both layers now retry harder. A blanket 24-hour halt is wildly disproportionate to a partial outage and one malformed-request bug, and would take down unrelated, healthy traffic.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-software-engineering-foundations-05",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A senior engineer sees that a teammate's pull request, written entirely by Claude Code, passed the project's automated eval suite and every unit test on the first run. The reviewer is ready to approve it with only a skim, reasoning that a model whose own output already validated cleanly is unlikely to have introduced a subtle bug worth digging for. What should the reviewer do instead?",
+    "o": [
+      "Approve with a skim, since passing evals and unit tests is sufficient signal for AI-authored changes",
+      "Apply the same review rigor used for human-written code, regardless of who or what authored it",
+      "Ask the same model to regenerate the code a second time and diff the two outputs before deciding",
+      "Skip review entirely and rely on the CI pipeline as the sole gate for AI-authored pull requests"
+    ],
+    "a": 1,
+    "e": "Provenance doesn't change risk: AI-generated code needs the same review rigor as human-written code, because passing tests and evals only proves the code satisfies what was already checked, not that it's free of subtler issues. Approving on a skim (or skipping review entirely) relaxes the control specifically because of authorship, which is the trap. Regenerating and diffing two outputs from the same model is a superficial consistency check — both generations can share the same blind spot, so it doesn't substitute for actual review.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-software-engineering-foundations-06",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A team's Claude-powered ticket-triage prompt has been hand-edited nine times over two months, each time to fix one specific misclassification, but engineers just paste new wording into the console each time rather than committing it anywhere. When the tenth edit reintroduces a bug that edit six had already fixed, nobody can find what changed between them or why. Which practice addresses the root cause?",
+    "o": [
+      "Increase the prompt's temperature so classification becomes more consistent across edits",
+      "Add more few-shot examples to the prompt so the model needs fewer manual edits over time",
+      "Switch to a larger model that is less prone to misclassification",
+      "Treat the prompt as a versioned artifact — commit each revision to the repository and review changes like code"
+    ],
+    "a": 3,
+    "e": "The root cause is that prompt revisions were never checked into source control, so nothing could be diffed, reviewed, or bisected when a regression reappeared. Committing and reviewing prompt changes like code is what makes a reintroduced bug findable and preventable. Temperature, few-shot examples, and a larger model are all prompt-tuning moves that leave the missing versioning process untouched, so the same silent regression can recur regardless of which one is applied.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-software-engineering-foundations-07",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A three-line change to a repository's settings.json disables a permission rule that had been blocking a Claude Code agent from running shell commands as root, and it gets merged straight to main because 'it's just a config tweak, not real code.' Two weeks later the same agent runs an unreviewed destructive command in a teammate's branch. Which practice would most directly have prevented this outcome?",
+    "o": [
+      "Require CLAUDE.md and settings.json changes to go through the same pull-request review and CI gates as source code, since they govern what the system is allowed to do",
+      "Add a system-prompt instruction telling the agent never to run destructive commands",
+      "Rotate the API key used by the agent on a monthly schedule",
+      "Move the permission setting into a code comment inside CLAUDE.md instead of settings.json"
+    ],
+    "a": 0,
+    "e": "settings.json and CLAUDE.md are versioned configuration artifacts that determine what the system is allowed to do, and gating them through the same review and CI pipeline as source code is what would have caught the permission change before merge. A system-prompt instruction is a request the agent can still fail to follow; a permission rule is the deterministic control the prompt instruction can't replace. Key rotation is a credential-hygiene practice unrelated to a permission bypass. Moving the setting into a comment removes its enforcement entirely, making the problem worse.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-software-engineering-foundations-08",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A team asks Claude Code to migrate a 40,000-line billing module from a deprecated ORM to its replacement. Partway through, the agent proposes finishing the whole migration in one sweeping commit that also fixes several unrelated bugs it noticed along the way, reasoning that touching each file only once saves review time. The team is under a hard deadline and finds the one-pass approach tempting. What should they require instead?",
+    "o": [
+      "Approve the single large commit, since touching each file only once reduces total review overhead",
+      "Let the agent proceed as proposed, but add a longer QA cycle at the very end to catch any issues",
+      "Split the migration into bounded increments with tests passing between each step, and keep the unrelated bug fixes in separate changes",
+      "Postpone the migration until after the deadline, since large-scale refactors are inherently too risky to attempt under time pressure"
+    ],
+    "a": 2,
+    "e": "The correct discipline for large-scale refactoring is bounded increments with tests green between each step, and never mixing a refactor with a behavior change in the same commit — the unrelated bug fixes are behavior changes and must be split out. Approving the single sweep trades safety for review convenience and mixes concerns. Deferring all verification to one QA pass at the end loses the between-step safety net, making any failure hard to attribute to a specific change. Large-scale refactoring is explicitly in scope and doable under deadline pressure; the fix is incremental discipline, not avoidance.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-systems-life-cycle-01",
+    "d": 2,
+    "s": "Systems Life Cycle",
+    "q": "A team wants a repeatable way to describe how they take a Claude-powered feature from initial concept through iterative development, release, and ongoing operation. A vendor pitches a proprietary 'AI Development Lifecycle' framework built specifically for LLM-based projects, arguing that generic IT frameworks predate large language models and can't account for non-deterministic behavior.",
+    "o": [
+      "Adopt the vendor's proprietary AI Development Lifecycle, since generic IT frameworks predate LLM applications",
+      "Rely on prompt engineering best practices alone, since they govern how the feature behaves in production",
+      "Apply the generic systems life cycle (plan, develop, test, implement, operate, maintain) using Agile or DevOps practices, adding evals as the test gate",
+      "Design a new lifecycle framework from scratch, since no existing framework accounts for non-deterministic model output"
+    ],
+    "a": 2,
+    "e": "The objective is scoped as generic IT systems life cycle management; Claude-application work maps onto the same plan-develop-test-implement-operate-maintain arc as any other system, with Agile or DevOps supplying the iteration and release discipline and evals replacing exact-match tests as the quality gate. Adopting a proprietary 'AI-specific' framework is the trap this objective is built to catch — an engineered-to-sound-plausible distractor that ignores that the generic model already covers this arc. Prompt engineering is a technique applied during development, not a lifecycle framework in its own right. Building a new framework from scratch overstates the problem: non-determinism is handled by changing what the existing test gate checks, not by discarding the gate.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-systems-life-cycle-02",
+    "d": 2,
+    "s": "Systems Life Cycle",
+    "q": "A Claude-powered pipeline is already live in production. An engineer wants to bump the pinned model version and adjust two prompts. Company policy requires a documented change record, a risk assessment, and sign-off from a change advisory board before any modification reaches production, regardless of how small the change is. Which management discipline governs this requirement?",
+    "o": [
+      "Scrum sprint planning, since the change can be scoped and sized as a backlog item",
+      "Waterfall requirements sign-off, since the system's original scope must be honored",
+      "DevOps continuous deployment, which is designed to automate this kind of approval away",
+      "ITIL-style change and release management"
+    ],
+    "a": 3,
+    "e": "Documented change records, risk assessment, and change advisory board sign-off before any production modification, no matter how small, is the definition of ITIL-style service management governing a live system. Sprint planning organizes how development work gets scheduled and estimated, not how a change to a live production system gets approved. Waterfall governs how a project's own phases are sequenced during initial build, not ongoing change control after go-live. DevOps automates delivery pipelines, but 'automates approval away' directly contradicts the stem's explicit requirement for a human sign-off — a distractor that sounds efficient while ignoring the stated constraint.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-technical-fundamentals-01",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A team is building an internal tool in a language with no official Anthropic SDK, so they call the Messages API directly over HTTPS. Midway through planning, someone notes that network calls occasionally time out under load and the client must recover without surfacing an error to the user. What have they taken on that the SDK would have handled for them?",
+    "o": [
+      "Nothing — raw HTTP calls behave identically to SDK calls in every respect",
+      "Retry-with-backoff logic, SSE event parsing, and typed response handling",
+      "A different pricing tier reserved for raw REST access",
+      "A separate authentication scheme required only for non-SDK clients"
+    ],
+    "a": 1,
+    "e": "Correct: the SDKs wrap the same REST API but add retries with backoff, SSE assembly, and typed models — none of that exists over raw HTTP unless you build it. (A) is wrong because raw HTTP and SDK calls hit the identical endpoint but the SDK adds real behavior on top; they are not equivalent. (C) is wrong because pricing is per-token and identical regardless of transport. (D) is wrong because authentication (the API key) is unchanged whether you use an SDK or call REST directly.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-technical-fundamentals-02",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "An engineering standard states that every outbound Messages API call must automatically retry connection errors and 5xx responses with exponential backoff, and that no individual engineer should have to remember to add this per call. Where should this guarantee live?",
+    "o": [
+      "In a README instructing engineers to wrap each call in a try/except that retries manually",
+      "In code review comments reminding authors to add retry logic before merging",
+      "In the SDK client's default retry configuration, so the guarantee applies regardless of whether an individual engineer remembers to add it",
+      "In the system prompt, telling Claude to ask the caller to retry failed requests"
+    ],
+    "a": 2,
+    "e": "Correct: 'must happen every time, with no engineer having to remember' describes a deterministic default, and the SDK client's built-in retry configuration (2 retries, exponential backoff, applied automatically) is exactly that. (A) and (B) are both documentation or process — they rely on humans remembering, which is precisely what the requirement rules out. (D) is a category error: a system prompt shapes Claude's generated text, it has no mechanism to intercept or retry a failed HTTP request the client already made.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-technical-fundamentals-03",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A support engineer is troubleshooting a chat app where the context window fills up mid-conversation, forcing older turns to be dropped. Separately, the app needs to display Claude's reply token-by-token as it's generated. Which mechanism does the Claude API itself use to deliver those tokens to the caller?",
+    "o": [
+      "A persistent WebSocket connection opened by the SDK to api.anthropic.com",
+      "Long polling, with the client re-requesting the endpoint every 500ms",
+      "A gRPC bidirectional stream negotiated during authentication",
+      "Server-Sent Events (SSE), one-way from the API to the caller"
+    ],
+    "a": 3,
+    "e": "Correct: the context-window detail is scenery — the actual question is which transport delivers streamed tokens, and the Messages API only ever streams over SSE, one-way server to client. (A) is the classic bait: 'streaming' primes people toward websockets, but Anthropic hosts no websocket endpoint. (B) and (C) are real transports elsewhere in software but neither is what `stream: true` actually uses on this API.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-technical-fundamentals-04",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A voice assistant streams Claude's reply to a user, who can speak over it to interrupt before it finishes. The interrupt has to reach the application within milliseconds, and the application's connection to Claude for that turn is already an in-flight SSE stream. What should the client-to-application leg use to carry that interrupt?",
+    "o": [
+      "A WebSocket between the browser and the application's own backend, separate from the backend's SSE connection to Claude",
+      "Nothing extra — the existing SSE connection to Claude already accepts client-sent interrupts",
+      "A second REST POST to a dedicated /messages/interrupt endpoint",
+      "Increasing max_tokens so the response finishes before the user can interrupt"
+    ],
+    "a": 0,
+    "e": "Correct: SSE is one-way, so a low-latency, bidirectional interrupt channel has to be something the application adds itself — a websocket between browser and backend, sitting alongside (not replacing) the backend's SSE leg to Claude. (B) is wrong because SSE cannot carry client-to-server messages at all. (C) is invented — no such endpoint exists, and even if it did, request/response round-trips add latency the millisecond requirement rules out. (D) doesn't address the interrupt requirement; it just makes the response longer.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-technical-fundamentals-05",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A team calls the Messages API with raw HTTP instead of an official SDK, citing a need for tight control over the transport layer. Select the two responsibilities this decision requires them to implement themselves that the SDKs provide by default.",
+    "o": [
+      "Retry-with-backoff on transient errors (connection failures, 429, and 5xx responses)",
+      "Assembling streamed Server-Sent Events into a usable response object",
+      "A lower per-token price, since raw HTTP skips the SDK's markup",
+      "API key generation, since raw HTTP requires a different credential type"
+    ],
+    "a": [
+      0,
+      1
+    ],
+    "e": "Correct: retries-with-backoff and SSE-to-object assembly are both SDK conveniences the team now has to hand-roll. (C) is wrong because there is no SDK markup — pricing is per-token and set by the API regardless of client. (D) is wrong because the same API key and header-based auth work identically for SDK and raw HTTP calls; nothing about the credential type changes.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-technical-fundamentals-06",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "During a traffic spike, a client starts receiving 429 responses and the team debates how to handle it. Which part of that debate is actually decided by SDK and websocket mechanics — this objective — rather than by rate-limit or token-budget reasoning tested elsewhere?",
+    "o": [
+      "The exact backoff curve to use once a 429 is received",
+      "How many tokens per minute the account's rate limit allows",
+      "Whether the SDK's default retry configuration already retries 429s automatically, versus a raw HTTP call needing that logic written by hand",
+      "Whether truncating conversation history would reduce the 429 rate"
+    ],
+    "a": 2,
+    "e": "Correct: 'does the SDK already handle this, or do I have to write it myself for a raw HTTP call' is exactly the SDK-vs-REST mechanics this objective covers. (A) is backoff-curve tuning and (B) is rate-limit capacity planning — both real questions, but they live in Applications & Integration / LLM Fundamentals, not here. (D) is a token-budget mitigation strategy, also outside this objective's narrow scope.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-technical-fundamentals-07",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A script needs to enumerate every message batch a workspace has ever created, not just the first page the API returns. The team notes that new batches are created daily, so any script hardcoding a fixed number of pages would eventually start missing recent ones. What should the script use?",
+    "o": [
+      "A fixed loop that calls the list endpoint exactly 10 times and stops",
+      "The SDK's auto-pagination iterator (for example, `for batch in client.messages.batches.list()`), which fetches additional pages as needed",
+      "Raising max_tokens so more batches fit into a single page",
+      "Polling a WebSocket endpoint for newly created batches"
+    ],
+    "a": 1,
+    "e": "Correct: the buried constraint is that the batch count keeps growing, so a hardcoded page count is exactly the failure mode the SDK's auto-pagination avoids by following cursors until the list is exhausted. (A) is the failure mode itself — a fixed page count. (C) is a category error: max_tokens governs response length for a message generation, not how many list items a page returns. (D) invents a websocket feature the batches-list endpoint doesn't have; listing is a paginated REST endpoint, not a streamed one.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-understanding-requirements-01",
+    "d": 2,
+    "s": "Understanding Requirements",
+    "q": "A telehealth company routes post-visit session summaries through Claude for clinician review. A newly passed data protection law in the patient's home country prohibits any processing of health data outside that country's borders, even momentarily in transit. Which infrastructure requirement should the solution architecture satisfy?",
+    "o": [
+      "Encrypt the session summary with a customer-managed key before it leaves the clinic's network",
+      "Route the request through a regional API endpoint that guarantees in-country processing",
+      "Shorten the retention window on stored session summaries to reduce exposure",
+      "Increase the request timeout budget to accommodate cross-border network latency"
+    ],
+    "a": 1,
+    "e": "The constraint is where processing happens, not how long data is kept or how fast a response arrives. A regional endpoint pins inference to the required jurisdiction. Encryption protects confidentiality in transit but doesn't control the country in which the model actually runs, so it fails the residency requirement outright. Shortening retention addresses how long data is stored, a different requirement dimension than where it's processed. Increasing the timeout is a latency parameter with no bearing on jurisdiction.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-understanding-requirements-02",
+    "d": 2,
+    "s": "Understanding Requirements",
+    "q": "A brokerage firm's policy states that every response Claude sends to a retail customer must have account numbers stripped before delivery, with no exceptions permitted under any circumstance. A junior engineer proposes solving this by adding a instruction to the system prompt asking Claude to redact account numbers whenever it sees one. What does this requirement actually call for?",
+    "o": [
+      "A longer, more detailed system prompt describing exactly what an account number looks like",
+      "A higher reasoning-effort configuration on the model to improve redaction accuracy",
+      "Periodic manual audits of a sample of outgoing customer responses",
+      "A deterministic post-processing filter that runs on every response before delivery, independent of model behavior"
+    ],
+    "a": 3,
+    "e": "\"No exceptions permitted under any circumstance\" means the requirement demands a guarantee, and a guarantee requires a deterministic control that runs regardless of what the model decides. A prompt instruction, however detailed, is still a request the model tries to follow, not a guarantee, so option 0 fails on the same grounds as the junior engineer's original proposal. Higher reasoning effort can reduce error rates but never eliminates them, so it can't satisfy \"no exceptions.\" Sampled manual audits catch problems after some have already reached customers, which directly contradicts a zero-exception requirement.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-understanding-requirements-03",
+    "d": 2,
+    "s": "Understanding Requirements",
+    "q": "A project brief for an HR tool reads: 'Claude should draft a personalized onboarding email for each new hire based on their role and start date.' The same brief adds that the tool must stay responsive with sub-second turnaround even when 200 new hires start on the same day. A requirements analyst is sorting these two statements into a functional requirements document and an infrastructure requirements document.",
+    "o": [
+      "Both statements belong in infrastructure requirements, since they both describe system behavior under real operating conditions",
+      "Both statements belong in functional requirements, since neither one names a specific vendor or region",
+      "The email-drafting behavior is functional; the sub-second-at-200-concurrent-hires statement is infrastructure",
+      "The latency statement is functional, since it directly shapes what the end user experiences"
+    ],
+    "a": 2,
+    "e": "Functional requirements describe what the system does (draft a personalized email); infrastructure requirements describe the non-functional envelope it must operate within (a throughput and latency constraint under concurrent load). Calling both statements infrastructure ignores that drafting the email is itself the capability being built, not a constraint on it. Calling both functional, on the reasoning that neither names a vendor or region, misses that a capacity/performance ceiling is the textbook definition of an infrastructure requirement regardless of vendor mention. Labeling the latency statement functional conflates user-experienced quality with the feature itself — latency-under-load is a quality attribute, not a capability.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agent-architecture-01",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "A support-ticket pipeline classifies each incoming ticket into billing, technical, or account-access, then hands it to a category-specific prompt tuned for that ticket type. Every ticket follows this same two-step flow, though the specialized prompt used in step two differs meaningfully depending on the category. Which architecture fits this pipeline?",
+    "o": [
+      "A single fixed prompt chain that runs the same two prompts on every ticket regardless of category",
+      "Routing: classify the ticket, then dispatch it to the prompt built for that category",
+      "An autonomous agent that decides at runtime how many classification passes to run",
+      "An orchestrator-workers design where a central call invents ticket categories on the fly"
+    ],
+    "a": 1,
+    "e": "Routing fits because the categories are fixed but genuinely need different downstream handling -- that's the definition of routing, not plain chaining. Option A ignores the stated per-category difference in step two, collapsing routing into a single fixed chain. Option C adds agent-level runtime flexibility a fixed two-step flow never needs. Option D misapplies orchestrator-workers, which decides subtasks at runtime -- here the three categories are already known in advance.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agent-architecture-02",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "An engineering-metrics agent must read a 200,000-line CI log to isolate the root cause of a flaky test, then hand a two-paragraph summary back to the parent conversation. The team wants to guarantee the parent's context never fills up with raw log lines, no matter how long the log-scanning takes. Which choice best satisfies that guarantee?",
+    "o": [
+      "Increase the parent's context window so it can hold the entire log alongside the rest of the conversation",
+      "Enable prompt caching on the log content so repeated reads are cheaper",
+      "Run the log-scanning in a subagent with its own context window and return only the distilled summary",
+      "Run the log-scanning in a subagent so it can execute in parallel with the rest of the pipeline"
+    ],
+    "a": 2,
+    "e": "A subagent with its own window keeps the raw log isolated; only the condensed summary re-enters the parent's context, which is the guarantee the team wants. A bigger window still fills up with raw lines eventually and doesn't prevent pollution. Prompt caching is a cost/latency optimization -- cached content still occupies context, it doesn't isolate it. Framing the subagent's value as parallel execution names the secondary benefit, not the primary reason, and there's nothing else described running concurrently for it to parallelize against.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agent-architecture-03",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "A team is weighing whether to add a manager agent that delegates a task to three specialist subagents, when a single call already handles that task adequately today. Select the two costs this hierarchy specifically introduces that the single-call design does not have.",
+    "o": [
+      "Additional token cost and latency at every manager-to-worker hop",
+      "Errors a worker makes can propagate upward and compound through the manager's synthesis step",
+      "The system permanently loses the ability to call external tools",
+      "The model's underlying context-window limit becomes smaller than before"
+    ],
+    "a": [
+      0,
+      1
+    ],
+    "e": "Hop cost/latency and compounding worker error are the two costs a manager/subagent hierarchy actually adds over a single call. Losing tool-calling ability is false -- hierarchy depth doesn't affect tool access. A shrinking context-window limit is also false -- that's a fixed model property, untouched by how many subagents sit underneath a manager. Both wrong options borrow real-sounding constraints from elsewhere that don't actually apply here.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-agent-architecture-04",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "A code-review pipeline must run three checks in the exact same order on every single pull request with no exceptions: lint, then type-check, then test. Which implementation actually guarantees that ordering holds every time?",
+    "o": [
+      "A system prompt instructing an agent to always run lint, type-check, then test in that order",
+      "An evaluator-optimizer loop that keeps retrying the three checks until all of them pass",
+      "A manager agent that decides at runtime which of the three checks are relevant to run",
+      "Fixed code that calls lint, then type-check, then test, with no model in the decision path"
+    ],
+    "a": 3,
+    "e": "Only code with no model in the decision path guarantees the order, which is what 'must ... with no exceptions' demands. A system-prompt instruction is a request the model can fail to follow, not a guarantee. An evaluator-optimizer loop assumes criteria to iteratively refine against, which doesn't apply to a fixed three-step checklist, and retries don't guarantee ordering either. A manager deciding which checks are relevant introduces exactly the runtime variability the requirement rules out.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-agent-architecture-05",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "A document-tagging task applies the exact same three tags via the same three tools to every document, with no variation across runs. A colleague argues for building this as an autonomous agent instead of a fixed workflow because, in their words, agents are 'more flexible and more modern.' What is the strongest architectural counterargument?",
+    "o": [
+      "Flexibility has no payoff when the steps and tools are already fully known and identical every run; a fixed workflow gets the same result with less cost and less unpredictable behavior",
+      "Agents are structurally incapable of reliable tool use, so a workflow is the only option that works at all",
+      "Only a workflow can use the Claude API's tool-use feature; agents cannot register tools",
+      "An agent architecture always requires a manager delegating to a subagent hierarchy, which this simple task doesn't justify"
+    ],
+    "a": 0,
+    "e": "The correct counterargument is a cost/complexity one: identical, fully-known steps get no benefit from agent flexibility, so the workflow wins on cost and predictability. The other three options invent false technical limitations -- agents can call tools reliably, both workflows and agents use the same tool-use feature, and a single agent never requires a manager/subagent hierarchy. Each sounds like a plausible technical fact but fails on that basis alone.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-01",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "A deployment agent must never make more than fifty tool calls in a single run, regardless of how capable the underlying model is or how the prompt is worded, because a runaway run has already caused a production incident. Which control actually guarantees that ceiling holds?",
+    "o": [
+      "A harness-level counter that stops the loop once fifty tool calls have been made, independent of the model's own judgment",
+      "Switching to a more capable model that is less likely to get stuck in a loop",
+      "Lowering the sampling temperature so the model's tool choices are more consistent",
+      "Adding a system-prompt instruction telling the model to stop after fifty tool calls"
+    ],
+    "a": 0,
+    "e": "Only a harness-level counter enforced in code guarantees the ceiling, because it doesn't depend on the model choosing to comply. A more capable model reduces how often loops happen but never guarantees a hard limit. Lowering temperature changes variability, not termination. A system-prompt instruction is a request the model can fail to follow, not a guarantee -- the same distinction that makes unbounded loops a harness failure rather than a model failure.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-02",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "A long-running research agent writes short notes to a local file as it works through a forty-step investigation, and reads those notes back on later steps, even though this costs it extra tool calls it wouldn't otherwise need. What best explains why this design choice is worth that overhead?",
+    "o": [
+      "It permanently increases the size of the agent's underlying context window",
+      "It gives the agent persistent memory outside the context window, preserving progress and dependencies without keeping the full history in-context",
+      "It replaces the harness's responsibility to bound the loop with a timeout or iteration limit",
+      "It lets the underlying API retain state between two otherwise unrelated conversations"
+    ],
+    "a": 1,
+    "e": "Structured note-taking is a memory pattern: it persists progress and dependencies outside the context window at low overhead, so the agent doesn't need to keep everything in-context. It does not change context-window size, does not substitute for loop-termination bounds, and does not make the API stateful -- each wrong option borrows a real mechanism from an adjacent concern that note-taking doesn't actually touch.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-03",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "An agent's conversation has grown large enough that old tool outputs are consuming most of the available context, even though the agent no longer needs to re-inspect any of them. The team wants the lightest-touch fix available and specifically wants to avoid summarizing anything. Which lever fits?",
+    "o": [
+      "Compaction: summarize the whole conversation and reinitiate a new context window",
+      "Switch to a model with a larger context window so the old outputs simply fit",
+      "Tool-result clearing: drop the stale raw tool outputs from the message history",
+      "Rewrite the system prompt to be shorter"
+    ],
+    "a": 2,
+    "e": "Tool-result clearing is the lightest-touch lever and involves no summarization -- it just drops stale raw outputs the agent no longer needs. Compaction is exactly the summarization the team said to avoid. A larger context window doesn't manage anything, it just delays the same growth problem. The system prompt isn't what's consuming context in this scenario, so shortening it doesn't address the stated cause.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-04",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "A Python team wants every tool call and model response validated against typed schemas at development time, with as little custom parsing code as possible, and they explicitly do not need a general-purpose graph engine for branching, cyclical control flow. Which framework fits best?",
+    "o": [
+      "LangGraph, for its explicit graph of nodes and edges",
+      "Strands Agents, for its minimal-scaffolding model-driven loop",
+      "A hand-rolled loop with no framework at all",
+      "PydanticAI, for its typed, validated structured output built on Pydantic models"
+    ],
+    "a": 3,
+    "e": "PydanticAI's core value is typed, validated structured output via Pydantic models, which is exactly the team's stated requirement. LangGraph is built around explicit graph orchestration for branching, stateful control flow -- the team explicitly said they don't need that. Strands centers on a thin, model-driven loop, not on schema validation. A hand-rolled loop maximizes the custom parsing and validation code the team wants to minimize, the opposite of what they asked for.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-ai-application-security-01",
+    "d": 7,
+    "s": "AI Application Security",
+    "q": "A document-review assistant reads legal contracts uploaded by outside counsel and drafts summaries for the internal legal team. The company cannot control how outside counsel formats these documents before upload, and one uploaded contract contains a paragraph formatted to look like a system instruction telling the assistant to also send a copy to an external address. The team wants to keep processing contracts from any outside counsel without manual pre-screening of every upload.",
+    "o": [
+      "Switch the assistant to a larger, more capable model so it better recognizes manipulation attempts",
+      "Deliver the uploaded contract text only inside tool_result content, and give the assistant no email-sending tool at all",
+      "Increase the sampling temperature so responses are less predictable to an attacker",
+      "Add a line to the system prompt asking the model to ignore instructions embedded in uploaded documents"
+    ],
+    "a": 1,
+    "e": "The correct fix combines content isolation (the untrusted document text stays in tool_result, distinguishable from real instructions) with least-privilege tooling: with no email-sending capability, an injected instruction to email a copy has nowhere to go, regardless of whether the model complies with it. A larger model is a trap distractor — better instruction-following can make a model more susceptible to embedded injected instructions, not less. Temperature has no bearing on whether embedded instructions are followed. A system-prompt request not to follow embedded instructions is advisory only; it is not an enforced control and can be talked around by a sufficiently crafted injection.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-ai-application-security-02",
+    "d": 7,
+    "s": "AI Application Security",
+    "q": "A finance-ops agent has a tool that transfers funds between internal accounts. Leadership requires that this tool must never execute without a second human's explicit sign-off, with no exceptions, even if the request comes from an admin user or someone later edits the system prompt. An engineer proposes adding a bold instruction to the system prompt: \"ALWAYS require human approval before calling transfer_funds.\"",
+    "o": [
+      "The bold system-prompt instruction, since Claude reliably follows explicit capitalized directives",
+      "A one-time reminder appended to the first user message of each session",
+      "A deterministic approval gate in the tool-execution harness that blocks the transfer_funds call from completing until a second human explicitly confirms it",
+      "A note in the tool's description field stating that approval is required"
+    ],
+    "a": 2,
+    "e": "\"No exceptions\" is a guarantee, and only code the harness enforces can provide one — text the model reads, no matter how it's phrased or where it's placed, remains a request the model could fail to follow, be argued out of, or simply misjudge. A deterministic gate in the harness can refuse to execute the transfer regardless of what the model outputs. The bold system-prompt line, a session reminder, and a tool-description note are all variations on the same failure: they place the control inside model-readable text rather than inside code that physically stops the call.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-ai-application-security-03",
+    "d": 7,
+    "s": "AI Application Security",
+    "q": "An internal chatbot lets employees query their own HR records through a tool that calls the HR database. Two employees in the same department report that when they ask nearly identical questions, one occasionally sees a fragment of the other's salary data mixed into the response. The engineering team wants to fix the root cause rather than add a warning banner to the chat.",
+    "o": [
+      "Scope every HR-record query to the authenticated identity of the current user at the point the tool executes, rather than trusting the model to filter results in conversation",
+      "Add a system-prompt instruction telling Claude to only discuss the current user's own data",
+      "Fine-tune a smaller, cheaper model specifically for the HR chatbot",
+      "Log every conversation so leaks can be reviewed after the fact"
+    ],
+    "a": 0,
+    "e": "Authorization has to be enforced where the query actually executes, scoped to the authenticated caller, not left to the model's judgment inside the conversation. A system-prompt instruction is advisory and can fail under model error or a crafted request, which is exactly the failure mode already occurring. Model size has no bearing on per-user data scoping. Logging is detective, not preventive; it documents leaks after they've already happened instead of stopping them.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-ai-application-security-04",
+    "d": 7,
+    "s": "AI Application Security",
+    "q": "A security engineer is auditing a Claude-powered agent's supply chain for integrity risk, even though the model itself has not been altered. The agent connects to three MCP servers pulled fresh from a public registry at every deployment with no version pinning, and its long-running memory file accumulates facts across sessions with no validation step before they're written.",
+    "o": [
+      "Confidentiality failure, because MCP servers pulled from a public registry are inherently exposed",
+      "Memory integrity failure, because unvalidated facts can persist into every future session",
+      "Availability failure, because an MCP server might go offline during a deployment",
+      "Supply-chain integrity failure, because unpinned MCP servers can change behavior between deployments without review"
+    ],
+    "a": [
+      1,
+      3
+    ],
+    "e": "The two integrity failure modes actually present are supply-chain integrity (unpinned dependencies pulled fresh each deploy can change agent behavior without any review step) and memory integrity (a persistent memory file that accepts new facts without validation lets a false fact compound forward into every later session). \"Public registry\" describes where the servers come from, not a confidentiality property of the data the agent handles, so that option mislabels the risk. Nothing in the scenario describes downtime, so availability doesn't apply here even though it's a real property in other contexts.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-context-engineering-01",
+    "d": 6,
+    "s": "Context Engineering",
+    "q": "A deployed agent runs for many hours in a single session, taking on new subtasks as they arrive. By the end of the day it stops enforcing a formatting rule it applied correctly during the first two hours, even though nothing has removed that rule from the system prompt. The team wants a fix that addresses the actual failure without discarding conversation history early. Which change addresses it?",
+    "o": [
+      "Increase the model's context window size so more history fits",
+      "Restate the durable rule at natural decision points, and start a fresh session at task boundaries instead of running one indefinitely long session",
+      "Summarize the entire session so far and replace it with the summary",
+      "Move the rule out of the system prompt and repeat it in every user turn instead"
+    ],
+    "a": 1,
+    "e": "This is context drift, not bloat: the rule never left the window, it got crowded out by accumulating, competing content. The fix is session hygiene. A bigger window (A) doesn't stop newer content from crowding out the rule, it just delays the symptom. Summarizing the session (C) is compaction, a bloat fix aimed at a capacity problem this stem doesn't describe. Moving the rule out of the stable system layer and into every user turn (D) does the opposite of session hygiene, it makes the durable rule compete with per-request content on every single turn.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-context-engineering-02",
+    "d": 6,
+    "s": "Context Engineering",
+    "q": "An agentic pipeline calls a search API that returns full HTML pages and a code-execution tool that returns entire stdout logs. Token spend and latency have grown steadily as the pipeline chains more tool calls per task, even though none of the pipeline's instructions have changed. Which change is most likely to produce the largest reduction in context consumed per task?",
+    "o": [
+      "Switch to a model with a larger context window so the same payloads fit more comfortably",
+      "Summarize the conversation history every five turns",
+      "Filter and truncate the raw tool outputs to only the fields the next step actually needs, before they enter context",
+      "Lower the sampling temperature so responses are shorter"
+    ],
+    "a": 2,
+    "e": "Tool output pruning is usually the largest single source of bloat in agentic systems, and the stem points straight at it: growth tracks tool calls, not turn count. A larger window (A) tolerates the waste rather than eliminating it, and cost still scales with it. Summarizing history every five turns (B) is compaction, which targets accumulated turns, not the raw tool payloads the stem identifies as the actual bulk. Temperature (D) affects sampling randomness, not payload size, and isn't a reliable lever on output length.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-context-engineering-03",
+    "d": 6,
+    "s": "Context Engineering",
+    "q": "A long-running coding session nears its context limit, so the team enables automatic compaction to summarize and replace older turns whenever the window is 80% full, without specifying what the summary must retain. Two weeks later, an agent forgets a constraint that was established early in a session and never revisited afterward. What is the most accurate explanation?",
+    "o": [
+      "Compaction is non-lossy, so the constraint must have been removed by something else",
+      "The context window itself expired, unrelated to compaction",
+      "The constraint was never in context because system prompts do not persist across compaction",
+      "Compaction discarded the constraint because the summary boundary was left as a default rather than a deliberate design decision about what must survive"
+    ],
+    "a": 3,
+    "e": "Compaction is lossy by design, and what survives it has to be a deliberate design decision, usually decisions and outcomes rather than transcript detail. Leaving that undefined means an early, never-repeated constraint is exactly the kind of detail that gets summarized away. Option A is factually wrong, compaction is explicitly lossy. Option B invents a mechanism ('window expiry') that isn't how context management works. Option D describes a real risk, but it is not what happened here since the trap is the missing design decision, not that system prompts categorically fail to survive compaction.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-context-engineering-04",
+    "d": 6,
+    "s": "Context Engineering",
+    "q": "A coding agent needs to search a large monorepo to locate every caller of a deprecated function before making a change. The team wants a guarantee that the raw search results, which can run to tens of thousands of tokens per query, never appear in the parent agent's context, only a distilled list of file paths and line numbers. Which design provides that guarantee?",
+    "o": [
+      "Delegate the search to a subagent with its own context window, returning only the condensed result to the parent",
+      "Instruct the parent agent's system prompt to 'keep tool results brief and summarized'",
+      "Prune the search tool's output to the first 500 tokens before returning it",
+      "Increase max_tokens on the parent so it can hold the full result set without truncation"
+    ],
+    "a": 0,
+    "e": "Only isolating the search inside a subagent's own context window structurally guarantees the raw results never reach the parent, the parent simply never sees them. A system-prompt instruction (B) is a request the model can still fail to follow, not a guarantee, exactly the gap between a prompt and a deterministic control. Pruning to a fixed length (C) still lets raw, truncated content into the parent's context, violating the 'never appear' requirement, and risks cutting the exact lines the change needs. Raising max_tokens (D) increases capacity for the full result set, the opposite of keeping it out.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-output-handling-01",
+    "d": 6,
+    "s": "Output Handling",
+    "q": "An extraction pipeline uses output_config.format with a JSON Schema to pull a customer name, account ID, and support tier from a transcript. QA reports zero schema validation failures over the past month. A downstream billing job that trusts the extracted account_id field has been charging the wrong customers. Investigation shows every extracted record was valid JSON matching the schema exactly. What does this reveal?",
+    "o": [
+      "The schema must be malformed, since valid records shouldn't cause wrong charges",
+      "Schema validation guarantees shape and type, not that the extracted values are the correct ones; a semantic validation step is still required",
+      "output_config.format is unreliable and should be replaced with prompt-only instructions asking for JSON",
+      "The billing job should retry the extraction request until it gets a different account_id"
+    ],
+    "a": 1,
+    "e": "Schema-valid and semantically correct are different guarantees. The schema confirms shape, types, and required fields; it says nothing about whether account_id actually belongs to the right customer, that requires a separate domain-level check. Nothing in the stem indicates the schema itself is broken (A), a technically valid document is not evidence of a malformed schema. Constrained decoding did its job producing well-formed output (C); reverting to prompt-only JSON requests would remove that structural guarantee without adding the missing semantic check. Retrying the same extraction (D) doesn't fix a systematically wrong mapping and still skips the validation step that was actually missing.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-output-handling-02",
+    "d": 6,
+    "s": "Output Handling",
+    "q": "A summarization service must never route a partially generated response to a human reviewer for 'cleanup,' because reviewers have started unintentionally inventing plausible-sounding endings for cut-off summaries. The service already sets a generous max_tokens. Which check enforces that 'never' requirement deterministically, rather than depending on a reviewer's judgment each time?",
+    "o": [
+      "A prompt instruction telling the reviewer not to guess when a summary looks incomplete",
+      "A style guide asking writers to flag incomplete-looking summaries before editing them",
+      "Code that inspects stop_reason and automatically routes anything other than end_turn or stop_sequence away from the reviewer, before it's ever displayed",
+      "A larger max_tokens value so truncation becomes rare enough to ignore in practice"
+    ],
+    "a": 2,
+    "e": "Checking stop_reason in code and gating on it is a deterministic control the reviewer's compliance can't undermine, exactly the distinction between a request and a guarantee that a 'must never' requirement calls for. A prompt instruction to the reviewer (A) and a style guide (B) both depend on a human noticing and complying every single time, which is precisely the failure already happening. A larger max_tokens value (D) reduces how often truncation occurs but doesn't eliminate it, 'rare enough to ignore' is not the same as never, and max_tokens can still be hit.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-prompt-engineering-01",
+    "d": 6,
+    "s": "Prompt Engineering",
+    "q": "A team's classification prompt embeds the specific customer email being processed directly inside the system parameter, alongside the durable classification rules and category definitions. After moving to production traffic, every request is billed at full input-token price even though the classification rules and category list never change between calls. What is the most likely cause?",
+    "o": [
+      "The rules and categories are too long to benefit from caching regardless of placement",
+      "Per-request content inside the system parameter changes the prefix on every call, which breaks the cache match against the otherwise-stable rules",
+      "Classification tasks are ineligible for prompt caching entirely",
+      "The category list must be moved into a tool schema before caching can apply"
+    ],
+    "a": 1,
+    "e": "Prompt caching matches a stable prefix. Mixing per-request data into system changes that prefix on every call, so the otherwise-durable rules never get a cache hit. Length (A) isn't the disqualifier here, a long stable prefix caches fine on its own. Caching isn't categorically unavailable for classification (C), the technique applies to any stable prefix regardless of task type. Moving content into a tool schema (D) isn't required for caching to work, the fix is separating stable content from per-request content, not migrating the whole prompt into tools.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-prompt-engineering-02",
+    "d": 6,
+    "s": "Prompt Engineering",
+    "q": "An agent has a single tool named update_record whose description reads only 'updates a record.' The agent's system prompt is thorough but never mentions this tool by name. In testing, the agent calls update_record on read-only requests and supplies malformed arguments roughly a third of the time. Which change is most likely to fix the behavior?",
+    "o": [
+      "Add tool-usage guidance to the system prompt instead of touching the tool's own description",
+      "Instruct the user, in their turns, to specify exactly when the tool should be used",
+      "Reduce max_tokens so the agent has less room to over-elaborate before calling the tool",
+      "Rewrite the tool's description and parameter descriptions with the same clarity given to the system prompt, including when not to call it"
+    ],
+    "a": 3,
+    "e": "Tool descriptions are prompts: the model conditions its tool-calling decision directly on that text, so a vague description produces the same ambiguity failure a vague system prompt would, just with worse consequences. Adding guidance elsewhere in the system prompt (A) doesn't fix it, because the failure lives at the specific surface the model reads when deciding to call this tool, not at the surface that already exists and clearly isn't reaching it. Pushing the responsibility onto end users every turn (B) is unreliable and doesn't scale, it substitutes a durable, one-time fix with a per-request one. max_tokens (C) caps output length; it has no bearing on which tool gets called or with what arguments.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-prompt-engineering-03",
+    "d": 6,
+    "s": "Prompt Engineering",
+    "q": "A prompt update resolves a customer-reported failure where an agent wrongly refused a legitimate refund request. The engineer ships the change the same day, since the reported case now passes and nothing else has been reported. Three weeks later, support tickets show the agent has started approving refund requests it previously correctly declined. What should have happened before shipping?",
+    "o": [
+      "The change should have been verified against the fixed eval set covering both approval and decline cases, not just the reported one",
+      "The change should have been reviewed by a second engineer before merge",
+      "The change should have shipped with a lower max_tokens value to constrain the response",
+      "The change should have been tested only against additional refusal cases, since refusal was the category that originally failed"
+    ],
+    "a": 0,
+    "e": "A prompt fix for one case commonly regresses others, which is exactly why the eval set has to run before shipping, not just the reported case. Code review by a second engineer (B) doesn't substitute for behavioral regression testing, a human can approve wording that still fails eval cases neither reviewer thought to check by eye. max_tokens (C) is unrelated to decision correctness. Testing only refusal cases (D) would still miss the regression that surfaced here, which appeared in the approval category, not the one that originally failed.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-prompt-engineering-04",
+    "d": 6,
+    "s": "Prompt Engineering",
+    "q": "A pipeline must never let instructions embedded inside an uploaded file override its summarization task, regardless of what the file contains. It currently builds its prompt by concatenating the uploaded file's raw text directly into the same string that carries the summarization instructions. Which two changes together enforce that guarantee structurally, rather than relying on the model choosing to ignore embedded instructions? (Select two.)",
+    "o": [
+      "Wrap the uploaded content in a clearly delimited tag, such as <untrusted_document>, before including it",
+      "Reject any file whose content contains common trigger words like 'ignore' or 'instructions'",
+      "Never interpolate the raw uploaded text directly into the instruction-bearing portion of the prompt; keep it in a clearly separated data section",
+      "Increase max_tokens so the model has enough room to safely process longer files"
+    ],
+    "a": [
+      0,
+      2
+    ],
+    "e": "Delimiting untrusted content clearly and never interpolating it into the instruction layer are the two structural halves of the same technique, together they stop injected text from sharing a channel with the instructions the application trusts. A keyword blocklist (B) is trivially bypassed by rephrasing and isn't the named mitigation, it's a request-level patch, not a structural one. max_tokens (D) controls output length and has nothing to do with whether embedded text is treated as data or as an instruction.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-prompt-engineering-05",
+    "d": 6,
+    "s": "Prompt Engineering",
+    "q": "A prompt currently includes one example of correctly formatted output, and real-world outputs are inconsistent in tone and structure. A teammate proposes adding four more examples that are nearly identical to the original, just with different customer names swapped in, arguing that more examples always improve consistency. What is the correct critique of that plan?",
+    "o": [
+      "It's wrong to add more examples at all; one well-placed example is already sufficient, and Claude should never receive more than one",
+      "The examples should be moved from the system prompt into a tool description so they load faster",
+      "The number of examples isn't the fix here; the added examples aren't diverse, so they risk teaching an incidental pattern rather than the actual format rule; construct examples that vary in ways that matter, not just add volume",
+      "The fix is to reduce the model's effort level rather than change the examples"
+    ],
+    "a": 2,
+    "e": "Diversity, not raw count, is what makes few-shot examples work, near-identical examples risk teaching an incidental pattern (like the customer-name field) instead of the actual formatting rule this objective is about constructing examples well. Option A asserts a rigid shot-count ceiling as if it were settled fact; how many examples to use is Domain 5's shot-count taxonomy, not a claim this objective makes, and the claim itself is not defensible on its face. Tool descriptions (B) aren't a loading-speed mechanism and don't address the diversity problem. Effort level (D) is an unrelated Domain 5 lever (thinking and reasoning effort) that has no bearing on example construction or output formatting.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-tool-implementation-01",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "A team's weather-alerting tool calls an external forecasting API. The tool definition hardcodes the API key as a default value directly inside the tool's input schema so the agent can pass it through automatically, and the same tool definition is deployed unchanged straight from staging into production.",
+    "o": [
+      "Move the API key into the tool's description field so the model can see that it is required",
+      "Ask the model to redact the API key from its own responses whenever it appears",
+      "Pull the API key from a secret manager at execution time, scoped to the minimum access needed, and treat the endpoint as per-environment configuration rather than a value baked into the schema",
+      "Increase the tool's timeout so staging and production behave identically"
+    ],
+    "a": 2,
+    "e": "Credentials belong in a secret manager scoped to least privilege, and endpoints belong in per-environment configuration, never embedded in a schema the model reads and that ships unchanged between environments. Putting the key in the description field makes the leak risk worse, since that text is model-readable context that can be echoed back. Asking the model to redact the key is a detective patch on a problem that should never have put a secret in context in the first place. Timeout has nothing to do with credential handling or environment separation.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-tool-implementation-02",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "An engineer is designing an agent that runs shell commands on a customer's machine using Anthropic's own Bash tool schema, and separately searches the web using Anthropic's web search tool. She assumes that because both tools come from Anthropic, both are executed on Anthropic's infrastructure and neither requires her own code to run anything.",
+    "o": [
+      "Both assumptions are correct; Anthropic executes any tool whose schema it defines",
+      "The Bash tool is a client tool that her own infrastructure must execute and return as a tool_result; web search is a server tool that Anthropic's infrastructure executes and returns as a server_tool_use result",
+      "Neither tool requires execution at all; both return results directly from the model's training data",
+      "Web search is a client tool she must execute herself, while the Bash tool runs entirely on Anthropic's infrastructure"
+    ],
+    "a": 1,
+    "e": "Whether a tool is client-side or server-side depends on who executes it, not who authored the schema. The Bash tool is Anthropic-defined but still a client tool: her own harness has to run the command and return a tool_result. Web search is genuinely server-side; Anthropic's infrastructure executes it internally and surfaces a server_tool_use result with no tool_result required from her. The first option wrongly assumes authorship implies execution. The third ignores that tools by definition act on something outside the model's parameters. The fourth reverses the actual client/server assignment of the two tools named.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-tool-implementation-03",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "An agent has both a read-only list_invoices tool and a void_invoice tool that permanently cancels a customer invoice with no undo. The team originally required a human to confirm every single tool call, but within days support staff started reflexively clicking \"approve\" on every prompt, including for void_invoice.",
+    "o": [
+      "Keep requiring approval on every call, but add a warning icon next to destructive ones",
+      "Remove the approval step entirely, since staff aren't reading the prompts anyway",
+      "Require two separate staff members to approve every tool call, including read-only ones",
+      "Auto-approve read-only calls like list_invoices, and keep an explicit, separate confirmation step only for irreversible actions like void_invoice"
+    ],
+    "a": 3,
+    "e": "Approval fatigue happens when every call, regardless of risk, demands identical attention, so oversight collapses into a reflex click; narrowing confirmation to genuinely irreversible actions restores the signal. A warning icon doesn't change the volume of approvals causing the fatigue, and a fatigued reviewer can ignore a visual cue as easily as the prompt itself. Removing approval entirely abandons oversight on the one action that most needs it. Requiring two approvers on every call, including read-only ones, adds friction without addressing why staff stopped reading prompts in the first place, making the fatigue worse.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-tool-implementation-04",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "A platform team maintains one shared tool set used by every agent session, including a rarely used purge_tenant_data tool invoked by only two administrators a few times a year. Every session pays the token cost of that tool's full definition on every request regardless of who is logged in, and tool-selection accuracy has been degrading as the shared set has grown.",
+    "o": [
+      "Move purge_tenant_data out of the default set and load it only into the small number of sessions run by the administrators who actually need it",
+      "Shorten the tool's name to reduce its token count",
+      "Add a longer, more detailed description to purge_tenant_data so the model understands it better",
+      "Convert purge_tenant_data into an MCP server so it no longer counts against the context window"
+    ],
+    "a": 0,
+    "e": "Every registered tool definition is sent on every request whether or not it's used, and a larger shared set also increases selection ambiguity; scoping a rarely needed, high-privilege tool to only the sessions that need it removes both costs at once. Shortening the name saves a negligible number of tokens and does nothing about ambiguity. A longer description makes the per-request token cost worse without addressing who needs the tool. Moving the tool to MCP is a common misconception: MCP tool definitions are still declared to the model on every request and still consume context tokens, so this doesn't exempt it from the cost described.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agentic-customization-01",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "A team is building an agent that needs to run Python snippets to validate calculations before presenting results to users. An engineer starts drafting a custom tool schema that shells out to a sandboxed Python interpreter that their infrastructure team would need to build and maintain going forward.",
+    "o": [
+      "Use Anthropic's built-in code execution tool instead, since the capability already exists and doesn't need to be rebuilt",
+      "Build the custom tool as planned, since custom tools are always more secure than built-in ones",
+      "Write a Skill that teaches Claude to simulate Python execution by reasoning through the code manually",
+      "Package the custom sandbox as an MCP server so it can be reused later"
+    ],
+    "a": 0,
+    "e": "The first question in the decision framework is whether the capability already exists as an Anthropic-provided tool. It does here, so building and maintaining a parallel sandbox is wasted effort with no capability gained. The claim that custom tools are inherently more secure than built-in ones is simply false; built-in tools are Anthropic-maintained and don't automatically lose on security. A Skill can't substitute for a missing execution capability — no amount of procedural guidance lets Claude actually run code without a real execution environment. Wrapping the redundant sandbox as an MCP server still rebuilds a capability that already exists, plus adds infrastructure ownership on top.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agentic-customization-02",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "A support team wants every response from their Claude-powered agent to follow a specific tone, always cite the relevant help-center article, and always close with a specific escalation phrase. The agent can already read the help-center article library and compose responses; nothing about its capabilities is missing.",
+    "o": [
+      "A custom tool that formats and returns the final response text",
+      "An MCP server exposing a format_response endpoint",
+      "A Skill containing the tone rules, citation convention, and closing phrase",
+      "A built-in tool configured with the escalation phrase as a parameter"
+    ],
+    "a": 2,
+    "e": "Nothing here is a missing capability — the agent can already read articles and write responses — so the need is entirely about how it should perform a task it can already do, which is exactly what a Skill is for. A custom tool and an MCP server both reach for infrastructure that adds a capability the agent doesn't lack; wrapping 'write it this way' logic in a tool call adds integration overhead for a purely instructional need. There is no generic built-in tool for a company-specific tone and escalation phrase, so that option is fabricated.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-agentic-customization-03",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "A platform group runs a single internal API that checks employee time-off balances. Right now only the HR onboarding agent calls it, the API changes only when the onboarding agent's own team changes it, and there are no plans to expose it to any other application.",
+    "o": [
+      "An MCP server maintained independently of the onboarding agent",
+      "A custom tool defined directly inside the onboarding agent's application",
+      "A Skill describing how to interpret time-off balances",
+      "Anthropic's built-in tool for HR systems"
+    ],
+    "a": 1,
+    "e": "The deciding question is reuse across applications plus independent maintenance, and neither is true here: one app, one owning team, no separate lifecycle. A custom tool defined in that app is the simplest fit with no unneeded infrastructure. Standing up a separate MCP server buys nothing when there is only one caller and one team maintaining it in lockstep with the app. Checking a balance is a capability the agent doesn't currently have — calling an API — not a procedural or instructional need, so a Skill doesn't fit. There is no generic Anthropic-provided HR tool; that option should be recognized as invented.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agentic-customization-04",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "An engineering-assistant agent needs to periodically spin off a focused code-security review that reads an entire large repository, large enough that pulling all of it into the main conversation would crowd out everything else the user is discussing. The security review also needs read-only filesystem access that the main conversation must never be granted.",
+    "o": [
+      "A Skill containing the security review checklist, loaded into the main conversation",
+      "A custom tool that returns the entire repository as text",
+      "An MCP server that exposes the repository as a resource",
+      "A subagent with its own context window and its own, narrower tool permissions"
+    ],
+    "a": 3,
+    "e": "Two needs are described: a separate context window so the large read doesn't crowd out the main conversation, and different, narrower tool permissions than the main conversation should have. Both point to a subagent, which gets its own context and its own scoped access. A Skill loads into the current conversation and inherits its existing permissions, so it solves neither problem. A custom tool that dumps the whole repository as text puts the crowding problem straight into context instead of isolating it. An MCP server can supply read access to the data but doesn't address context isolation or permission scoping on its own.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-agentic-customization-05",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "A team wants their support agent to always summarize tickets using the company's specific five-section format, something the agent can already do by writing text, and separately to look up real-time shipment tracking from a carrier's API, which the agent currently has no way to access. Several other product teams beyond support already want shipment tracking, and the carrier integration will be versioned and patched independently by a platform team.",
+    "o": [
+      "A custom tool for the five-section format, and a Skill for shipment tracking",
+      "A Skill for the five-section format, and an MCP server for the shipment-tracking capability",
+      "A single MCP server that handles both the formatting and the tracking lookup",
+      "A built-in tool for the five-section format, and a custom tool for shipment tracking"
+    ],
+    "a": 1,
+    "e": "The two needs split cleanly: the five-section format is purely instructional, since the agent already has the capability to write text and just needs a convention, which is a Skill; shipment tracking is a missing capability, reused across multiple teams and independently versioned by a platform team, which is exactly the reuse-plus-independent-maintenance combination that points to an MCP server. Reversing the two is wrong on both counts: a tool for pure formatting is unnecessary machinery, and a Skill cannot grant the actual capability to call a carrier API. Bundling both into one MCP server puts an instructional need into infrastructure it doesn't need. There is no generic built-in tool for a company-specific format, and a bare custom tool ignores that the tracking capability is reused and independently maintained.",
+    "pattern": "scope-boundary"
+  }
+]

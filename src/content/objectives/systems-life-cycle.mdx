@@ -1,0 +1,153 @@
+---
+id: "systems-life-cycle"
+domain: 2
+domainName: "Applications and Integration"
+name: "Systems Life Cycle"
+weight: 2.8
+tier: 2
+hot: false
+scope:
+  - "generic IT lifecycle: develop, implement, operate, maintain"
+  - "named frameworks: Waterfall, Agile, DevOps, ITIL"
+traps:
+  - "this is GENERIC IT lifecycle, not LLM-specific delivery"
+  - "change management and release gates point at ITIL, not the coding workflow"
+sources:
+  - label: "Model deprecations"
+    url: "https://platform.claude.com/docs/en/about-claude/model-deprecations"
+  - label: "Versioning"
+    url: "https://platform.claude.com/docs/en/api/versioning"
+authored: true
+---
+
+## What this objective actually tests
+
+This objective tests whether you know the **generic IT systems life cycle and its
+named delivery/operations frameworks** — Waterfall, Agile, DevOps, ITIL — well
+enough to place a described scenario into the right one, including when a Claude
+application is the system being described. It deliberately does **not** test an
+LLM-specific development methodology, because none is named in the blueprint. The
+temptation this objective is built to catch is inventing or recognizing an
+"AI-native SDLC" where the answer is really an existing, decades-old framework
+applied with ordinary judgment.
+
+## Mechanism
+
+**The generic life cycle.** Regardless of framework, a system moves through the
+same broad arc: plan → analyze/design → develop → test → implement (deploy) →
+operate → maintain → retire. Frameworks differ in how they sequence, gate, and
+iterate through this arc — not in whether the arc exists. A stem that describes
+any of these phases for *any* kind of system, Claude-powered or not, is testing
+this generic model first.
+
+**The four named frameworks, and what each is actually for:**
+
+- **Waterfall** — strictly sequential phases with formal sign-off gates between
+  them; requirements are frozen early. Fits fixed-scope, heavily regulated builds
+  where the cost of a late requirements change is very high. Poor fit for
+  anything whose behavior can't be fully specified up front — which describes
+  most model-backed features, since output quality is discovered empirically
+  through iteration, not derived from a spec.
+- **Agile / Scrum** — iterative delivery in fixed-length sprints, a prioritized
+  backlog, incremental releases, retrospectives. Fits work where requirements
+  sharpen through feedback. This is the natural fit for prompt-and-eval iteration:
+  you rarely get a prompt right on the first pass, and each sprint can ship a
+  measurably better version.
+- **DevOps** — a culture and toolchain unifying development and operations:
+  CI/CD pipelines, infrastructure as code, automated testing as a release gate,
+  continuous monitoring, fast rollback. Fits any system that deploys frequently
+  and needs automated confidence before each deploy. For a Claude application,
+  the CI/CD gate gains an additional automated check beyond unit and integration
+  tests: an **eval suite**, because model output is graded against criteria, not
+  asserted for exact string equality.
+- **ITIL** — an IT **service management** framework, not a delivery methodology.
+  It governs how a *live, already-built* system is operated: incident management
+  (restore service fast), problem management (find root cause), **change
+  management** (any modification to a production system is a documented,
+  risk-assessed, approved change record), and release management (how approved
+  changes reach production in a controlled way). A stem naming a change advisory
+  board, a documented risk assessment before a production change, or an incident
+  ticket is describing ITIL-style service management — regardless of whether the
+  system under discussion happens to be a Claude application.
+
+**Where Claude-application work maps onto these frameworks — as engineering
+practice, not a reinvention.** Three wrinkles are specific to model-backed
+systems, but each is an instance of an existing framework concept, not a new one:
+
+1. **Model deprecation is a scheduled life-cycle event**, functionally identical
+   to end-of-life planning for any other dependency (a database version, a
+   language runtime). Anthropic publishes model lifecycle states — Active,
+   Legacy, Deprecated, Retired — with a deprecated model given a named
+   replacement and a retirement date, and at least 60 days' notice before
+   retirement for publicly released models. [Verified: platform.claude.com/docs/en/about-claude/model-deprecations] Planning the migration, testing
+   the replacement against your eval suite well before the retirement date, and
+   scheduling the cutover is ordinary maintain-phase / DevOps-gate work, not a
+   new discipline.
+2. **Prompts are versioned artifacts under change control** — the same discipline
+   applied to any other piece of production configuration or code: source
+   control, review, and a rollback path.
+3. **Regression testing requires evals, not exact-match tests**, because model
+   output is non-deterministic. This changes *what* the DevOps test gate checks,
+   not *whether* a test gate exists — Agile and DevOps already expect an
+   automated quality gate before release; evals are simply the correct instrument
+   for a probabilistic component.
+
+**The scope trap, stated plainly.** If a stem asks you to name or design a
+lifecycle "for AI systems," the correct move is almost always to answer with one
+of the four generic frameworks — applied with the three wrinkles above — rather
+than to invent or select something LLM-specific. The objective's scope is
+explicit on this point: generic IT life cycle management, applied to Claude
+systems, not a bespoke model-delivery life cycle.
+
+## Decision table
+
+| When the stem says… | The answer is… |
+|---|---|
+| "change advisory board," "documented risk assessment before any production change," "incident ticket" | ITIL-style service management (change/release/incident management) |
+| "sprints," "backlog," "retrospective," "requirements sharpen through iteration" | Agile / Scrum |
+| "every change needs sign-off before the next phase begins," scope frozen early, heavily regulated fixed-scope build | Waterfall |
+| "automated pipeline," "deploys on every merge," "rolls back automatically" | DevOps / CI-CD |
+| A vendor or team proposes a purpose-built "AI development lifecycle" for a Claude feature | Almost always a distractor — the generic life cycle plus Agile/DevOps/ITIL practices already covers it |
+| "the model we depend on is being retired" | A scheduled life-cycle / maintenance event — plan the migration and eval the replacement before the retirement date, don't treat it as an emergency |
+| Stem never mentions "artificial intelligence" or "LLM" and is purely about *how production changes get approved* | Still ITIL — the coding methodology (Agile/DevOps) governs building the feature, not approving a change to a live one |
+
+This objective is intentionally not code-bearing. It tests correctly identifying
+and applying named IT management frameworks — a conceptual/process skill — rather
+than an API or SDK surface, so no Python/TypeScript examples are included here.
+
+## Named traps, expanded
+
+**This is GENERIC IT lifecycle, not LLM-specific delivery.** The most common way
+this trap fires is a stem that sounds like it wants a novel answer because it
+mentions prompts, evals, or model versions — but the correct answer is still one
+of the four named frameworks, because those specifics are just Claude-flavored
+instances of activities (testing, deployment, change control) those frameworks
+already cover. Answering with an invented "AI lifecycle" concept, even a
+plausible-sounding one, is the wrong move whenever a standard framework already
+fits.
+
+**Change management and release gates point at ITIL, not the coding workflow.**
+Agile and DevOps describe how a team builds and ships; they do not, by
+themselves, describe how an organization *governs* a change once a system is
+live in production. A stem describing formal approval, documented risk, or a
+change record for a production modification — including bumping a pinned model
+version or editing a live prompt — is testing ITIL-style service management, even
+inside a team that uses Scrum to build features and DevOps automation to deploy
+them. The two are not mutually exclusive; a team can build with Agile, deploy
+with DevOps tooling, and still be required to route every production change
+through an ITIL change record.
+
+## Recall checks
+
+1. Name the four frameworks in this objective's scope, in one clause each, without
+   looking them up.
+2. Explain why Waterfall is generally a poor fit for a Claude-feature build, in one
+   sentence, using the concept of "fully specified up front."
+3. A stem describes a change advisory board approving a prompt edit before it
+   reaches production. Which framework is being tested, and why is "Agile" a
+   tempting but wrong answer?
+4. Name the three Claude-specific wrinkles on the generic life cycle, and for each
+   one, name the existing framework concept it's really an instance of.
+5. A vendor pitches a proprietary "LLMOps lifecycle" as fundamentally different
+   from DevOps. What's the one-sentence rebuttal this objective expects you to be
+   able to give?

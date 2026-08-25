@@ -1,0 +1,62 @@
+[
+  {
+    "id": "new-llm-fundamentals-01",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "A team runs requests against a model with a 200,000-token context window. Their conversation history sits at 190,000 tokens, and they set max_tokens to 64,000 hoping to get a long generated report back in one call, but the response cuts off well short of 64,000 output tokens. A teammate insists this must be a bug because max_tokens should guarantee that many output tokens regardless of input length. Which explanation is correct?",
+    "o": [
+      "It is a bug: max_tokens is a fixed allocation reserved before the request starts, entirely separate from the context window.",
+      "The cutoff means the model exceeded its training data limit, which is unrelated to context window size.",
+      "max_tokens sets a ceiling, not a guarantee: input and output share one context-window budget, so once input plus generated tokens reach that shared ceiling, generation stops even if max_tokens has not been reached.",
+      "max_tokens only applies to text output; thinking tokens are counted separately and unlimited, so the report was truncated by a content filter instead."
+    ],
+    "a": 2,
+    "e": "Correct answer C: the context window is one shared budget covering the system prompt, messages, tool definitions, and all output for the turn, including thinking. At 190,000 tokens of input against a 200,000-token window, only 10,000 tokens of room remain regardless of what max_tokens is set to, so generation stops early. Option A is wrong because it treats max_tokens as an independent reservation rather than a ceiling within the shared budget. Option B invents an unrelated concept (training data size) that has nothing to do with the context window limit being described. Option D is wrong because thinking tokens count toward the same window and are not unlimited, and nothing in the scenario suggests a content filter.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-llm-fundamentals-02",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "A study guide author is deciding where to place four related topics inside a blueprint that separates a 'Model Selection and Optimization' domain from a 'Prompt and Context Engineering' domain: zero-shot, single-shot, and multi-shot prompting; and structuring a prompt with XML tags plus managing long conversation history via context compaction. Select the two statements below that correctly describe where each topic belongs.",
+    "o": [
+      "Zero-shot, single-shot, and multi-shot prompting belong in Prompt and Context Engineering, since choosing how many examples to include is fundamentally about crafting the prompt's text.",
+      "Zero-shot, single-shot, and multi-shot prompting belong in Model Selection and Optimization, not Prompt and Context Engineering, despite reading like a general prompting topic.",
+      "XML tag structuring belongs in Model Selection and Optimization because it affects which model tier is chosen for a task.",
+      "XML tag structuring and context compaction both belong in Prompt and Context Engineering, since they concern how a single request's content is organized and managed."
+    ],
+    "a": [1, 3],
+    "e": "Correct answers B and D. B is correct because the blueprint deliberately places example-count prompting techniques (zero/single/multi-shot) under Model Selection and Optimization rather than Prompt and Context Engineering, even though it reads like a pure prompt-writing topic. D is correct because XML tag structuring and context compaction are exactly the kind of within-request content organization that Prompt and Context Engineering does own. Option A fails because it states the intuitive-but-wrong placement directly contradicted by the blueprint's explicit scope split. Option C fails because XML tags are a formatting technique with no connection to model tier selection, which is a separate objective entirely.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-llm-fundamentals-03",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "A finance team wants an automated pipeline that must produce the exact same invoice-categorization output every single time it processes the same invoice text, byte-for-byte, so they can diff outputs across nightly runs without any manual review. An engineer proposes setting temperature to 0 on every call and calling it done. Which response correctly evaluates this proposal?",
+    "o": [
+      "The proposal is sound: temperature 0 is defined as fully deterministic, so identical inputs are guaranteed to produce identical outputs on every call.",
+      "The team should instead set top_p to 0 alongside temperature 0, since together these are documented to eliminate all output variance.",
+      "The team should raise max_tokens to guarantee stability, since truncated responses are the only source of run-to-run variance at temperature 0.",
+      "Temperature 0 makes decoding greedy but does not guarantee byte-identical output across calls; floating-point non-associativity and request batching can still shift results, so a hard byte-for-byte guarantee cannot come from a sampling parameter alone."
+    ],
+    "a": 3,
+    "e": "Correct answer D: temperature 0 selects the highest-probability token at each step (greedy decoding), but infrastructure-level effects such as GPU floating-point non-associativity and batching with other concurrent requests mean two calls with identical input and parameters are still not guaranteed to match exactly. A pipeline that must diff outputs byte-for-byte needs a deterministic check outside the sampling parameter, not a parameter tweak alone. Option A states the common misconception that temperature 0 equals a determinism guarantee. Option B fabricates a documented top_p combination that does not exist. Option C misattributes the variance to output truncation, which is not the mechanism described in the scenario.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-llm-fundamentals-04",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "A team hard-codes a per-request token budget of 3,000 tokens for a summarization prompt, calibrated by counting tokens on one model during development. Six months later they migrate the same prompt template to a newer model generation with an updated tokenizer, without re-measuring anything, and the pipeline starts truncating input that used to fit comfortably. Which practice would have prevented this?",
+    "o": [
+      "Increase max_tokens instead of re-counting, since max_tokens and input token budgets are governed by the same underlying tokenizer figure.",
+      "Re-run token counting against the new model after any migration, since token counts are model-specific and a count calibrated on one model's tokenizer does not reliably transfer to another.",
+      "Switch to counting words instead of tokens, since word counts are consistent across all model generations and avoid the tokenizer dependency entirely.",
+      "Nothing could have prevented this: token budgets calibrated on one model are guaranteed to transfer exactly to any newer model in the same family."
+    ],
+    "a": 1,
+    "e": "Correct answer B: token counts depend on the specific tokenizer a model version uses, so a budget measured against one model's tokenizer is not safe to reuse unmeasured after a migration; re-counting against the new model is what prevents the silent truncation. Option A confuses two different limits: max_tokens governs output length, not the input token budget being described, so raising it does not address the input-side miscount. Option C is wrong because the token-to-word ratio itself varies by content type and by tokenizer, so word counts are not a stable substitute. Option D asserts a guarantee that directly contradicts the scenario, which demonstrates the opposite.",
+    "pattern": "buried-constraint"
+  }
+]

@@ -1,0 +1,26 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+import blueprint from '../../../blueprint.json';
+
+export async function getStaticPaths() {
+  return blueprint.domains.map(d => ({ params: { n: String(d.n) }, props: { domain: d } }));
+}
+const { domain } = Astro.props;
+const objectives = (await getCollection('objectives'))
+  .filter(o => o.data.domain === domain.n)
+  .sort((a, b) => b.data.weight - a.data.weight);
+---
+<Base title={`Domain ${domain.n} — ${domain.name}`}>
+  <p class="crumbs"><a href={import.meta.env.BASE_URL}>Domains</a> / D{domain.n}</p>
+  <h1>{domain.name}</h1>
+  <p style="opacity:.8">{domain.weight}% of the exam &middot; ~{domain.approx_items} items</p>
+  <div class="obj-list">
+    {objectives.map(o => (
+      <a class="obj-row" href={`${import.meta.env.BASE_URL}objective/${o.data.id}/`}>
+        <span>{o.data.name} {o.data.hot && <span class="tag r">heaviest objective</span>}</span>
+        <span class="tier">{o.data.weight}%{!o.data.authored && <span class="tag pending" style="margin-left:8px">legacy</span>}</span>
+      </a>
+    ))}
+  </div>
+</Base>

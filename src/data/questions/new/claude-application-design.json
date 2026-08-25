@@ -1,0 +1,122 @@
+[
+  {
+    "id": "new-claude-application-design-01",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A platform team pushes a managed-settings.json policy through the claude.ai console that disables one bash command for every engineer at the company. One engineer, annoyed that the command is blocked, adds an explicit allow rule for that same command to their own ~/.claude/settings.json. The command stays blocked when they try to run it. Which explains the behavior?",
+    "o": [
+      "Managed settings sit at the top of the precedence order and override the same key set anywhere below them",
+      "User-scope settings always take precedence over any other scope, so the allow rule should have worked",
+      "Settings.json changes require a session restart before they take effect, and the restart hasn't happened yet",
+      "Command permissions are controlled by CLAUDE.md, not by settings.json, so the allow rule had no effect"
+    ],
+    "a": 0,
+    "e": "Managed settings are the highest level in Claude Code's precedence order (managed > command line > project local > shared project > user), so a key set there overrides the same key set at any lower level, including a user's own file. Option 1 inverts the actual order. Option 2 misdiagnoses the cause as timing, but restarting changes nothing since managed still wins after reload. Option 3 confuses CLAUDE.md, which is advisory memory, with settings.json, which is the enforced permission layer that actually governs commands.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-claude-application-design-02",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A team is building a research assistant that runs in Claude Desktop. They want the assistant to always be able to call the company's internal ticket-lookup service in every conversation the user starts on that machine, without the user re-explaining what the service is or how to call it each time they open a new chat. Where should this capability be defined?",
+    "o": [
+      "Restate the ticket-lookup service's API in the first message of every conversation",
+      "Add the service description to a claude.ai Project's custom instructions",
+      "Connect the ticket-lookup service as an MCP server in Claude Desktop's local configuration",
+      "Paste the service's documentation into the system prompt of a single raw API call"
+    ],
+    "a": 2,
+    "e": "On Claude Desktop, the instruction surface for tool capability is the connected tooling itself; an MCP server configured locally persists across every conversation on that machine without the user restating anything. Option 0 is the opposite of persistent - it requires re-explaining every time. Option 1 lives in a different product (claude.ai Projects) and would only apply inside that Project's chats, not the Desktop app. Option 3 is scoped to one API call, not a standing capability.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-claude-application-design-03",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A team wants every chat inside a claude.ai Project to follow a house formatting style, and separately wants a guarantee that customer PII never appears in any reply, verified before a response reaches the user, with no exceptions. They plan to write both rules into the Project's custom instructions field.",
+    "o": [
+      "This works for both rules, since Project instructions apply automatically to every chat in the Project",
+      "Neither rule belongs in Project instructions, because claude.ai has no persistent instruction surface at all",
+      "Only the PII rule belongs in Project instructions; the formatting rule should be a per-chat Style instead",
+      "The formatting rule fits there, but a must-never PII guarantee needs enforcement claude.ai's UI configuration can't provide"
+    ],
+    "a": 3,
+    "e": "claude.ai Project instructions are UI configuration with no code-level enforcement - fine for a preference like formatting, but a hard guarantee has to be checked deterministically before a response ships, which requires application-level validation or a different interface entirely, not a persuadable instruction. Option 0 wrongly treats both rules as equivalent in kind. Option 1 is false; Project instructions do persist across the Project's chats. Option 2 swaps the two rules' correct treatment backwards.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-claude-application-design-04",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A team is deciding how a multi-step support-ticket application should be structured: whether one Claude call should route escalations to a second, specialized call, or whether a single call should handle each ticket end to end. Which objective actually covers the decision they are making?",
+    "o": [
+      "Claude Application Design, because it concerns Claude's behavior across an application",
+      "Agents and Workflows, because this is workflow pattern selection between routing and a single end-to-end call",
+      "Claude Application Design, because instruction placement is what determines which pattern gets chosen",
+      "Tools and MCPs, because the ticket data has to be retrieved through an external tool"
+    ],
+    "a": 1,
+    "e": "Choosing between routing and a single end-to-end call is workflow pattern selection, which sits in Agents and Workflows, not Claude Application Design - the two objectives are explicitly separated. Option 0 is too vague to be the actual tested skill. Option 2 invents a causal relationship that doesn't hold; instruction placement and pattern choice are separate decisions. Option 3 misidentifies the domain based on incidental tool use rather than the structural decision actually being asked about.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-claude-application-design-05",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "An internal support application appends each customer's ticket text directly onto the end of the system prompt before sending the request, on the theory that content in the system prompt gets the most attention from the model. The same system prompt template is reused across several thousand tickets per day. A security reviewer flags the design during a routine review. Select the two problems this design actually causes.",
+    "o": [
+      "It collapses the trust boundary between trusted instructions and untrusted ticket content",
+      "It reduces the maximum number of output tokens available for the response",
+      "It prevents the system prompt prefix from being cached, since the prefix now varies with every ticket",
+      "It disables tool use for the remainder of the conversation"
+    ],
+    "a": [0, 2],
+    "e": "Appending untrusted ticket text to the system prompt collapses the structural signal that separates instructions from data, and it breaks prompt caching because caching depends on a stable, reused prefix - at several thousand tickets a day that turns into thousands of full-price prefills instead of cache hits. Output token limits and tool availability are governed by separate parameters entirely; neither is affected by what text sits in the prompt prefix.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-claude-application-design-06",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A security team wants a guarantee that no commit ever leaves a repository containing a string matching an API-key pattern, for every engineer, every time, regardless of what any individual session's instructions say. An engineer proposes satisfying this by adding a bullet to the repo's CLAUDE.md telling Claude to check for secrets before committing.",
+    "o": [
+      "This is sufficient, since CLAUDE.md loads automatically in every session for every engineer",
+      "This is sufficient as long as the bullet is placed near the top of the file, where the model gives it more weight",
+      "This is insufficient; a pre-commit hook that blocks the commit is needed to make the check unconditional",
+      "This is insufficient; the rule should instead be duplicated into every engineer's user-scope settings.json"
+    ],
+    "a": 2,
+    "e": "CLAUDE.md is advisory text the model reads as guidance, not an enforced control, so it cannot deliver a no-exceptions guarantee; only a hook that runs deterministically on the commit event can block every violating commit regardless of session instructions. Option 0 confuses durability (loads everywhere) with enforcement (isn't optional). Option 1 misconceives how instruction weight works - placement doesn't create a guarantee. Option 3 just duplicates the same advisory text into a policy file's wrong slot without adding any enforcement mechanism.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-claude-application-design-07",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A developer builds a Claude Code plugin containing a skills/ folder with one skill and an agents/ folder with one custom agent, but never creates a .claude-plugin/plugin.json manifest, assuming the plugin cannot load without one. A teammate installs the plugin locally to test it anyway.",
+    "o": [
+      "The plugin loads; the manifest is optional and Claude Code auto-discovers components from the directory layout",
+      "The plugin fails to load entirely; a manifest is required for any plugin to be recognized",
+      "Only the skill loads; agents require an explicit manifest entry before they can be discovered",
+      "The plugin loads, but only if the folders are renamed to commands/ and hooks/"
+    ],
+    "a": 0,
+    "e": "The plugin manifest is optional - when it is absent, Claude Code auto-discovers components straight from the directory layout, including skills/ and agents/, so both the skill and the agent load. Option 1 states a hard requirement that doesn't exist. Option 2 invents an asymmetry between skills and agents that isn't real. Option 3 describes an unnecessary rename; commands/ is an alternate location for skills specifically, not a substitute for agents/, and hooks/ is a different component type altogether.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-claude-application-design-08",
+    "d": 2,
+    "s": "Claude Application Design",
+    "q": "A SaaS analytics vendor's Claude-powered assistant was originally built for one internal team and used a single long-running session that accumulated context across the whole day. Now that the product serves multiple paying customers, engineers notice the assistant sometimes references a different customer's dashboard names in its answers, and they file it as a context-window performance issue to be fixed by summarizing older turns.",
+    "o": [
+      "Correct framing; summarizing the session's earlier turns will resolve the issue",
+      "Correct framing; switching to a model with a larger context window will resolve the issue",
+      "Incorrect framing; the fix is to remind the assistant at the start of each reply which customer it is currently serving",
+      "Incorrect framing; this is a session-isolation requirement, and each customer needs its own session with no shared context"
+    ],
+    "a": 3,
+    "e": "Cross-customer leakage is a security boundary failure, not a context-quality problem - the only structural fix is a session per tenant with no shared context. Options 0 and 1 both treat it as something to manage rather than prevent, and neither stops the underlying sharing that causes the leak. Option 2 adds an advisory reminder, which is still just an instruction the model could fail to fully apply, not a boundary that structurally prevents one customer's data from reaching another's session.",
+    "pattern": "must-means-deterministic"
+  }
+]

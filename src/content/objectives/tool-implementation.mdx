@@ -1,0 +1,139 @@
+---
+id: "tool-implementation"
+domain: 8
+domainName: "Tools and MCPs"
+name: "Tool Implementation"
+weight: 4.4
+tier: 2
+hot: false
+scope:
+  - "tool use and function calling"
+  - "configuration for external system interaction"
+  - "tool description writing"
+  - "error handling"
+  - "agentic harness dispatch"
+  - "client-side vs server-side tools"
+  - "approval patterns"
+  - "tool set construction"
+traps:
+  - "return errors as tool_result with is_error so the model can self-correct; do not throw"
+  - "every tool definition costs tokens on EVERY request and adds selection ambiguity"
+sources:
+  - label: "Tool use"
+    url: "https://platform.claude.com/docs/en/agents-and-tools/tool-use"
+  - label: "Writing tools for agents"
+    url: "https://www.anthropic.com/engineering/writing-tools-for-agents"
+authored: true
+---
+
+## What this objective actually tests
+
+This is the heaviest objective in your set, and it tests operational fluency, not just vocabulary: can you correctly describe who executes a tool call and how a result gets back to the model, can you write a tool description that actually steers selection instead of just documenting a schema, and do you know the difference between a design choice that saves tokens and one that saves an incident. It also tests a specific piece of engineering culture — Anthropic treats tool definitions as a prompt-engineering surface, not API plumbing, and expects you to know why.
+
+## Mechanism
+
+**Tool descriptions are prompts.** Anthropic's guidance is direct: tool definitions deserve the same prompt-engineering attention as your system prompt, since the model chooses a tool by reading only its `name`, `description`, and `input_schema`. If a human reading two descriptions side by side can't say definitively which applies, neither can the model. Say what the tool does, when to use it, and **when not to**; namespace by service and resource (`asana_search`, `jira_search`); name parameters unambiguously (`user_id`, not `user`); prefer natural-language, semantically meaningful identifiers over raw UUIDs; and iterate against real agent transcripts, not intuition — where an agent actually got confused reveals gaps a description review misses.
+
+**Who executes a tool: never the model.** The model emits a `tool_use` block — a name and a JSON input — and stops. The harness reads that block, runs the corresponding code, and sends the result back as a `tool_result` next turn. The model has no execution environment of its own.
+
+**Client-side vs. server-side, and the trap inside it.** The split is about *who executes*, not *who wrote the schema*. A client tool is any tool your own infrastructure executes and returns as a `tool_result` — including Anthropic-authored schemas like the Bash tool: Anthropic wrote the schema, but your infrastructure still runs the command. A server tool is one Anthropic's own infrastructure executes internally — web search, web fetch, code execution — surfacing a `server_tool_use` block and result without any `tool_result` from you. Authorship does not imply execution; check who runs the code.
+
+**Error handling.** When a tool's own execution fails, return a `tool_result` with `is_error: true` and a specific, actionable message ("rate limit exceeded, retry after 60 seconds" beats "failed"), so the model can self-correct instead of the run simply crashing. Never leak stack traces or connection strings into that message — it's still content the model reads and may repeat.
+
+**Configuration for external system interaction.** A tool is a configured connection, not just a schema: endpoints per environment as configuration, not baked into the schema; credentials from a secret manager at call time, scoped to the least the tool needs, never written into model-readable text; timeouts so a slow downstream service can't hang the agent loop; rate limits that belong to the external system, separate from Anthropic's; identity propagation so a call is authorized against the real end user, not a shared service account.
+
+**Approval patterns.** Auto-approve read-only calls. Require explicit confirmation for writes and anything irreversible. Allowlist by tool and, where useful, by argument pattern. Watch for approval fatigue: the same ritual on every call trains people to click through it — reserve friction for calls that warrant it.
+
+**Tool set construction.** Fewer, well-chosen tools beat many overlapping ones. Every registered definition — used or not — is sent on **every single request**, so a bloated set costs tokens every turn while also raising selection ambiguity. For genuinely large sets, `defer_loading` with a tool-search mechanism lets the model discover tools on demand instead of holding every description up front. Idempotency matters on anything that writes, because agents retry.
+
+## Decision table
+
+| Stem says... | The answer is... |
+|---|---|
+| Tool implementation throws on a bad or malformed input | Wrong — catch it and return `tool_result` with `is_error: true` and an actionable message |
+| Agent frequently calls the wrong one of two similar tools | Sharpen the descriptions — say what each does and when *not* to use it |
+| Set has grown to dozens of tools, selection accuracy is dropping | Consolidate overlapping tools, or use `defer_loading` + tool search for the long tail |
+| Rarely used, high-privilege tool sits in the default set for every session | Scope it only to the sessions that need it — it still costs tokens on every request otherwise |
+| An Anthropic-authored tool schema is in play (Bash, text editor) | Still client-side — your infrastructure executes it, not Anthropic's |
+| Web search / web fetch / code execution is in play | Server-side — Anthropic's infrastructure executes it; no `tool_result` needed from you |
+| Action is destructive or irreversible (delete, transfer, void) | Explicit human confirmation gate, separate from routine approvals |
+| Read-only lookup, called constantly | Auto-approve; reserve friction for actions that matter |
+| Credentials or endpoint hardcoded into the tool's schema/description | Wrong — pull from a secret manager and per-environment config, not text the model reads |
+| Team wants agents to move to MCP "to save context tokens" | Doesn't work that way — MCP tool definitions are still declared to the model and still cost tokens per request |
+
+## Code example: a well-written tool schema
+
+The description does the selection work: what the tool does, when to use it, when not to, and what the parameters mean — not just their types.
+
+```python
+tools = [{
+    "name": "lookup_order_status",
+    "description": (
+        "Look up the current fulfillment status of a single customer order by its "
+        "order ID. Use this for questions about where an order is or whether it has "
+        "shipped. Do NOT use this for return or refund status — use "
+        "lookup_return_status for that instead. Returns the order's current stage "
+        "(placed, packed, shipped, delivered), the carrier, and the tracking number "
+        "if one exists."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "order_id": {
+                "type": "string",
+                "description": "The order ID in ORD-XXXXXX format, not the customer ID.",
+            }
+        },
+        "required": ["order_id"],
+    },
+}]
+```
+
+```typescript
+const tools = [{
+  name: "lookup_order_status",
+  description:
+    "Look up the current fulfillment status of a single customer order by its " +
+    "order ID. Use this for questions about where an order is or whether it has " +
+    "shipped. Do NOT use this for return or refund status — use " +
+    "lookup_return_status for that instead. Returns the order's current stage " +
+    "(placed, packed, shipped, delivered), the carrier, and the tracking number " +
+    "if one exists.",
+  input_schema: {
+    type: "object",
+    properties: {
+      order_id: {
+        type: "string",
+        description: "The order ID in ORD-XXXXXX format, not the customer ID.",
+      },
+    },
+    required: ["order_id"],
+  },
+}];
+```
+
+The harness dispatches the call and reports failure as data, not an exception:
+
+```python
+def dispatch_tool_call(tool_use):
+    try:
+        result = lookup_order_status(tool_use.input["order_id"])
+        return {"type": "tool_result", "tool_use_id": tool_use.id, "content": str(result)}
+    except OrderNotFound:
+        return {"type": "tool_result", "tool_use_id": tool_use.id, "is_error": True,
+                "content": "order_id not found; expected format ORD-XXXXXX"}
+```
+
+## Named traps, expanded
+
+**Return errors as `tool_result` with `is_error`; do not throw.** An uncaught exception is invisible to the model — it just sees the turn end. A `tool_result` with `is_error: true` and a specific message is data the model can reason over: retry with a corrected input, tell the user what went wrong, or try a different tool. The fix is almost always to write a better message, not a cleverer retry loop — "missing required 'location' parameter" lets the model correct itself in one turn.
+
+**Every tool definition costs tokens on every request and adds selection ambiguity.** This is a standing tax, not a one-time cost: a tool nobody uses this turn is still fully described in the request that turn, and a bigger set means more candidates the model has to distinguish between. The fix is subtractive — consolidate overlapping tools, tighten descriptions, and scope rarely needed or high-privilege tools out of the default set — rather than additive fixes like longer descriptions or a stronger model, which raise cost without shrinking the set.
+
+## Recall checks
+
+1. A tool call fails because a downstream API times out. Write the shape of the `tool_result` you'd return, and explain why it isn't a thrown exception.
+2. Anthropic wrote the schema for the Bash tool. Is it a client tool or a server tool, and why does that not follow from who wrote the schema?
+3. A team wants to reduce token cost per request by moving ten rarely-used tools onto an MCP server instead of defining them locally. Does this reduce the per-request token cost? Why or why not?
+4. What's the difference between a tool description that merely documents a schema and one written with prompt-engineering care, in terms of what it tells the model to do and not do?
+5. Give an example of a tool call that should auto-approve and one that should require explicit human confirmation, and name the property that separates them.

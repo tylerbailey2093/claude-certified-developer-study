@@ -1,0 +1,141 @@
+---
+id: "agent-architecture"
+domain: 1
+domainName: "Agents and Workflows"
+name: "Agent Architecture"
+weight: 4.5
+tier: 2
+hot: false
+scope:
+  - "workflow vs agent decision criteria"
+  - "manager/supervisor hierarchies"
+  - "role of subagents in task execution"
+traps:
+  - "subagents exist primarily for CONTEXT ISOLATION, not parallelism"
+  - "default to the simplest thing; distractors offer elegant multi-agent designs where a prompt chain is correct"
+sources:
+  - label: "Building effective agents"
+    url: "https://www.anthropic.com/engineering/building-effective-agents"
+  - label: "Effective context engineering for AI agents"
+    url: "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+authored: true
+---
+
+#### What this objective actually tests
+
+This objective is less about naming the five workflow patterns and more about refusing the elegant answer. Exam stems describe a business scenario and expect you to pick the *cheapest* architecture that satisfies it — usually a workflow, occasionally an agent, rarely a multi-agent hierarchy. It also tests whether you understand subagents as a context-management tool rather than a speed trick, since that inversion is explicitly called out in Anthropic's own guidance and is a named trap here.
+
+#### Mechanism
+
+Anthropic draws a specific line between the two terms it uses for this domain. A **workflow** is a system where "LLMs and tools are orchestrated through predefined code paths" — you, the developer, wrote the control flow. An **agent** is a system where "LLMs dynamically direct their own processes and tool usage, maintaining control over how they accomplish tasks" — the model decides what happens next, turn by turn.
+
+| Pattern | Mechanism | Use when |
+|---|---|---|
+| Prompt chaining | Fixed sequence of LLM calls, each consuming the prior output | The task decomposes cleanly into fixed subtasks known in advance |
+| Routing | A classification step dispatches the input to one of several specialized downstream prompts | Inputs fall into distinct categories that genuinely need different handling |
+| Parallelization | Sectioning (independent subtasks run concurrently) or voting (the same task run several times for a confidence signal) | Subtasks are independent enough to parallelize for speed, or diverse sampling improves reliability |
+| Orchestrator-workers | A central LLM call breaks the task into subtasks at runtime and dispatches them to worker calls | The subtasks can't be predicted ahead of time; only the orchestrator can decide them mid-run |
+| Evaluator-optimizer | One call generates, a second call critiques against explicit criteria, looped until it passes | Clear evaluation criteria exist and iterative refinement measurably improves the output |
+
+> **The decision rule.** Choose a workflow when the steps and their order are knowable in advance. Choose an agent only when the number and order of steps genuinely cannot be predicted — open-ended problems where the model must adapt based on what it finds along the way. Anthropic's explicit guidance is to find the simplest solution and add complexity only when it demonstrably improves outcomes, which sometimes means not building an agentic system at all. On the exam, distractors routinely offer an elegant multi-agent design for a scenario whose steps are fixed and identical every run — that scenario wants a prompt chain, full stop.
+
+#### Manager/supervisor hierarchies
+
+In a manager (or orchestrator/supervisor) hierarchy, one call holds the overall goal, decomposes it, delegates pieces to specialist workers or subagents, and synthesizes their results back into a single answer. This buys specialization and, when subtasks are independent, wall-clock speed. It also has a cost curve the exam expects you to know: every hop between manager and worker adds tokens and latency, and errors made by a worker propagate upward and compound across layers rather than canceling out. A hierarchy is not free scaffolding — it is justified only when a single call, or a fixed chain, can't hold the whole task.
+
+#### Why subagents exist
+
+> **Context isolation, primarily.** Each subagent gets its own context window. A subagent that runs ten searches and accumulates tens of thousands of tokens of raw results keeps that noise to itself; only a condensed summary (Anthropic's own figure is roughly 1,000–2,000 tokens) returns to the parent. This is a direct description from Anthropic's context-engineering guidance: sub-agents let "the detailed search context remain isolated," while the lead agent focuses on synthesis. **Parallelism is a secondary, situational benefit** — it applies only when subagents run independently and concurrently, which is not guaranteed by the architecture itself. If an exam option frames parallel execution as the primary reason to reach for a subagent, treat that as the distractor.
+
+#### Decision table
+
+| When the stem says… | …the answer is |
+|---|---|
+| Steps are fixed, identical, or fully known before the run starts | A workflow (prompt chaining, or routing if categories differ) — not an agent, not a hierarchy |
+| A subagent is justified because it's "faster" or "runs in parallel" | Wrong primary reason — the correct justification is context isolation; parallelism is secondary |
+| The number or order of steps genuinely can't be predicted up front | An agent, not a workflow |
+| Distinct input categories need materially different handling | Routing |
+| A central model decides subtasks at runtime and dispatches them | Orchestrator-workers |
+| There are clear pass/fail criteria and refinement measurably helps | Evaluator-optimizer |
+| The same task is run several times to raise confidence in the result | Parallelization — voting variant |
+| An "elegant" multi-agent design is offered where the task is a fixed sequence | Reject it — the simplest fit (usually a prompt chain) is correct |
+
+#### Code sketch: orchestrator-workers
+
+The shape that matters for the exam: one call decides the subtask list at runtime; it is not hardcoded.
+
+```python
+def orchestrator_workers(task: str, client) -> str:
+    # 1. Orchestrator call decides the subtasks AT RUNTIME -- this is
+    #    the defining trait vs. a hardcoded prompt chain.
+    plan = client.messages.create(
+        model="claude-sonnet-4-5",
+        system="Break the task into an ordered list of worker subtasks.",
+        messages=[{"role": "user", "content": task}],
+    )
+    subtasks = parse_subtasks(plan)  # app-defined parsing
+
+    # 2. Each worker call gets an isolated context -- no shared history.
+    results = [
+        client.messages.create(
+            model="claude-sonnet-4-5",
+            system=f"Complete this subtask only: {st}",
+            messages=[{"role": "user", "content": task}],
+        )
+        for st in subtasks
+    ]
+
+    # 3. Orchestrator synthesizes -- only the distilled results return.
+    synthesis = client.messages.create(
+        model="claude-sonnet-4-5",
+        system="Synthesize these worker outputs into one final answer.",
+        messages=[{"role": "user", "content": summarize(results)}],
+    )
+    return synthesis.content[0].text
+```
+
+```typescript
+async function orchestratorWorkers(task: string, client: Anthropic): Promise<string> {
+  // 1. Orchestrator call decides the subtasks AT RUNTIME -- this is
+  //    the defining trait vs. a hardcoded prompt chain.
+  const plan = await client.messages.create({
+    model: "claude-sonnet-4-5",
+    system: "Break the task into an ordered list of worker subtasks.",
+    messages: [{ role: "user", content: task }],
+  });
+  const subtasks = parseSubtasks(plan); // app-defined parsing
+
+  // 2. Each worker call gets an isolated context -- no shared history.
+  const results = await Promise.all(
+    subtasks.map((st) =>
+      client.messages.create({
+        model: "claude-sonnet-4-5",
+        system: `Complete this subtask only: ${st}`,
+        messages: [{ role: "user", content: task }],
+      })
+    )
+  );
+
+  // 3. Orchestrator synthesizes -- only the distilled results return.
+  const synthesis = await client.messages.create({
+    model: "claude-sonnet-4-5",
+    system: "Synthesize these worker outputs into one final answer.",
+    messages: [{ role: "user", content: summarize(results) }],
+  });
+  return synthesis.content[0].text;
+}
+```
+
+#### Traps, expanded
+
+**Subagents exist primarily for context isolation, not parallelism.** This inverts the intuitive answer. It's tempting to reach for "subagents make things faster" because concurrent execution is the visible, demoable benefit. But the architectural reason to isolate a subtask into its own subagent is that its intermediate work — raw search results, tool output, scratch reasoning — would otherwise pollute the parent's context window and degrade its later decisions. Parallel execution is a bonus you get only when subtasks are independent; many subagent calls are still sequential.
+
+**Default to the simplest thing.** Exam distractors are written to be defensible: a manager delegating to three specialists, or an evaluator-optimizer loop, will look thoughtful and thorough next to "just chain three prompts." The tell is in the stem — if the steps are described as fixed, identical across runs, or fully specifiable in advance, any architecture more elaborate than a prompt chain (or routing, if categories genuinely differ) is over-engineering, and over-engineering is always wrong on this exam even when it would technically work.
+
+#### Recall checks
+
+- A scenario has identical steps every time it runs. Why is an agent the wrong choice even though it could complete the task?
+- Name the primary reason to split a research task into a subagent. Name the secondary reason. Which one does a distractor usually claim is primary?
+- What single design decision separates orchestrator-workers from a hardcoded prompt chain?
+- A hierarchy adds a manager and three specialist subagents. What two costs does this incur that a single call does not?
+- Distinguish routing from evaluator-optimizer using only the criterion each one depends on.

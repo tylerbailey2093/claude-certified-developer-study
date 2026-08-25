@@ -1,0 +1,28 @@
+{
+  "name": "ccdv-f-study",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "coverage": "node scripts/check_coverage.mjs",
+    "originality": "python3 scripts/check_originality.py src/data/questions/all.json --root .",
+    "verify": "npm run check && npm run coverage && npm run originality",
+    "merge-questions": "node scripts/merge_new_questions.mjs"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@astrojs/mdx": "^4.0.0",
+    "@astrojs/react": "^4.1.0",
+    "astro": "^5.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.7.2"
+  }
+}

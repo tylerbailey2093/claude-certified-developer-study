@@ -1,0 +1,132 @@
+---
+id: "context-engineering"
+domain: 6
+domainName: "Prompt and Context Engineering"
+name: "Context Engineering"
+weight: 3.8
+tier: 2
+hot: false
+scope:
+  - "context window management"
+  - "preventing context drift"
+  - "preventing bloat via tool output pruning and compaction"
+  - "context isolation through subagents or multi-step workflows"
+traps:
+  - "tool output pruning is usually the largest single source of bloat"
+  - "compaction is LOSSY - what survives is a design decision"
+sources:
+  - label: "Context engineering"
+    url: "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+  - label: "Context windows"
+    url: "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+authored: true
+---
+
+## What this objective actually tests
+
+This objective tests whether you can diagnose *why* an agent's context degraded and pick the fix that matches the failure mode — not recite what a context window is (Domain 5). Context is a curated, finite resource across a multi-step agentic workflow, and a fix aimed at the wrong failure mode doesn't work: summarizing history doesn't repair contradictory instructions, and restating a rule doesn't shrink a 40K-token tool dump.
+
+## Mechanism
+
+### Context as a finite, curated resource
+
+Every token draws on the same finite attention budget; recall quality degrades as the window fills — a gradient, not a cliff, sometimes called context rot. The design question is "what's the marginal value of this token," across system prompt, tool definitions, retrieved content, history, and reserved output space, which all compete for the same budget.
+
+### Drift vs. bloat — distinct failure modes, distinct fixes
+
+**Drift** is behavior degrading as originally clear instructions get diluted, restated inconsistently, or contradicted by later turns — an agent that honored a rule at turn 3 quietly stops by turn 40, not because the rule left the window but because newer content crowds it out. Fix with **session hygiene**: durable rules in the stable system layer rather than repeated ad hoc in user turns, key constraints restated at decision points, and a fresh session at natural task boundaries rather than one indefinitely long run.
+
+**Bloat** is the window filling with low-value tokens — verbose tool output, redundant history — with nothing actually contradictory. Three named fixes:
+
+- **Tool output pruning** — filter, summarize, or clear verbose results before or after they're used. Usually the single largest source of bloat in agentic systems; a 40K-token API response reduced to a 200-token extract is typical.
+- **Compaction** — summarize older turns and replace them so a long session stays within budget. It is **lossy**: over-aggressive compaction discards subtle but critical context, so recall comes first (keep anything that might matter), precision second (trim what's confirmed superfluous). What survives — usually decisions and outcomes, not transcript detail — is a design decision, not automatic.
+- **Context isolation via subagents** — push exploratory or high-volume work into a subagent with its own clean window; only a condensed result (roughly 1,000–2,000 tokens) returns. The parent never sees the raw exploration — stronger than pruning after the fact.
+
+### Right altitude for system prompts
+
+Effective system prompts sit between brittle, exhaustively enumerated if-else logic and vague guidance with no concrete signal. The right altitude gives strong heuristics and concrete output signal while leaving room for judgment on unforeseen cases — the same instruction-design principle Claude Application Design applies generally, here at the system-prompt layer of an agentic loop.
+
+## Decision table
+
+| When the stem says... | ...the answer is |
+|---|---|
+| Behavior contradicts an instruction followed 30 turns earlier | Drift — session hygiene: durable rules in system, restated at decision points, or a fresh session |
+| A tool call returns a huge payload, only a sliver relevant | Bloat — prune the tool output first; usually the largest source of bloat |
+| A long session nears the context limit and must continue | Compaction — summarize and replace older turns; lossy, so what survives is a design decision |
+| "We compacted and now it's forgotten details it needs" | Expected cost of over-aggressive compaction — recall before precision |
+| Broad exploratory search would flood the parent's context | Context isolation — delegate to a subagent; only the condensed result returns |
+| A system prompt is a long chain of nested if/else for every case | Wrong altitude — too brittle |
+| A system prompt is one vague sentence ("be helpful and careful") | Wrong altitude — too vague, add concrete signal |
+
+## Code examples
+
+Both delegate a broad tool-calling chain to an isolated subagent so raw tool output never enters the parent's context, and prune verbose results before they do.
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic()
+
+def run_subagent_search(query: str) -> str:
+    """Isolated context: the subagent's tool loop and raw results live
+    entirely in this call. Only the returned string reaches the caller."""
+    msg = client.messages.create(
+        model="claude-opus-5",
+        max_tokens=300,
+        system=("You are a research subagent. Use the search tool as needed, "
+                 "then return a condensed summary under 200 words — findings "
+                 "and sources only, no raw tool output."),
+        tools=[SEARCH_TOOL],
+        messages=[{"role": "user", "content": query}],
+    )
+    return "".join(b.text for b in msg.content if b.type == "text")
+
+def prune_tool_result(raw: dict, keep_fields: list[str], max_chars: int = 500) -> str:
+    """Shrink a verbose API payload to the fields actually needed."""
+    text = str({k: raw.get(k) for k in keep_fields})
+    return text if len(text) <= max_chars else text[:max_chars] + "...[pruned]"
+
+summary = run_subagent_search("recent rate-limit changes for the Batch API")
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+async function runSubagentSearch(query: string): Promise<string> {
+  // Isolated context: tool loop and raw results never leave this call.
+  const msg = await client.messages.create({
+    model: "claude-opus-5",
+    max_tokens: 300,
+    system: "You are a research subagent. Use the search tool as needed, " +
+      "then return a condensed summary under 200 words — findings and " +
+      "sources only, no raw tool output.",
+    tools: [SEARCH_TOOL],
+    messages: [{ role: "user", content: query }],
+  });
+  return msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text).join("");
+}
+
+function pruneToolResult(raw: Record<string, unknown>, keepFields: string[], maxChars = 500): string {
+  const text = JSON.stringify(Object.fromEntries(keepFields.map((k) => [k, raw[k]])));
+  return text.length <= maxChars ? text : text.slice(0, maxChars) + "...[pruned]";
+}
+
+const summary = await runSubagentSearch("recent rate-limit changes for the Batch API");
+```
+
+## Named traps, expanded
+
+**"Tool output pruning is usually the largest single source of bloat."** Easy to underrate because compaction sounds like the more sophisticated fix while pruning sounds like minor cleanup. In practice one verbose tool call — a full API response, an unfiltered search result set — routinely dwarfs everything else in the window combined. Recognize this whenever a stem describes ballooning context in a tool-calling agent: check the tool output before reaching for compaction or a bigger model.
+
+**"Compaction is lossy — what survives is a design decision."** Attractive because compaction sounds automatic: summarize, replace, move on. Wrong because summarization discards detail, and if the discarded piece mattered — a constraint mentioned once — the session degrades in a way that's hard to trace back to "we compacted." Recognize this whenever a stem treats compaction as free or asks what should survive it: the application decides, compaction doesn't preserve relevance on its own.
+
+## Recall checks
+
+- An agent ignores a constraint at turn 40 that it applied at turn 3. Drift or bloat, and what's the fix?
+- A tool call returns 40,000 tokens and the agent needed 200. Name the most effective mitigation and why it beats a larger context window.
+- What should be prioritized first when compacting — recall or precision — and why?
+- Why does subagent delegation give a stronger isolation guarantee than pruning results after they've already entered the parent's context?
+- What does "right altitude" mean for a system prompt, and what do both failure extremes look like?

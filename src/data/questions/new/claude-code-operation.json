@@ -1,0 +1,32 @@
+[
+  {
+    "id": "new-claude-code-operation-01",
+    "d": 3,
+    "s": "Claude Code Operation",
+    "q": "A team wants every change touching src/payments/ to run a compliance script before a commit can happen, with no path for the agent to skip the step even if it judges the script unnecessary. Where should this rule live?",
+    "o": [
+      "A .claude/rules/payments.md file scoped to that path with paths frontmatter",
+      "A PreToolUse hook in settings.json that matches the commit command and runs the script first",
+      "A Skill named payments-compliance with a description telling Claude when to run it",
+      "A line in the project CLAUDE.md stating the compliance script must always run first"
+    ],
+    "a": 1,
+    "e": "A hook bound to a lifecycle event like PreToolUse is the only mechanism here that is code, not context — it runs regardless of what Claude decides. A path-scoped rule and a CLAUDE.md instruction are both context Claude reads and can deviate from under ambiguity; a Skill is discretionary and triggers on a description match, not on every matching commit. Any stem requiring a step with no possible skip is describing a hook.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-claude-code-operation-02",
+    "d": 3,
+    "s": "Claude Code Operation",
+    "q": "An engineer wants Claude Code to work through a long backlog of small refactors overnight with far fewer approval prompts, but still wants any command that reaches outside the repository or resembles a prompt-injection attempt blocked automatically rather than approved. Which permission mode fits both requirements?",
+    "o": [
+      "bypassPermissions, since it removes prompting entirely for the overnight run",
+      "acceptEdits, since file writes and common filesystem commands stop requiring approval",
+      "auto, since a classifier model reviews actions and still blocks scope escalation and injection",
+      "dontAsk, since it denies anything outside the existing allow rules without prompting"
+    ],
+    "a": 2,
+    "e": "auto hands most approval decisions to a separate classifier that still screens for scope escalation, untrusted infrastructure, and prompt injection, which is exactly the combination the stem asks for. bypassPermissions skips checks entirely, which drops the safety requirement. acceptEdits only auto-approves writes and common filesystem commands, leaving other shell and network activity still gated, and adds no injection screening of its own. dontAsk denies anything not already allow-listed instead of approving more of the backlog, so it doesn't reduce prompts the way the stem wants.",
+    "pattern": "buried-constraint"
+  }
+]

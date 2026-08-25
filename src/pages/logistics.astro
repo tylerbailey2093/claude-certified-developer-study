@@ -1,0 +1,44 @@
+---
+import Base from '../layouts/Base.astro';
+import fragments from '../data/static-fragments.json';
+import { CK } from '../data/checklist.js';
+
+const checklist = CK as [title: string, items: string[]][];
+---
+<Base title="Logistics, Prep Plan & Readiness">
+  <div set:html={fragments.logisticsPlan} />
+
+  <section id="ready">
+    <div class="sechead"><span class="big">✓</span><div><h2>Readiness check</h2>
+      <p class="lede">Book it when you can do all of these without notes. Checks persist to this browser.</p></div></div>
+    <div id="ckout" class="checklist">
+      {checklist.map(([title, items], gi) => (
+        <div class="ck-group">
+          <h4>{title}</h4>
+          {items.map((item: string, ii: number) => {
+            const id = `ck-${gi}-${ii}`;
+            return (
+              <label class="ck-item" data-ckid={id}>
+                <input type="checkbox" class="ck-box" data-ckid={id} />
+                <span set:html={item} />
+              </label>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <div set:html={fragments.readyResourcesFooter} />
+
+  <script>
+    import { Store } from '../lib/store';
+    const boxes = document.querySelectorAll<HTMLInputElement>('.ck-box');
+    const saved = Store.getChecklist();
+    boxes.forEach((b) => {
+      const id = b.dataset.ckid!;
+      b.checked = !!saved[id];
+      b.addEventListener('change', () => Store.setChecklistItem(id, b.checked));
+    });
+  </script>
+</Base>

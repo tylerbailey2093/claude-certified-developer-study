@@ -1,0 +1,150 @@
+---
+id: "agent-patterns-and-frameworks"
+domain: 1
+domainName: "Agents and Workflows"
+name: "Agent Patterns and Frameworks"
+weight: 4.9
+tier: 2
+hot: false
+scope:
+  - "tool-use loops"
+  - "sub-agents"
+  - "memory"
+  - "context-window management"
+  - "Strands"
+  - "LangGraph"
+  - "PydanticAI"
+traps:
+  - "unbounded loops are a harness design failure, not a model failure"
+  - "the API is stateless; long-term memory is application-designed"
+sources:
+  - label: "Context engineering"
+    url: "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+  - label: "Building effective agents"
+    url: "https://www.anthropic.com/engineering/building-effective-agents"
+authored: true
+---
+
+#### What this objective actually tests
+
+This objective tests the mechanics that make an agent loop *survivable* in production, not the pattern-selection judgment covered in Agent Architecture. Expect stems about a loop that won't terminate, memory that should have persisted and didn't, or a scenario naming a specific third-party framework by its real shape. It deliberately stops short of context-window mechanics at the token level — token budgeting and prompt-level context hygiene are scored under the separate Context Engineering objective, not here.
+
+#### Mechanism
+
+**The tool-use loop.** On each turn the harness sends the model the conversation plus a set of tool definitions; the model either returns text or a tool-call request; if it's a tool call, the harness — never the model — executes it and appends the result to the conversation; the loop repeats until the model stops requesting tools or a harness-defined limit is hit. That limit is the load-bearing detail: an agent that repeats the same call for hours is not a model failure to be fixed by a better model or a lower temperature, it is a harness that never bounded the loop. The standard bounds are a maximum iteration count, a wall-clock timeout, and a token budget, enforced in code around the loop.
+
+**Memory.** The Claude API is stateless: every request is evaluated fresh against whatever you send it, with no server-side recollection of previous calls. Short-term memory is just the conversation history you resend each turn. Long-term memory — anything that must survive past the current context window or across sessions — is something the application designs and manages, not a model capability. Anthropic's context-engineering guidance names a concrete pattern for this: structured note-taking, where the agent writes progress, decisions, and dependencies to a persistent store outside the context window and reads them back later, giving it continuity "with minimal overhead" without keeping everything in-context.
+
+**Context-window management, at the pattern level.** Long-running agents accumulate tool results relentlessly, and Anthropic's guidance names the levers used to keep a run inside its window without losing what matters:
+
+| Lever | What it does |
+|---|---|
+| Compaction | Summarize the conversation near the context limit and reinitiate a new window with the summary; the risk is over-aggressive summarization dropping a subtle but load-bearing detail |
+| Tool-result clearing | The lightest-touch form of compaction — drop stale raw tool outputs from history once the agent no longer needs to re-see them |
+| Structured memory / notes | Persist progress and decisions outside the window so continuity doesn't depend on keeping everything in-context |
+| Subagent isolation | Push a subtask's raw exploration into a subagent's own window so only its distilled summary re-enters the parent's context |
+
+These are patterns for deciding *what to do* when a run gets long. The token-level mechanics of context engineering — what to put in a system prompt, how caching works, prompt structure — belong to the Context Engineering objective, not this one.
+
+#### Agentic frameworks
+
+| Framework | Maintainer | Shape | Fits when |
+|---|---|---|---|
+| LangGraph | LangChain | Low-level graph orchestration — explicit nodes and edges, cycles, conditional branching, persisted state | You need durable execution, human-in-the-loop steps, and fine control mixing deterministic code with agentic steps in one graph |
+| PydanticAI | Pydantic (the validation library's team) | Python-native agent framework built on Pydantic models for typed, validated structured output and typed tools | You want compile-time-checkable structured output and FastAPI-like ergonomics over raw string parsing |
+| Strands Agents | AWS, open source | Model-driven SDK — minimal scaffolding around model, prompt, and tools; the SDK runs the reasoning loop itself | You want a thin, model-agnostic loop (Bedrock, Anthropic, others) with built-in multi-agent patterns and MCP support, not a bespoke graph |
+
+All three sit on top of the same underlying loop described above — they buy scaffolding (state management, retries, typed I/O, multi-agent primitives) at the cost of a layer of abstraction between your team and the model's actual failures. The generally correct exam framing: start with direct API calls; adopt a framework once the scaffolding it buys clearly earns its keep for the problem at hand.
+
+#### Decision table
+
+| When the stem says… | …the answer is |
+|---|---|
+| An agent loops indefinitely or repeats the same call for hours | Bound the loop in the harness (max iterations, timeout, token budget) — not a smarter model, not a lower temperature |
+| Information from a session that already ended must be recalled | An external store the application reads/writes — the API itself retains nothing between calls |
+| A conversation is approaching the context-window limit mid-run | Compaction (summarize, reinitiate) or tool-result clearing — not simply raising `max_tokens` |
+| Output must validate against a typed schema in Python with minimal boilerplate | PydanticAI |
+| The scenario needs an explicit, controllable graph of steps mixing code and model calls | LangGraph |
+| The scenario wants a thin, model-agnostic loop with little custom scaffolding | Strands Agents |
+
+#### Code sketch: a bounded tool-use loop
+
+The bound is the point — this is what a harness owes every agent regardless of framework.
+
+```python
+def run_agent(client, messages, tools, max_iterations=10, timeout_s=60):
+    start = time.monotonic()
+    for _ in range(max_iterations):
+        if time.monotonic() - start > timeout_s:
+            raise TimeoutError("agent loop exceeded wall-clock budget")
+
+        resp = client.messages.create(
+            model="claude-sonnet-4-5",
+            messages=messages,
+            tools=tools,
+            max_tokens=1024,
+        )
+        if resp.stop_reason != "tool_use":
+            return resp  # model is done; no more tool calls requested
+
+        # The HARNESS executes the tool -- the model never does.
+        tool_call = next(b for b in resp.content if b.type == "tool_use")
+        result = execute_tool(tool_call.name, tool_call.input)
+        messages.append({"role": "assistant", "content": resp.content})
+        messages.append({
+            "role": "user",
+            "content": [{"type": "tool_result", "tool_use_id": tool_call.id, "content": result}],
+        })
+    raise RuntimeError("agent loop exceeded max_iterations")
+```
+
+```typescript
+async function runAgent(
+  client: Anthropic,
+  messages: MessageParam[],
+  tools: Tool[],
+  maxIterations = 10,
+  timeoutMs = 60_000
+) {
+  const start = Date.now();
+  for (let i = 0; i < maxIterations; i++) {
+    if (Date.now() - start > timeoutMs) {
+      throw new Error("agent loop exceeded wall-clock budget");
+    }
+
+    const resp = await client.messages.create({
+      model: "claude-sonnet-4-5",
+      messages,
+      tools,
+      max_tokens: 1024,
+    });
+    if (resp.stop_reason !== "tool_use") {
+      return resp; // model is done; no more tool calls requested
+    }
+
+    // The HARNESS executes the tool -- the model never does.
+    const toolCall = resp.content.find((b) => b.type === "tool_use")!;
+    const result = await executeTool(toolCall.name, toolCall.input);
+    messages.push({ role: "assistant", content: resp.content });
+    messages.push({
+      role: "user",
+      content: [{ type: "tool_result", tool_use_id: toolCall.id, content: result }],
+    });
+  }
+  throw new Error("agent loop exceeded maxIterations");
+}
+```
+
+#### Traps, expanded
+
+**Unbounded loops are a harness design failure, not a model failure.** It's tempting to treat a stuck agent as a reasoning problem — try a more capable model, adjust the prompt, lower the temperature for more deterministic behavior. None of these fix the actual defect, which is that nothing in the code ever told the loop to stop. A better model reduces how often this happens; it does not eliminate the need for explicit bounds, and an exam option that proposes a model or prompt fix for a termination problem is the distractor.
+
+**The API is stateless; long-term memory is application-designed.** Every Claude API call is independent — there is no session on the server that remembers yesterday's conversation. It's easy to reach for "a longer context window" or "prompt caching" as the fix for cross-session recall, but a bigger window still only holds what you send it this call, and prompt caching is a short-TTL cost/latency optimization, not persistent storage. The only mechanism that actually survives across sessions is an external store the application writes to and reads from on purpose.
+
+#### Recall checks
+
+- An agent has been calling the same tool in a loop for twenty minutes. What is the correct fix, and what are two incorrect fixes the exam is likely to offer?
+- Explain in one sentence why "the model remembers the last session" is never the correct mechanism for cross-session recall.
+- Name the four levers for keeping a long agent run inside its context window.
+- A team wants typed, validated structured output in Python with minimal custom parsing. Which named framework fits, and why do the other two fit less well?
+- What does a framework buy you, and what does it cost you, in Anthropic's own framing?

@@ -1,0 +1,32 @@
+[
+  {
+    "id": "new-claude-api-mechanics-01",
+    "d": 2,
+    "s": "Claude API Mechanics",
+    "q": "A support bot caches a large product-docs system prompt behind one breakpoint and holds a strong cache-read rate for weeks. During a routine release, an engineer unconditionally appends one new tool definition to the request's tool list, gated behind a feature flag that only 5% of traffic can trigger, while the system prompt and message-building code are left untouched. Cache-read tokens then drop to zero on every request, including the 95% that never touch the new tool. What explains the drop?",
+    "o": [
+      "The feature flag itself disables caching for flagged requests regardless of payload content",
+      "The cache prefix is rendered as tools, then system, then messages, so any change to the tools array invalidates the cached system and message segments too, not just the tools segment",
+      "Adding a tool definition pushes the request past the maximum of four cache breakpoints, so the write silently fails",
+      "Tool definitions are excluded from the cacheable prefix entirely, so introducing one always forces a full-price request"
+    ],
+    "a": 1,
+    "e": "Correct: the cache is a strict prefix match rendered in the fixed order tools -> system -> messages, and a change at any level invalidates that level plus everything downstream, so an edited tools array busts the system and message caches even though those literal blocks never changed. Option A fails because feature flags are a runtime branch, not a caching input -- the tool entry itself is present in the payload for all 100% of requests regardless of who exercises it. Option C fails because this scenario uses a single breakpoint, well under the limit of four, so the breakpoint cap is not in play. Option D fails because it reverses the real rule: tools sit at the very front of the cacheable hierarchy, not outside it.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-claude-api-mechanics-02",
+    "d": 2,
+    "s": "Claude API Mechanics",
+    "q": "A data team submits 40,000 documents to the Message Batches API for classification, expecting the batch to finish well inside their six-hour reporting window. To save engineering time, they write the results-processing code to zip the downloaded results directly against the original 40,000-item input list by array position, and they build no handling for a batch that doesn't fully complete. Which two of the following are real risks in this design? (Select two.)",
+    "o": [
+      "Results can return in a different order than requests were submitted, so a positional zip can silently pair a result with the wrong input document",
+      "A batch that hasn't finished processing within 24 hours expires, losing whatever requests are still unfinished, so a design with no fallback for that case can silently lose data",
+      "The Batches API only applies its cost discount to requests that finish within the first hour, so slower requests are billed at full synchronous price",
+      "A single batch submission is capped at 1,000 requests, so the 40,000-document submission would be rejected outright"
+    ],
+    "a": [0, 1],
+    "e": "Correct (both): batch requests are processed independently and concurrently, so completion order carries no relationship to submission order -- only a custom_id join is safe, making a positional zip a real data-integrity bug; separately, a batch that has not finished within 24 hours expires and drops unfinished requests, so skipping fallback handling for that case risks silent data loss even though most batches finish in under an hour. Option C fails because the batch discount is a flat percentage off standard pricing applied to all usage in the batch, not a time-boxed promotion tied to how fast a given request completes. Option D fails because the per-batch request ceiling is far larger than 1,000 -- the number is fabricated and would not cause 40,000 documents to be rejected at submission.",
+    "pattern": "buried-constraint"
+  }
+]

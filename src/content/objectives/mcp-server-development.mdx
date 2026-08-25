@@ -1,0 +1,128 @@
+---
+id: "mcp-server-development"
+domain: 8
+domainName: "Tools and MCPs"
+name: "MCP Server Development"
+weight: 2.1
+tier: 3
+hot: false
+scope:
+  - "server authoring"
+  - "deployment"
+  - "integration with Claude applications"
+  - "resources, tools, prompts"
+  - "communication patterns: stdio, sockets, client vs server"
+traps:
+  - "tools are MODEL-controlled, resources are APPLICATION-controlled, prompts are USER-controlled"
+  - "command to run = stdio; URL = Streamable HTTP; HTTP+SSE is deprecated"
+sources:
+  - label: "MCP spec"
+    url: "https://modelcontextprotocol.io"
+  - label: "MCP connector"
+    url: "https://platform.claude.com/docs/en/agents-and-tools/mcp-connector"
+authored: true
+---
+
+## What this objective actually tests
+
+MCP is the "build once, connect to many clients" answer whenever a stem needs a capability that's reusable across Claude applications and maintained independently of any one of them. Beyond that headline pattern, this objective tests two finer distinctions that carry most of its item weight: which party controls invocation of each of the three primitives, and which transport fits a given deployment shape (local subprocess vs. networked service).
+
+## Mechanism
+
+**The three primitives, and who controls invocation** — this is the single most-tested distinction in this objective:
+
+| Primitive | Controlled by | What it is |
+|---|---|---|
+| **Tools** | The **model** | Actions — the LLM discovers and decides to invoke them based on context |
+| **Resources** | The **application/client** | Read-only data the app pulls into context, like a GET endpoint |
+| **Prompts** | The **user** | Reusable templates, invoked explicitly, never triggered automatically |
+
+The common trap swaps two of these — e.g., calling a resource "model-invoked" because a model can request it, when the client is what actually decides whether and when to fetch it into context.
+
+**Transports** — per the current MCP spec, there are exactly two standard bindings:
+
+- **stdio** — the client launches the server as a **local subprocess** and both sides exchange newline-delimited JSON-RPC over standard input/output. No network involved. This is the default for a server that runs on the developer's own machine.
+- **Streamable HTTP** — the current standard for a **remote/networked server**: each message is an HTTP POST to a single MCP endpoint, with replies as a JSON object or a request-scoped SSE stream. This **superseded** the older HTTP+SSE (two-endpoint) transport, which is legacy — a stem describing a standalone SSE endpoint is describing the deprecated shape, not the current one. [Verified against the MCP spec's transports page, 2026-07-28 revision.]
+
+**Server authoring and deployment**: a server declares its capabilities (`tools`, `resources`, `prompts`) at initialization, responds to `*/list` and `*/call` (or `*/read`, `*/get`) requests, and is versioned and deployed like any other service — packaged, given a stable interface, and integrated into a client's config (a command for stdio, a URL for Streamable HTTP) rather than baked into one specific application.
+
+## Decision table
+
+| When the stem says... | ...the answer is |
+|---|---|
+| "Reusable across several Claude applications, maintained independently" | Build an MCP server — not a hard-coded integration inside one app |
+| The model should decide when to invoke a capability | A **tool** |
+| The client/app should decide when to pull in read-only data | A **resource** |
+| A user explicitly selects a reusable template or workflow | A **prompt** |
+| "Runs on the developer's own machine, spawned by the client, no network" | **stdio** transport |
+| "A URL the client connects to," a remote/hosted server | **Streamable HTTP** |
+| A stem describes a standalone SSE endpoint as "the current standard" | Wrong — that's the deprecated HTTP+SSE transport, superseded by Streamable HTTP |
+
+## Code examples
+
+```python
+# pip install mcp
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("inventory-server")
+
+@mcp.tool()                              # MODEL-controlled: an action
+def check_stock(sku: str) -> int:
+    """Return current stock level for a SKU."""
+    return db.stock(sku)
+
+@mcp.resource("catalog://{category}")    # APP-controlled: read-only data
+def catalog(category: str) -> str:
+    return db.catalog(category)
+
+@mcp.prompt()                            # USER-controlled: a template
+def restock_review(sku: str) -> str:
+    return f"Review restocking needs for {sku}"
+
+if __name__ == "__main__":
+    mcp.run()                            # stdio by default (local, no network)
+    # mcp.run(transport="streamable-http", host="0.0.0.0", port=8000)
+```
+
+```typescript
+// npm install @modelcontextprotocol/sdk
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+
+const server = new McpServer({ name: "inventory-server", version: "1.0.0" });
+
+server.tool(                                     // MODEL-controlled: an action
+  "check_stock",
+  { sku: z.string() },
+  async ({ sku }) => ({ content: [{ type: "text", text: String(await db.stock(sku)) }] }),
+);
+
+server.resource(                                 // APP-controlled: read-only data
+  "catalog",
+  "catalog://{category}",
+  async (uri) => ({ contents: [{ uri: uri.href, text: await db.catalog(uri) }] }),
+);
+
+server.prompt(                                   // USER-controlled: a template
+  "restock_review",
+  { sku: z.string() },
+  ({ sku }) => ({ messages: [{ role: "user", content: { type: "text", text: `Review restocking needs for ${sku}` } }] }),
+);
+
+await server.connect(new StdioServerTransport());  // local subprocess, no network
+```
+
+## Named traps, expanded
+
+**"Tools are MODEL-controlled, resources are APPLICATION-controlled, prompts are USER-controlled."** This is attractive to get backwards because all three primitives are "invoked" in some loose sense, and it's easy to assume the model is in the loop for all of them since it's the thing reasoning about the conversation. It's wrong because the protocol explicitly assigns a different controlling party to each: the model decides tool calls autonomously, the client application decides what resource data to surface, and only the user explicitly triggers a prompt template. Recognize this trap whenever a stem asks "which primitive fits" for a capability and describes who is deciding to use it — that description is naming the primitive.
+
+**"Command to run = stdio; URL = Streamable HTTP; HTTP+SSE is deprecated."** This is attractive because SSE is still a familiar term from older MCP tutorials and blog posts, and a stem can describe a legitimate streaming need without naming the transport directly. It's wrong to pick HTTP+SSE as "the current remote transport" because the spec has moved to a single-endpoint Streamable HTTP design; the two-endpoint SSE transport is the superseded, legacy shape. Recognize this trap whenever a stem's deployment detail is "local machine, spawned by client" (→ stdio) versus "networked/remote, reachable by URL" (→ Streamable HTTP) — and treat any option naming bare "SSE" as the older answer.
+
+## Recall checks
+
+- A server exposes a read-only product catalog the client should pull into context without the model deciding to. Which primitive, and who controls it?
+- A server must run locally with zero network exposure, spawned directly by the client process. Which transport?
+- Why is "HTTP with Server-Sent Events" the wrong choice for "the current standard remote transport"?
+- Which MCP primitive is invoked only by explicit user action, never automatically by the model?
+- A team wants a capability reusable across three separate Claude applications, maintained independently of any of them. What's the architectural answer, and why not a shared internal library instead?

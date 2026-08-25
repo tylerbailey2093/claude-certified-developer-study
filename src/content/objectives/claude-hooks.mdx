@@ -1,0 +1,122 @@
+---
+id: "claude-hooks"
+domain: 7
+domainName: "Security and Safety"
+name: "Claude Hooks"
+weight: 1
+tier: 3
+hot: false
+scope:
+  - "hooks for guardrails and safety controls to prevent destructive actions"
+traps:
+  - "PreToolUse can block; PostToolUse cannot undo"
+  - "EXIT 2 BLOCKS. Exit 1 is a non-blocking error and the action proceeds - guards fail OPEN"
+  - "matchers are case-sensitive regex against the TOOL NAME, not prompt text"
+sources:
+  - label: "Hooks reference"
+    url: "https://code.claude.com/docs/en/hooks"
+authored: true
+---
+
+## What this objective actually tests
+
+The lightest objective by weight, but conceptually load-bearing across the whole exam: whenever a stem says something **must** or **always** happen, the deterministic-control pattern this objective teaches is the reasoning tool that picks the right answer, even in items formally scored under other domains. A prompt instruction is a request the model can be talked out of; a hook is code that runs whether the model "wants" to or not.
+
+## Mechanism
+
+**The event that blocks**: `PreToolUse` runs *before* a tool call executes and is the only hook event that can prevent it. `PostToolUse` runs after the tool has already succeeded — it can report to the model (via stderr) but it **cannot undo or block** an action that already happened. A stem asking "which hook stops a destructive command before it runs" is asking for `PreToolUse`; a stem describing a hook that fires *after* damage occurred is describing `PostToolUse`, which was never in a position to prevent it.
+
+**Exit-code semantics — the single highest-value fact in this objective**: [verified against `code.claude.com/docs/en/hooks`, current as of this writing]
+
+| Exit code | Effect |
+|---|---|
+| `0` | Success — the tool call proceeds through normal permission flow (unless JSON output on stdout carries an explicit `permissionDecision: "deny"`) |
+| `1` | **Non-blocking error** — the tool call **proceeds anyway**. This is the footgun: ordinary Unix convention treats 1 as "failure," but Claude Code does not treat it as a block. A hook that crashes, throws, or exits 1 for any reason **fails open** — it protected nothing. |
+| `2` | **Blocking error** — blocks the tool call immediately, regardless of any JSON output, and stderr is surfaced back to the model as the reason. This is the only reliable "stop it" signal for most hook events. |
+
+The practical consequence: a guard script must be written so that its unhappy paths (malformed input, an unexpected exception, a missing dependency) are caught and mapped to `exit 2`, not left to fall through to a bare crash — a crash typically yields a non-2 exit code, which is a pass-through, not a block.
+
+**Matchers** run against the **tool name** (e.g. `Bash`, `Write`), as a case-sensitive regex — not against the prompt text or the tool's arguments. A hook meant to catch a dangerous shell command still needs its own logic (parsing `tool_input.command`) to inspect *what* the tool call actually contains; the matcher only decides *whether the hook runs at all* for that tool.
+
+## Decision table
+
+| When the stem says... | ...the answer is |
+|---|---|
+| Something **must** or **always** happen before an action proceeds | A hook (deterministic control) — never a system-prompt instruction |
+| A guard script crashed on bad input and the dangerous command still ran | Exit 1 (or an uncaught crash) is non-blocking — the hook failed open, not closed |
+| A team wants to reliably stop a command before it executes | `PreToolUse` with `exit 2` on the blocking path |
+| A hook fires after a destructive command already ran and tries to "undo" it | Wrong event — `PostToolUse` cannot block or undo; only report |
+| A hook's matcher is written against message text like "delete the database" | Wrong target — matchers match the tool name, not prompt content |
+| stderr from a hook needs to explain *why* an action was blocked to the model | `exit 2` — its stderr is what gets surfaced as the block reason |
+
+## Code examples
+
+```python
+#!/usr/bin/env python3
+# .claude/hooks/guard.py — PreToolUse hook, matcher: "Bash"
+import json, re, sys
+
+try:
+    payload = json.load(sys.stdin)                  # hook input arrives as JSON on stdin
+    command = payload.get("tool_input", {}).get("command", "")
+except Exception as e:
+    # Any parse failure must still resolve to a block, not a silent pass-through.
+    print(f"guard.py: could not parse hook input: {e}", file=sys.stderr)
+    sys.exit(2)                                      # fail CLOSED, not open
+
+if re.search(r"(^|\s)rm\s+(-[a-z]*r|--recursive)", command, re.IGNORECASE):
+    print("Recursive rm is blocked by project policy.", file=sys.stderr)
+    sys.exit(2)      # EXIT 2 BLOCKS — stderr returns to Claude as the reason
+
+sys.exit(0)           # exit 0 proceeds. exit 1 would be a NON-BLOCKING error — the footgun.
+```
+
+```typescript
+#!/usr/bin/env -S npx tsx
+// .claude/hooks/guard.ts — PreToolUse hook, matcher: "Bash"
+import { readFileSync } from "node:fs";
+
+interface HookInput { tool_input?: { command?: string } }
+
+let command = "";
+try {
+  const payload: HookInput = JSON.parse(readFileSync(0, "utf-8")); // stdin, fd 0
+  command = payload.tool_input?.command ?? "";
+} catch (e) {
+  process.stderr.write(`guard.ts: could not parse hook input: ${e}\n`);
+  process.exit(2);                                    // fail CLOSED on parse failure
+}
+
+if (/(^|\s)rm\s+(-[a-z]*r|--recursive)/i.test(command)) {
+  process.stderr.write("Recursive rm is blocked by project policy.\n");
+  process.exit(2);   // EXIT 2 BLOCKS — stderr returns to Claude as the reason
+}
+
+process.exit(0);      // exit 0 proceeds. exit 1 would be NON-BLOCKING — fails open.
+```
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/guard.py" }] }
+    ]
+  }
+}
+```
+
+## Named traps, expanded
+
+**PreToolUse can block; PostToolUse cannot undo.** This is attractive to get wrong because both events sit right next to a tool call and "runs after" can read as "still has a chance to intervene." It's wrong because by the time `PostToolUse` fires, the tool has already executed — a destructive command has already run, a file has already been deleted. Recognize this trap whenever a stem describes a hook meant to *prevent* something and places it at the wrong lifecycle point; only `PreToolUse` (and only with `exit 2`) is a preventive control.
+
+**Exit 2 blocks. Exit 1 is a non-blocking error and the action proceeds — guards fail open.** This is the highest-value single fact in the objective precisely because it inverts a reasonable assumption: Unix engineers default to treating exit 1 as "failure, stop." Claude Code does not. A hook script that isn't explicitly written to catch its own failure modes and map them to `exit 2` will, on a crash, silently let the dangerous action through — the opposite of what the team believed they'd deployed. Recognize this trap in any stem where a guard "crashed" or "errored" and the forbidden action happened anyway; the answer is exit-code semantics, not a bug in the matcher or the tool call itself.
+
+**Matchers are case-sensitive regex against the tool name, not prompt text.** This is attractive to get wrong because it's natural to think of a hook as "catching a dangerous request," which sounds like it should inspect what the user or model asked for. It's wrong because the matcher's only job is selecting *which tool calls* trigger the hook at all (`Bash`, `Write`, etc.); inspecting the actual content of that call — a shell command, a file path — is the guard script's own responsibility once it's already running. Recognize this trap whenever a stem's matcher example looks like a sentence or keyword rather than a tool name.
+
+## Recall checks
+
+- A `PreToolUse` guard script throws an unhandled exception on a malformed payload. What exit code does that typically produce, and what happens to the tool call as a result?
+- Why can't a `PostToolUse` hook be used to stop a destructive `rm -rf` from taking effect?
+- Write the one-sentence rule that decides, for any stem, whether "the answer is a hook" versus "the answer is a system-prompt instruction."
+- What does a matcher actually match against — and what has to happen inside the hook script itself to catch a dangerous argument?
+- Why is exit code 1 sometimes called "the footgun" in hook design, and what should a guard script's exception handler exit with instead?

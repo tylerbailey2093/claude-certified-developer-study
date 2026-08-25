@@ -1,0 +1,77 @@
+[
+  {
+    "id": "new-prompt-engineering-01",
+    "d": 6,
+    "s": "Prompt Engineering",
+    "q": "A team's classification prompt embeds the specific customer email being processed directly inside the system parameter, alongside the durable classification rules and category definitions. After moving to production traffic, every request is billed at full input-token price even though the classification rules and category list never change between calls. What is the most likely cause?",
+    "o": [
+      "The rules and categories are too long to benefit from caching regardless of placement",
+      "Per-request content inside the system parameter changes the prefix on every call, which breaks the cache match against the otherwise-stable rules",
+      "Classification tasks are ineligible for prompt caching entirely",
+      "The category list must be moved into a tool schema before caching can apply"
+    ],
+    "a": 1,
+    "e": "Prompt caching matches a stable prefix. Mixing per-request data into system changes that prefix on every call, so the otherwise-durable rules never get a cache hit. Length (A) isn't the disqualifier here, a long stable prefix caches fine on its own. Caching isn't categorically unavailable for classification (C), the technique applies to any stable prefix regardless of task type. Moving content into a tool schema (D) isn't required for caching to work, the fix is separating stable content from per-request content, not migrating the whole prompt into tools.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-prompt-engineering-02",
+    "d": 6,
+    "s": "Prompt Engineering",
+    "q": "An agent has a single tool named update_record whose description reads only 'updates a record.' The agent's system prompt is thorough but never mentions this tool by name. In testing, the agent calls update_record on read-only requests and supplies malformed arguments roughly a third of the time. Which change is most likely to fix the behavior?",
+    "o": [
+      "Add tool-usage guidance to the system prompt instead of touching the tool's own description",
+      "Instruct the user, in their turns, to specify exactly when the tool should be used",
+      "Reduce max_tokens so the agent has less room to over-elaborate before calling the tool",
+      "Rewrite the tool's description and parameter descriptions with the same clarity given to the system prompt, including when not to call it"
+    ],
+    "a": 3,
+    "e": "Tool descriptions are prompts: the model conditions its tool-calling decision directly on that text, so a vague description produces the same ambiguity failure a vague system prompt would, just with worse consequences. Adding guidance elsewhere in the system prompt (A) doesn't fix it, because the failure lives at the specific surface the model reads when deciding to call this tool, not at the surface that already exists and clearly isn't reaching it. Pushing the responsibility onto end users every turn (B) is unreliable and doesn't scale, it substitutes a durable, one-time fix with a per-request one. max_tokens (C) caps output length; it has no bearing on which tool gets called or with what arguments.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-prompt-engineering-03",
+    "d": 6,
+    "s": "Prompt Engineering",
+    "q": "A prompt update resolves a customer-reported failure where an agent wrongly refused a legitimate refund request. The engineer ships the change the same day, since the reported case now passes and nothing else has been reported. Three weeks later, support tickets show the agent has started approving refund requests it previously correctly declined. What should have happened before shipping?",
+    "o": [
+      "The change should have been verified against the fixed eval set covering both approval and decline cases, not just the reported one",
+      "The change should have been reviewed by a second engineer before merge",
+      "The change should have shipped with a lower max_tokens value to constrain the response",
+      "The change should have been tested only against additional refusal cases, since refusal was the category that originally failed"
+    ],
+    "a": 0,
+    "e": "A prompt fix for one case commonly regresses others, which is exactly why the eval set has to run before shipping, not just the reported case. Code review by a second engineer (B) doesn't substitute for behavioral regression testing, a human can approve wording that still fails eval cases neither reviewer thought to check by eye. max_tokens (C) is unrelated to decision correctness. Testing only refusal cases (D) would still miss the regression that surfaced here, which appeared in the approval category, not the one that originally failed.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-prompt-engineering-04",
+    "d": 6,
+    "s": "Prompt Engineering",
+    "q": "A pipeline must never let instructions embedded inside an uploaded file override its summarization task, regardless of what the file contains. It currently builds its prompt by concatenating the uploaded file's raw text directly into the same string that carries the summarization instructions. Which two changes together enforce that guarantee structurally, rather than relying on the model choosing to ignore embedded instructions? (Select two.)",
+    "o": [
+      "Wrap the uploaded content in a clearly delimited tag, such as <untrusted_document>, before including it",
+      "Reject any file whose content contains common trigger words like 'ignore' or 'instructions'",
+      "Never interpolate the raw uploaded text directly into the instruction-bearing portion of the prompt; keep it in a clearly separated data section",
+      "Increase max_tokens so the model has enough room to safely process longer files"
+    ],
+    "a": [0, 2],
+    "e": "Delimiting untrusted content clearly and never interpolating it into the instruction layer are the two structural halves of the same technique, together they stop injected text from sharing a channel with the instructions the application trusts. A keyword blocklist (B) is trivially bypassed by rephrasing and isn't the named mitigation, it's a request-level patch, not a structural one. max_tokens (D) controls output length and has nothing to do with whether embedded text is treated as data or as an instruction.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-prompt-engineering-05",
+    "d": 6,
+    "s": "Prompt Engineering",
+    "q": "A prompt currently includes one example of correctly formatted output, and real-world outputs are inconsistent in tone and structure. A teammate proposes adding four more examples that are nearly identical to the original, just with different customer names swapped in, arguing that more examples always improve consistency. What is the correct critique of that plan?",
+    "o": [
+      "It's wrong to add more examples at all; one well-placed example is already sufficient, and Claude should never receive more than one",
+      "The examples should be moved from the system prompt into a tool description so they load faster",
+      "The number of examples isn't the fix here; the added examples aren't diverse, so they risk teaching an incidental pattern rather than the actual format rule; construct examples that vary in ways that matter, not just add volume",
+      "The fix is to reduce the model's effort level rather than change the examples"
+    ],
+    "a": 2,
+    "e": "Diversity, not raw count, is what makes few-shot examples work, near-identical examples risk teaching an incidental pattern (like the customer-name field) instead of the actual formatting rule this objective is about constructing examples well. Option A asserts a rigid shot-count ceiling as if it were settled fact; how many examples to use is Domain 5's shot-count taxonomy, not a claim this objective makes, and the claim itself is not defensible on its face. Tool descriptions (B) aren't a loading-speed mechanism and don't address the diversity problem. Effort level (D) is an unrelated Domain 5 lever (thinking and reasoning effort) that has no bearing on example construction or output formatting.",
+    "pattern": "scope-boundary"
+  }
+]

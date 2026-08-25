@@ -1,0 +1,77 @@
+[
+  {
+    "id": "new-agent-construction-with-claude-01",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "An engineering team configures a Claude Agent SDK session with allowed_tools=[\"Read\"] and permission_mode=\"bypassPermissions\", intending to auto-approve only the Read tool while every other tool still prompts for confirmation. During a run, the agent executes a Bash command and a file Write with no prompt at all. What explains this?",
+    "o": [
+      "bypassPermissions only applies to tools that are absent from allowed_tools, so listing Read there was redundant and blocked nothing",
+      "The Read entry must be written in the scoped form Read(path) before bypassPermissions can be constrained by it",
+      "bypassPermissions approves nearly every tool that reaches the permission-mode step, and allowed_tools does not narrow that; blocking a tool under this mode requires disallowed_tools or a hook instead",
+      "The SDK ignores permission_mode entirely unless a canUseTool callback is also supplied in the session options"
+    ],
+    "a": 2,
+    "e": "bypassPermissions approves almost everything that reaches the mode-check step in the evaluation order, and allowed_tools only pre-approves the tools named in it earlier in the flow -- it never narrows what the mode itself later approves. To keep a tool blocked under bypassPermissions you need disallowed_tools or a hook, not the allow-list. Option A inverts what allowed_tools does. Option B invents a syntax requirement that has no bearing on why Bash and Write ran. Option D is false: permission_mode governs behavior whether or not a canUseTool callback exists.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agent-construction-with-claude-02",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "A financial-services agent built on the Claude Agent SDK must never let a Bash command containing an API key or database password reach execution, regardless of which permission mode the deploying team selects later. Security also wants this enforced identically for any command string that might contain a secret, not just a fixed list of banned commands known today. Which approach satisfies this?",
+    "o": [
+      "Add each currently known secret-leaking command pattern to disallowed_tools as a separate Bash(...) rule",
+      "Register a PreToolUse hook that inspects the Bash command text at call time and returns a deny decision whenever it matches a secret pattern",
+      "Instruct Claude in the system prompt to refuse any Bash command that appears to contain credentials",
+      "Set permission_mode to \"plan\" so no Bash command can execute automatically"
+    ],
+    "a": 1,
+    "e": "Only a PreToolUse hook runs custom code against the actual command text at call time, so it can deny dynamically for any pattern rather than a pre-enumerated list, and a hook deny holds even under bypassPermissions. Option A only covers commands someone thought to list in advance, not every possible command string. Option C is a prompt instruction the model can fail to follow -- not a guarantee. Option D blocks all Bash equally rather than performing content inspection, and plan mode just routes calls to a callback for approval -- it doesn't deny automatically by itself.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-agent-construction-with-claude-03",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "A developer wants to send messages directly to the Claude API and hand-write their own loop that reads tool_use blocks, executes the matching tools, and appends tool_result blocks -- without adopting the Agent SDK's built-in tool set, system prompt conventions, or session and hook framework. Which building block matches this requirement?",
+    "o": [
+      "The Messages API, implementing the tool-use loop directly in application code",
+      "The Claude Agent SDK's query() function with allowed_tools set to an empty list",
+      "Claude Managed Agents, configured with a custom environment",
+      "The Claude Code CLI run in headless mode with an output-format flag"
+    ],
+    "a": 0,
+    "e": "The Agent SDK exists specifically to run the tool loop, tool set, and session machinery for you; wanting to implement that loop by hand is exactly the case the Messages API is for. Option B still runs the Agent SDK's own loop and conventions -- an empty allow-list doesn't remove the SDK's harness behavior underneath it. Option C hands the loop and sandbox to Anthropic's managed infrastructure, the opposite of writing it yourself. Option D still drives Claude Code's own agent loop as a subprocess, not a hand-written one.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-agent-construction-with-claude-04",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "A team is building an internal support-ticket agent. They do not want to operate their own sandbox, session persistence, or tool-execution infrastructure, and they are willing to accept less direct control over the exact runtime in exchange for Anthropic operating it for them. Which option fits this requirement?",
+    "o": [
+      "The Claude Agent SDK, running self-hosted inside their own Kubernetes cluster",
+      "The raw Messages API with a hand-rolled polling loop for tool execution",
+      "An MCP server that exposes the ticket system's operations as tools",
+      "Claude Managed Agents, using an Anthropic-managed cloud sandbox environment"
+    ],
+    "a": 3,
+    "e": "Managed Agents is the product built specifically to remove sandbox and session-infrastructure ownership from the team, at the cost of direct control over the runtime -- exactly the tradeoff named in the stem. Option A is the self-hosted path, which keeps that operational burden, the opposite of what's being asked for. Option B still requires the team to own execution infrastructure themselves. Option C is a tool source, not a place for an agent loop to run at all -- it doesn't answer where the agent executes.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agent-construction-with-claude-05",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "A team connects an MCP server to a Claude Agent SDK session and wants to understand exactly how permission to call that server's tools is decided. Select the two statements that are accurate.",
+    "o": [
+      "Once the MCP server is connected, all of its tools become callable without needing any allow-list entry",
+      "Calling one of the server's tools requires an explicit allow rule, such as naming the tool directly or using a wildcard anchored to that server's literal name",
+      "Writing allowed_tools=[\"mcp__*\"] auto-approves every tool from every connected MCP server",
+      "A PreToolUse hook can still deny a call to one of the server's tools even when an allow rule matches that call"
+    ],
+    "a": [1, 3],
+    "e": "Connecting a server only makes its tools visible; calling one still needs an explicit allow rule scoped to that server, such as mcp__ops__lookup_order or mcp__ops__*, which makes the second option correct. A PreToolUse hook runs before allow rules in the evaluation order, so a hook deny overrides a matching allow rule, which makes the fourth option correct. The first option is the classic trap -- connection is not permission. The third option is wrong because an unanchored wildcard like mcp__* in allowed_tools is ignored with a startup warning; the server segment must be a literal, glob-free name.",
+    "pattern": "scope-boundary"
+  }
+]

@@ -1,0 +1,205 @@
+---
+id: "technical-fundamentals"
+domain: 5
+domainName: "Model Selection and Optimization"
+name: "Technical Fundamentals"
+weight: 6.1
+tier: 1
+hot: false
+scope:
+  - "integrating with SDKs that wrap REST APIs"
+  - "websockets"
+traps:
+  - "NARROW objective - not context theory, not rate limits"
+  - "Claude streaming is SSE, not WebSocket"
+sources:
+  - label: "Python SDK"
+    url: "https://platform.claude.com/docs/en/api/sdks/python"
+  - label: "TypeScript SDK"
+    url: "https://platform.claude.com/docs/en/api/sdks/typescript"
+  - label: "Streaming Messages"
+    url: "https://platform.claude.com/docs/en/build-with-claude/streaming"
+authored: true
+---
+
+## What this objective actually tests
+
+This objective is basic engineering practice for talking to the Claude API: what an
+official SDK buys you over calling REST directly, and when a websocket belongs in
+your architecture at all. It stops there. The moment a question turns to context
+windows, token accounting, sampling parameters, or rate-limit math, you have
+wandered into **LLM Fundamentals** — a sibling Domain 5 objective, not this one.
+If a stem's *setup* mentions tokens or a context limit but the *decision* it's
+testing is "SDK vs raw HTTP" or "websocket vs SSE," it still belongs here — read
+for which mechanism the question is actually deciding between.
+
+## Mechanism
+
+### What the SDK adds over raw REST
+
+The Python and TypeScript SDKs (`anthropic`, `@anthropic-ai/sdk`) are thin
+wrappers around the same REST API you could call with `curl`. Nothing they do is
+unavailable over raw HTTP — you just have to build it yourself. Concretely, the
+SDK gives you:
+
+- **Typed request/response models.** Pydantic models in Python, TypeScript types
+  in the JS SDK — editor autocomplete and compile-time shape-checking on
+  `messages.create()` params and the returned `Message` object.
+- **Automatic retries.** 2 retries by default, short exponential backoff, applied
+  to connection errors, `408`, `409`, `429`, and any `5xx`. Configurable per
+  client or per request via `max_retries` (Python) / `maxRetries` (TS).
+- **Streaming helpers.** `client.messages.stream()` gives you an async
+  context-manager-style iterator with a `text_stream` and a `get_final_message()`
+  / `finalMessage()` accumulator, so you don't parse SSE frames by hand. The bare
+  `stream=True` iterator is also available if you want the raw events with less
+  memory overhead.
+- **Timeout handling.** 10-minute default (Python; TS scales this up to 60
+  minutes for very large `max_tokens` when not streaming), raised as a typed
+  `APITimeoutError` / `APIConnectionTimeoutError`.
+- **Auto-pagination** on list endpoints (e.g. `messages.batches.list()`) via a
+  plain `for` / `for await` loop instead of manual cursor handling.
+- **Request IDs.** Every response exposes `_request_id`, read from the
+  `request-id` response header, for support/debugging.
+
+None of this changes pricing or authentication — same API key, same per-token
+billing either way. Reach for raw HTTP only when there's no SDK for your
+language, or you need transport-level control the SDK doesn't expose (a custom
+proxy, a non-`httpx`/non-`fetch` client). If you do, you inherit the job of
+re-implementing retries, backoff, and SSE parsing yourself.
+
+### Websockets vs SSE — where each one actually sits
+
+> **The trap**
+> 
+> The Claude Messages API streams over <strong>Server-Sent Events (SSE)</strong>, never a websocket. A websocket is something <em>you</em> add in your own architecture — it is never how your code talks to <code>api.anthropic.com</code>.
+
+<div class="tw">
+
+| Transport | Direction | Where it fits |
+|---|---|---|
+| Request/response | One-shot | Non-streaming `messages.create()` calls |
+| SSE | Server → client only | **What Claude API streaming uses** — `stream: true`, one-way token/event deltas |
+| WebSocket | Full duplex | Your own client ↔ your own server, when the client also needs to send *during* a response: cancel, interrupt, voice input |
+
+</div>
+
+The common production shape is two hops: **WebSocket between browser and your
+backend**, then **SSE between your backend and the Claude API**. Your backend
+relays SSE deltas onto the websocket (or downgrades them to whatever transport
+the browser side uses) and can push interrupts back up the websocket that never
+touch Anthropic's API at all — cancellation is a local disconnect, not a
+message sent to Claude. If a stem describes voice, telephony, or "the client
+needs to interrupt mid-response," that's a websocket layer *you* built, not a
+Claude API feature.
+
+## Decision table
+
+| The stem says... | The answer is... |
+|---|---|
+| "No official SDK exists for our language" / "need raw transport control" | Call REST directly — and take on retries, backoff, and SSE parsing yourself |
+| "Every request must retry transient failures with backoff, with no custom code" | The SDK's default retry behavior (2 retries, exponential backoff) — not a raw HTTP wrapper you'd have to write |
+| "Which transport does Claude's own API streaming use" | SSE, one-way server → client — never a websocket |
+| "The client must send data (cancel, interrupt, audio) while a response is still streaming" | A websocket *you* implement between client and your server — the Claude API leg stays SSE |
+| Stem is really about context length, token budgets, or 429 rate-limit backoff strategy | Out of scope for this objective — that's LLM Fundamentals or Applications & Integration, not SDK/websocket mechanics |
+| "List endpoint returns more results than fit one page" | The SDK's built-in auto-pagination (`for`/`for await` over the list call) |
+
+## Code examples
+
+SDK call — retries, timeout, and typed response all come for free:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY, 2 retries by default
+
+message = client.messages.create(
+    model="claude-sonnet-4-6",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Hello, Claude"}],
+)
+print(message.content[0].text)
+print(message._request_id)  # for support tickets
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic(); // reads ANTHROPIC_API_KEY, 2 retries by default
+
+const message = await client.messages.create({
+  model: "claude-sonnet-4-6",
+  max_tokens: 1024,
+  messages: [{ role: "user", content: "Hello, Claude" }],
+});
+console.log(message.content[0].text);
+console.log(message._request_id);
+```
+
+The equivalent raw REST call — same request, but retries and backoff are now
+your responsibility (TypeScript is a straight `fetch` port of the same loop):
+
+```python
+import requests, time
+
+def create_message(payload, retries=2):
+    for attempt in range(retries + 1):
+        r = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": API_KEY, "anthropic-version": "2023-06-01"},
+            json=payload,
+        )
+        if r.status_code < 500 and r.status_code not in (408, 409, 429):
+            return r.json()
+        time.sleep(2 ** attempt)  # you own the backoff curve
+    r.raise_for_status()
+```
+
+Websocket relay — this sits in front of your own backend, not in front of
+Anthropic's API. The client speaks websocket to *you*; you speak SSE to Claude:
+
+```typescript
+// Browser <-> your server: websocket. Your server <-> Claude: SSE.
+wss.on("connection", async (clientSocket) => {
+  const stream = client.messages.stream({
+    model: "claude-sonnet-4-6",
+    max_tokens: 1024,
+    messages: [{ role: "user", content: await nextClientMessage(clientSocket) }],
+  });
+  stream.on("text", (text) => clientSocket.send(text)); // relay SSE deltas
+});
+```
+
+## Named traps, expanded
+
+**NARROW objective — not context theory, not rate limits.** This objective
+covers SDK mechanics and websocket-vs-SSE placement, full stop. Token counting,
+context-window sizing, and rate-limit backoff strategy for 429s are tested under
+LLM Fundamentals and Applications & Integration respectively. A question that
+opens with "your context window is nearly full" but is actually asking whether
+you'd use the SDK's streaming helper or raw HTTP is still fair game here — the
+context-window detail is scenery, not the decision. If the decision itself is
+about token budgets or backoff tuning, it isn't this objective's question.
+
+**Claude streaming is SSE, not WebSocket.** This is the single most-tested fact
+in this objective and the most common wrong-answer bait: "streaming" primes
+people to reach for websockets. The Messages API only ever streams one
+direction, server to client, over SSE — there is no Anthropic-hosted websocket
+endpoint. Any websocket in a Claude-based architecture is a transport layer the
+application team built themselves, almost always between a browser client and
+their own backend, with the backend keeping a separate SSE connection to
+Anthropic underneath.
+
+## Recall checks
+
+1. Name three things the SDK's default configuration gives you that a raw
+   `curl`/`fetch` call to the same endpoint does not.
+2. A teammate says "streaming means we need a websocket to Anthropic." Correct
+   the claim in one sentence and name the transport it actually uses.
+3. You're building voice input where the user can interrupt Claude mid-answer.
+   Sketch the two-hop transport: what connects browser to your server, and what
+   connects your server to the Claude API?
+4. A stem opens by describing a shrinking context window, then asks whether to
+   use `client.messages.stream()` or raw HTTP with manual SSE parsing. Which
+   objective does this question actually belong to, and why?
+5. What does `max_retries=0` change about a request to a `503` response, and
+   what stays exactly the same?

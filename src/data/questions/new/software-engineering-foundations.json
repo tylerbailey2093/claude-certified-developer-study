@@ -1,0 +1,122 @@
+[
+  {
+    "id": "new-software-engineering-foundations-01",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A data pipeline calls Claude to extract structured fields from support tickets, and the extracted JSON is inserted directly into a downstream Postgres table without any application-level validation. The team currently prompts Claude with 'respond only with JSON matching this schema.' Occasionally a field's type mismatches the column type and the insert fails. Which change most directly prevents malformed JSON from being emitted in the first place?",
+    "o": [
+      "Add a stricter instruction telling Claude to double-check its output before responding",
+      "Set output_config.format to a json_schema definition matching the required fields and types",
+      "Wrap the insert statement in a try/except block and log failures for manual review",
+      "Increase max_tokens so the response is never truncated mid-object"
+    ],
+    "a": 1,
+    "e": "output_config.format with a json_schema type uses grammar-constrained decoding, so every generated token is restricted to stay inside the schema — malformed JSON and type mismatches become structurally impossible, not just less likely. A prompt instruction is a soft request the model can still violate. Wrapping the insert in try/except only catches the failure after it happens, it does not prevent the malformed output. Raising max_tokens addresses truncation, not field-type mismatches, which is a different failure mode.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-software-engineering-foundations-02",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A backend service calls an internal REST endpoint to create a customer record, and its client library automatically retries any non-2xx response by resubmitting the same request body. During a traffic spike the endpoint starts returning 409 responses, because an earlier request actually succeeded server-side but its response timed out on the client before arriving, so the client never learned it had already succeeded. What is the correct fix?",
+    "o": [
+      "Increase the client's retry count so the 409 eventually succeeds",
+      "Treat 409 as equivalent to 429 and apply the same exponential backoff strategy",
+      "Have the client check whether the record already exists before resubmitting the create request, rather than blindly retrying with the same body",
+      "Switch the endpoint from REST to GraphQL to avoid status-code ambiguity"
+    ],
+    "a": 2,
+    "e": "409 Conflict means the resource already exists in a state that conflicts with the request; the fix is to inspect current state before acting, not to resend the identical request. Increasing retries just repeats the same failure forever, since the conflict never resolves itself. 429 is a rate-limit signal where backoff helps; 409 is a state-conflict signal where backoff does nothing, so treating them the same is a category error. Swapping protocols doesn't touch the actual bug, which is a missing idempotency check.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-software-engineering-foundations-03",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A nightly reconciliation script kicks off at 1 AM and immediately submits all 900 of the day's transaction records to Claude for anomaly review at once, using asyncio.gather with no concurrency cap. Within the first thirty seconds most requests fail with 429 responses, and the on-call engineer's instinct is to just add a longer fixed delay before each retry. What is the more durable fix?",
+    "o": [
+      "Bound concurrency with a semaphore or queue and ramp the request rate up gradually instead of firing all 900 at once",
+      "Keep the current fan-out pattern but add a longer fixed delay before each retry",
+      "Switch the reconciliation job to a larger, higher-throughput model so more requests succeed per second",
+      "Disable the SDK's built-in retry behavior so failed requests fail fast instead of queuing"
+    ],
+    "a": 0,
+    "e": "The root cause is unbounded fan-out, not slow retries — bounding concurrency and ramping traffic gradually is what actually keeps the request rate under the limit. A longer fixed delay treats the symptom on each failed call but the next batch still fires all 900 at once and trips the same limit. Model tier does not change organization-level rate limits, so a larger model doesn't help. Disabling the SDK's own retry/backoff removes a mechanism that was already helping and makes the failure mode worse, not better.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-software-engineering-foundations-04",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A platform team's incident postmortem shows that during a partial Claude API outage, request volume to the API nearly tripled because a wrapper library retried every failed call five times with a fixed one-second delay on top of the official SDK client used underneath it. The wrapper also kept retrying 400 responses caused by a recently introduced malformed-request bug, which never succeeded no matter how many attempts were made. Select the two changes the team should make.",
+    "o": [
+      "Remove the custom wrapper's retry loop and rely on the SDK's built-in max_retries and backoff, which already honors retry-after",
+      "Increase the SDK's own max_retries from its default of 2 to a much higher number, in addition to keeping the wrapper",
+      "Stop retrying 400-class responses, since they indicate a malformed request that will not succeed regardless of attempts",
+      "Add a circuit breaker that halts all traffic to the API for 24 hours after any single failure"
+    ],
+    "a": [0, 2],
+    "e": "Removing the redundant wrapper eliminates the double-retry layer that multiplied load during the outage, and the SDK's own max_retries/backoff already honors retry-after. Not retrying 400s is correct because that status is a client error the SDK never retries by default — resending a malformed request cannot succeed. Raising max_retries while keeping the wrapper in place makes the storm worse, since both layers now retry harder. A blanket 24-hour halt is wildly disproportionate to a partial outage and one malformed-request bug, and would take down unrelated, healthy traffic.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-software-engineering-foundations-05",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A senior engineer sees that a teammate's pull request, written entirely by Claude Code, passed the project's automated eval suite and every unit test on the first run. The reviewer is ready to approve it with only a skim, reasoning that a model whose own output already validated cleanly is unlikely to have introduced a subtle bug worth digging for. What should the reviewer do instead?",
+    "o": [
+      "Approve with a skim, since passing evals and unit tests is sufficient signal for AI-authored changes",
+      "Apply the same review rigor used for human-written code, regardless of who or what authored it",
+      "Ask the same model to regenerate the code a second time and diff the two outputs before deciding",
+      "Skip review entirely and rely on the CI pipeline as the sole gate for AI-authored pull requests"
+    ],
+    "a": 1,
+    "e": "Provenance doesn't change risk: AI-generated code needs the same review rigor as human-written code, because passing tests and evals only proves the code satisfies what was already checked, not that it's free of subtler issues. Approving on a skim (or skipping review entirely) relaxes the control specifically because of authorship, which is the trap. Regenerating and diffing two outputs from the same model is a superficial consistency check — both generations can share the same blind spot, so it doesn't substitute for actual review.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-software-engineering-foundations-06",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A team's Claude-powered ticket-triage prompt has been hand-edited nine times over two months, each time to fix one specific misclassification, but engineers just paste new wording into the console each time rather than committing it anywhere. When the tenth edit reintroduces a bug that edit six had already fixed, nobody can find what changed between them or why. Which practice addresses the root cause?",
+    "o": [
+      "Increase the prompt's temperature so classification becomes more consistent across edits",
+      "Add more few-shot examples to the prompt so the model needs fewer manual edits over time",
+      "Switch to a larger model that is less prone to misclassification",
+      "Treat the prompt as a versioned artifact — commit each revision to the repository and review changes like code"
+    ],
+    "a": 3,
+    "e": "The root cause is that prompt revisions were never checked into source control, so nothing could be diffed, reviewed, or bisected when a regression reappeared. Committing and reviewing prompt changes like code is what makes a reintroduced bug findable and preventable. Temperature, few-shot examples, and a larger model are all prompt-tuning moves that leave the missing versioning process untouched, so the same silent regression can recur regardless of which one is applied.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-software-engineering-foundations-07",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A three-line change to a repository's settings.json disables a permission rule that had been blocking a Claude Code agent from running shell commands as root, and it gets merged straight to main because 'it's just a config tweak, not real code.' Two weeks later the same agent runs an unreviewed destructive command in a teammate's branch. Which practice would most directly have prevented this outcome?",
+    "o": [
+      "Require CLAUDE.md and settings.json changes to go through the same pull-request review and CI gates as source code, since they govern what the system is allowed to do",
+      "Add a system-prompt instruction telling the agent never to run destructive commands",
+      "Rotate the API key used by the agent on a monthly schedule",
+      "Move the permission setting into a code comment inside CLAUDE.md instead of settings.json"
+    ],
+    "a": 0,
+    "e": "settings.json and CLAUDE.md are versioned configuration artifacts that determine what the system is allowed to do, and gating them through the same review and CI pipeline as source code is what would have caught the permission change before merge. A system-prompt instruction is a request the agent can still fail to follow; a permission rule is the deterministic control the prompt instruction can't replace. Key rotation is a credential-hygiene practice unrelated to a permission bypass. Moving the setting into a comment removes its enforcement entirely, making the problem worse.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-software-engineering-foundations-08",
+    "d": 2,
+    "s": "Software Engineering Foundations",
+    "q": "A team asks Claude Code to migrate a 40,000-line billing module from a deprecated ORM to its replacement. Partway through, the agent proposes finishing the whole migration in one sweeping commit that also fixes several unrelated bugs it noticed along the way, reasoning that touching each file only once saves review time. The team is under a hard deadline and finds the one-pass approach tempting. What should they require instead?",
+    "o": [
+      "Approve the single large commit, since touching each file only once reduces total review overhead",
+      "Let the agent proceed as proposed, but add a longer QA cycle at the very end to catch any issues",
+      "Split the migration into bounded increments with tests passing between each step, and keep the unrelated bug fixes in separate changes",
+      "Postpone the migration until after the deadline, since large-scale refactors are inherently too risky to attempt under time pressure"
+    ],
+    "a": 2,
+    "e": "The correct discipline for large-scale refactoring is bounded increments with tests green between each step, and never mixing a refactor with a behavior change in the same commit — the unrelated bug fixes are behavior changes and must be split out. Approving the single sweep trades safety for review convenience and mixes concerns. Deferring all verification to one QA pass at the end loses the between-step safety net, making any failure hard to attribute to a specific change. Large-scale refactoring is explicitly in scope and doable under deadline pressure; the fix is incremental discipline, not avoidance.",
+    "pattern": "buried-constraint"
+  }
+]

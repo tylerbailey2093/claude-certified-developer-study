@@ -1,0 +1,166 @@
+---
+id: "claude-code-operation"
+domain: 3
+domainName: "Claude Code"
+name: "Claude Code Operation"
+weight: 3.1
+tier: 2
+hot: false
+scope:
+  - "core components: Rules, Skills, Commands, Agents, Agent Memory"
+  - "session management"
+  - "built-in and custom slash commands"
+  - "headless mode"
+  - "streaming mode"
+  - "auto-mode"
+  - "CLAUDE.md hierarchy"
+  - "repository initialization"
+  - "settings.json"
+traps:
+  - "a Skill's DESCRIPTION is its trigger - it functions like a search query"
+  - "progressive disclosure: metadata always loaded, body on trigger, resources as needed"
+  - "CLAUDE.md for memory, Skills for routines, hooks for guarantees, subagents for delegation"
+sources:
+  - label: "Claude Code"
+    url: "https://code.claude.com/docs/en/overview"
+  - label: "Agent Skills"
+    url: "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices"
+  - label: "Hooks"
+    url: "https://code.claude.com/docs/en/hooks"
+authored: true
+---
+
+## What this objective actually tests
+
+This is the smallest domain on the exam (2 items), but it's tested precisely: which of Claude Code's five surfaces — Rules, Skills, Commands, Agents, Agent Memory — is the right mechanism for a given job, and why the other four aren't. It also tests whether you know the difference between context Claude reads and voluntarily follows (CLAUDE.md, Skills) versus code that runs regardless of what Claude decides (hooks). That distinction is the exam's favorite trap across multiple domains, and Domain 3 is where it's tested most directly.
+
+## Mechanism
+
+### The five core components
+
+| Component | What it is | Loaded |
+|---|---|---|
+| Rules | `CLAUDE.md` + `.claude/rules/*.md` — persistent project/personal instructions | Every session (or on file-match, for path-scoped rules) |
+| Skills | `.claude/skills/<name>/SKILL.md` — a folder of instructions + bundled resources | Metadata always; body on trigger; resources on demand |
+| Commands | `.claude/commands/<name>.md` — a reusable prompt invoked as `/name` | On invocation only |
+| Agents | `.claude/agents/<name>.md` — a subagent with its own context, prompt, and tool permissions | Spawned on delegation |
+| Agent Memory | Auto memory: `~/.claude/projects/<project>/memory/MEMORY.md` + topic files, written by Claude itself | `MEMORY.md` (first 200 lines / 25KB) every session; topic files on demand |
+
+Rules and Agent Memory both persist across sessions, but the direction of authorship is opposite: **you** write Rules, **Claude** writes Agent Memory (from your corrections and preferences). Both are *context*, not enforcement — Claude Code states this explicitly: CLAUDE.md instructions shape behavior but aren't a hard enforcement layer. To make something happen regardless of what Claude decides, use a hook.
+
+### CLAUDE.md hierarchy
+
+Four scopes, broadest to most specific: **Managed policy** (`managed-settings.json`'s `claudeMd` key or an OS-level file — org IT, cannot be excluded) → **User** (`~/.claude/CLAUDE.md` — you, every project) → **Project** (`./CLAUDE.md` or `./.claude/CLAUDE.md` — the team, via source control) → **Local** (`./CLAUDE.local.md` — you, this project only, gitignored).
+
+The trap: this is **not** a strict override chain. All discovered files are *concatenated* into context, ordered broadest-to-narrowest — a parent directory's `CLAUDE.md` appears before the working directory's, and within one directory, `CLAUDE.local.md` is appended after `CLAUDE.md`. The practical effect reads like precedence (content read last is what Claude weighs most when two instructions conflict), but nothing is literally discarded or "only one file is used." Files above and at the working directory load at launch; files in subdirectories load only when Claude reads a file there. `@path` imports (max 4 hops) expand into the same context at launch.
+
+### settings.json
+
+Five layers, highest to lowest precedence: **Managed** (`managed-settings.json`/MDM) → **Command line** (`--settings`) → **Project local** (`.claude/settings.local.json`, personal, gitignored) → **Shared project** (`.claude/settings.json`, committed) → **User** (`~/.claude/settings.json`, every project). Key fields: `permissions` (`allow`/`ask`/`deny` rules, evaluated deny → ask → allow), `hooks`, `model`, `env`, `autoMemoryEnabled`. Settings files are strict JSON — no comments, no trailing commas.
+
+### Hooks vs. Rules vs. Skills vs. Commands vs. Agents
+
+This is the objective's core discriminator, and it maps to one governing question: **is this context Claude reads, or code that runs?**
+
+- **Rules (CLAUDE.md)** — persistent facts and conventions Claude should hold in every session. Context, not enforcement.
+- **Skills** — a packaged *routine* for a recurring task, triggered by matching the task to the Skill's `description`. Loaded on demand, not every session — the mechanism for scaling a large instruction library without paying the context cost of all of it, all the time.
+- **Commands** — a reusable *prompt template*, invoked explicitly by name (`/review-pr`). You decide when it runs; Claude doesn't discover it.
+- **Agents (subagents)** — delegation with **context isolation**: a subagent gets its own context window, its own system prompt, and its own tool permissions, and reports back a result without polluting the parent conversation's context.
+- **Hooks** — shell commands (or `http`/`mcp_tool`/`prompt`/`agent` handlers) bound to lifecycle events (`PreToolUse`, `PostToolUse`, `SessionStart`, `SessionEnd`, `ConfigChange`, `Setup`) in `settings.json`. The **only** mechanism in this list that is a deterministic guarantee — it executes regardless of what Claude decides. Any stem containing "must always" or "must never" happen is describing a hook, even if it never uses the word.
+
+### Skill triggering and progressive disclosure
+
+A Skill's `description` field is its trigger — Claude matches the current task against every loaded Skill's description the way a search engine matches a query, so a vague description ("helps with documents") fires on everything or nothing. Frontmatter constraints: `name` ≤ 64 chars, lowercase/numbers/hyphens only, no XML tags, no reserved words ("claude", "anthropic"); `description` ≤ 1024 chars, non-empty, written in third person, stating both *what* the Skill does and *when* to use it. **Progressive disclosure** is the design principle that makes a large Skill library affordable: metadata (name + description, ~100 tokens) is always in the system prompt; the `SKILL.md` body (target under 500 lines) loads only once the Skill is triggered; bundled resource files load only when Claude actually reads them.
+
+### Headless, streaming, and auto modes
+
+- **Headless mode**: `-p` / `--print` runs one prompt non-interactively and exits — the CI/scripting entry point. `--output-format` controls the shape: `text` (default), `json` (structured result + session ID + cost, machine-parseable), `stream-json` (newline-delimited events). Add `--bare` for CI: it skips auto-discovery of hooks, skills, commands, subagents, plugins, MCP servers, auto memory, and CLAUDE.md, so the run is identical on every machine instead of picking up a teammate's local config.
+- **Streaming mode**: `--output-format stream-json --verbose --include-partial-messages` emits one JSON event per line as tokens generate, ending with a final `result` message. The first event is normally `system/init`, carrying session metadata (model, tools, MCP servers).
+- **Auto-mode**: `--permission-mode auto` hands most approval decisions to a separate classifier model instead of prompting you — it still blocks scope escalation, untrusted infrastructure, and prompt injection. This is distinct from `acceptEdits` (auto-approves file writes and common filesystem commands only) and `bypassPermissions` (skips permission checks entirely — real risk, scope it tightly, never use it on an untrusted repo).
+
+## Decision table
+
+| When the stem says... | ...the answer is |
+|---|---|
+| A Skill fires on unrelated tasks, or never fires when it should | Rewrite the `description` — it's the trigger, not the name, location, or body length |
+| "Must always run before every commit" / "must never happen" | A hook (e.g. `PreToolUse`), not a CLAUDE.md instruction |
+| User-level and project-level `CLAUDE.md` give different instructions | Both load and concatenate; the more specific (later-read) instruction is what Claude weighs — not "only one file is used," not a session failure |
+| A reusable prompt, invoked by name, run only when the user chooses to | A custom slash command in `.claude/commands/` |
+| A task needs its own tool permissions and shouldn't pollute the main conversation's context | A subagent (Agent), for context isolation |
+| CI needs identical results on every machine, no teammate hooks or MCP servers | `-p` with `--bare` |
+| A script needs the session ID, cost, and result as parseable data | `--output-format json` |
+| A caller wants to display tokens as they're generated | `--output-format stream-json` with `--include-partial-messages` |
+| Fewer approval prompts, but scope escalation and prompt injection still get blocked | `--permission-mode auto` (classifier-reviewed), not `bypassPermissions` |
+| A personal preference that shouldn't be shared with the team | `CLAUDE.local.md` (rules) or `.claude/settings.local.json` (settings) |
+| An org-wide instruction no individual session should be able to override | Managed CLAUDE.md / `managed-settings.json` |
+
+## Code examples
+
+A shared project config — `.claude/settings.json` (committed) sets a team baseline; `CLAUDE.md` documents conventions Claude should hold every session:
+
+```json
+// .claude/settings.json
+{
+  "model": "claude-sonnet-5",
+  "permissions": {
+    "allow": ["Bash(npm test *)", "Bash(git diff *)", "Read", "Edit"],
+    "ask": ["Bash(git push *)"],
+    "deny": ["Read(./.env)", "Read(./secrets/**)"]
+  },
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "scripts/check-branch.sh" }] }
+    ]
+  }
+}
+```
+
+Both languages below drive **headless mode** the same way: shell out to `claude -p`, request JSON output, and parse the result — the pattern for wiring Claude Code into a CI step or a build script.
+
+```python
+import json
+import subprocess
+
+def run_headless(prompt: str) -> dict:
+    proc = subprocess.run(
+        ["claude", "-p", prompt, "--bare", "--output-format", "json",
+         "--allowedTools", "Read,Bash(npm test *)"],
+        capture_output=True, text=True, check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(f"claude -p failed: {proc.stderr}")
+    result = json.loads(proc.stdout)
+    return {"text": result["result"], "cost_usd": result.get("total_cost_usd")}
+```
+
+```typescript
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const run = promisify(execFile);
+
+async function runHeadless(prompt: string) {
+  const { stdout } = await run("claude", [
+    "-p", prompt, "--bare", "--output-format", "json",
+    "--allowedTools", "Read,Bash(npm test *)",
+  ]);
+  const result = JSON.parse(stdout);
+  return { text: result.result as string, costUsd: result.total_cost_usd as number | undefined };
+}
+```
+
+## Named traps, expanded
+
+**"A Skill's DESCRIPTION is its trigger — it functions like a search query."** This is attractive to get backwards because it's tempting to assume Skills activate the way commands do — by name, or by being placed in the right folder. They don't. Claude matches the current task against every loaded Skill's `description` field, so a Skill with a vague description ("helps with documents") either never fires or fires on everything, and the fix is always to rewrite the description, never to move the file, rename it, or shorten the body. Recognize this trap whenever a stem describes a Skill misfiring — the answer sentence should be about the description's wording, not the Skill's location or length.
+
+**"Progressive disclosure: metadata always loaded, body on trigger, resources as needed."** This is the mechanism that makes a Skill library of 50+ Skills affordable in context — without it, every Skill would need to be read in full on every turn. The trap is assuming the whole `SKILL.md` file (or its bundled resource files) sits in context "just in case." It doesn't: only `name` + `description` (~100 tokens per Skill) are always loaded; the body loads once triggered; bundled files (`reference.md`, scripts) load only if Claude actually reads them. A stem asking "what does adding a 50th Skill cost every conversation" is testing this — the answer is "~100 tokens," not the Skill's full body size.
+
+**"CLAUDE.md for memory, Skills for routines, hooks for guarantees, subagents for delegation."** This is the four-way discriminator the exam leans on hardest in this objective. The trap is picking CLAUDE.md or a Skill for something that must happen deterministically ("Claude should always run the linter before committing") — a prompt-level instruction, however well-written, is a request Claude can deviate from under context pressure or ambiguity; only a hook is code that runs unconditionally. The reverse trap also appears: reaching for a hook or a subagent for something that's really just standing context (a coding convention) or an on-demand routine (a recurring multi-step task) — hooks and subagents are heavier, more rigid tools than the job needs.
+
+## Recall checks
+
+- Which of the five core components is the only one that persists across sessions but is authored by Claude rather than by you?
+- A stem says an instruction "must never" happen. Which of the five components is never the correct answer to that stem, and why?
+- Walk through what happens, in order, when a project `CLAUDE.md` and a user `CLAUDE.md` both set instructions for the same behavior.
+- What's the one flag that makes a `-p` run produce identical output on every machine, and what four categories of project-local configuration does it skip?
+- Why does `--permission-mode auto` reduce prompts without being equivalent to `bypassPermissions`?

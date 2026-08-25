@@ -1,0 +1,32 @@
+[
+  {
+    "id": "new-cost-and-token-management-01",
+    "d": 5,
+    "s": "Cost and Token Management",
+    "q": "A real-time chat assistant carries a 40KB frozen system prompt and receives traffic all day. Every response must still return to the user immediately, so nothing in the pipeline can tolerate an asynchronous delay. The team wants to cut cost without breaking that latency requirement. Which change fits?",
+    "o": [
+      "Route the requests through the Batch API for its 50% token discount",
+      "Add a cache_control breakpoint after the frozen system prompt",
+      "Downgrade the chat assistant to a cheaper model tier",
+      "Cut max_tokens in half to shrink every response"
+    ],
+    "a": 1,
+    "e": "A cache breakpoint after the stable, unchanging system prompt is the highest-return, lowest-risk lever here, and it doesn't touch response timing at all. The Batch API is wrong for a nameable reason beyond just being scored in Domain 2 API Mechanics rather than this objective: batch processing is inherently asynchronous and can't satisfy an 'answer must return immediately' constraint, so it fails the stem's own requirement regardless of its 50% discount. A model downgrade is the last lever in the optimization order, not the first, because it invalidates existing evals. Cutting max_tokens risks truncating legitimate responses and doesn't address the actual cost driver, which is the repeated 40KB prefix.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-cost-and-token-management-02",
+    "d": 5,
+    "s": "Cost and Token Management",
+    "q": "A research agent runs for hours a day on Claude Opus 5 at effort xhigh. Finance flags the output-token line item as unexpectedly high, even though every visible response in the transcript is a short paragraph. An engineer dismisses this as a metering bug and opens a support ticket. What actually explains the line item?",
+    "o": [
+      "It is a metering bug, and the support ticket is the right next step",
+      "output_tokens includes thinking_tokens, and effort xhigh on Opus 5 drives far more reasoning tokens than the short visible answer suggests",
+      "cache_creation_input_tokens is being double-counted into the output-token total",
+      "The pricing page's output rate for Claude Opus 5 must be incorrect and needs verification"
+    ],
+    "a": 1,
+    "e": "Thinking tokens are billed at the model's output rate and reported inside output_tokens_details.thinking_tokens, which is a labeled subset of output_tokens rather than a separate free category. A long-running agent at effort xhigh generates substantial internal reasoning even when the final visible text is short, and that reasoning is billed the same as any other output token. Option A dismisses documented, correct behavior instead of reading the usage breakdown. Option C names the wrong field — cache creation tokens are priced and reported separately from output tokens, not merged into them. Option D assumes a pricing error rather than checking the actual usage breakdown, which is the first thing to verify.",
+    "pattern": "buried-constraint"
+  }
+]

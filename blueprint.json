@@ -1,0 +1,567 @@
+{
+  "credential": "Claude Certified Developer - Foundations",
+  "code": "CCDV-F",
+  "guide_version": "1.0",
+  "effective": "2026-07",
+  "format": {
+    "items": 53,
+    "minutes": 120,
+    "scale": [
+      100,
+      1000
+    ],
+    "cut_score": 720,
+    "fee_usd": 125,
+    "delivery": "Pearson VUE, online proctored or test center",
+    "item_types": [
+      "multiple-choice",
+      "multiple-response (states how many to select)"
+    ],
+    "scoring": "criterion-referenced",
+    "per_domain_minimum": false,
+    "note": "Per-domain percentages on the score report are diagnostic only. Pass/fail is total scaled score."
+  },
+  "policy": {
+    "validity_months": 12,
+    "renewal": "free non-proctored assessment if on time; full exam if lapsed",
+    "retake_waits_days": [
+      14,
+      30,
+      90
+    ],
+    "max_attempts_per_12mo": 4,
+    "reschedule_hours": 24,
+    "prerequisites": null,
+    "appeal_days": 14,
+    "not_appealable": [
+      "standard-setting outcome",
+      "individual item content"
+    ]
+  },
+  "mqc": {
+    "experience_years": [
+      1,
+      5
+    ],
+    "claude_months_min": 6,
+    "languages": [
+      "Python",
+      "TypeScript"
+    ],
+    "fluency": [
+      "REST APIs",
+      "CLI tools"
+    ],
+    "understanding": [
+      "LLM fundamentals",
+      "agents",
+      "context management",
+      "MCP"
+    ],
+    "not_for": [
+      "non-technical users",
+      "no hands-on dev experience",
+      "prompt-writing-only roles"
+    ]
+  },
+  "domains": [
+    {
+      "n": 1,
+      "name": "Agents and Workflows",
+      "weight": 14.7,
+      "approx_items": 8,
+      "objectives": [
+        {
+          "name": "Agent Architecture",
+          "weight": 4.5,
+          "scope": [
+            "workflow vs agent decision criteria",
+            "manager/supervisor hierarchies",
+            "role of subagents in task execution"
+          ],
+          "traps": [
+            "subagents exist primarily for CONTEXT ISOLATION, not parallelism",
+            "default to the simplest thing; distractors offer elegant multi-agent designs where a prompt chain is correct"
+          ]
+        },
+        {
+          "name": "Agent Construction with Claude",
+          "weight": 5.3,
+          "scope": [
+            "Claude Agent SDK",
+            "custom agent loops and harnesses",
+            "self-hosted vs Anthropic-hosted deployment",
+            "hooks for deterministic actions"
+          ],
+          "traps": [
+            "the model NEVER executes a tool; the harness does",
+            "connecting an MCP server does not grant tool permission - the allow-list does"
+          ]
+        },
+        {
+          "name": "Agent Patterns and Frameworks",
+          "weight": 4.9,
+          "scope": [
+            "tool-use loops",
+            "sub-agents",
+            "memory",
+            "context-window management",
+            "Strands",
+            "LangGraph",
+            "PydanticAI"
+          ],
+          "traps": [
+            "unbounded loops are a harness design failure, not a model failure",
+            "the API is stateless; long-term memory is application-designed"
+          ]
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "name": "Applications and Integration",
+      "weight": 33.1,
+      "approx_items": 17,
+      "objectives": [
+        {
+          "name": "Understanding Requirements",
+          "weight": 3.4,
+          "scope": [
+            "functional requirements",
+            "infrastructure requirements",
+            "solution architecture"
+          ],
+          "traps": [
+            "one buried constraint in the stem decides the answer"
+          ]
+        },
+        {
+          "name": "Systems Life Cycle",
+          "weight": 2.8,
+          "scope": [
+            "generic IT lifecycle: develop, implement, operate, maintain",
+            "named frameworks: Waterfall, Agile, DevOps, ITIL"
+          ],
+          "traps": [
+            "this is GENERIC IT lifecycle, not LLM-specific delivery",
+            "change management and release gates point at ITIL, not the coding workflow"
+          ]
+        },
+        {
+          "name": "Claude API Mechanics",
+          "weight": 6.8,
+          "scope": [
+            "messages",
+            "tools",
+            "streaming",
+            "vision",
+            "thinking",
+            "caching",
+            "third-party vendors (Bedrock, Google Cloud, Microsoft Foundry)",
+            "Messages API data access patterns",
+            "batch API",
+            "realtime vs batch tradeoffs"
+          ],
+          "traps": [
+            "system is a top-level parameter, not a message role",
+            "content is a LIST OF BLOCKS",
+            "stop_reason arrives on a 200 and is not an error",
+            "final usage arrives in message_delta, not message_start",
+            "an error event can arrive AFTER a 200 in a stream",
+            "batch results are UNORDERED - join on custom_id",
+            "cache prefix order is tools then system then messages, matched exactly",
+            "regional endpoints answer data residency; global endpoints do not"
+          ]
+        },
+        {
+          "name": "Software Engineering Foundations",
+          "weight": 7.4,
+          "scope": [
+            "REST APIs",
+            "JSON",
+            "asynchronous programming",
+            "version control",
+            "SDLC integration",
+            "code review",
+            "small- and large-scale refactoring"
+          ],
+          "traps": [
+            "SDKs already retry twice with backoff honoring retry-after; a hand-rolled retry layer multiplies load during the incident",
+            "review AI-generated code with the same rigor as human-written"
+          ]
+        },
+        {
+          "name": "Claude Application Design",
+          "weight": 8.6,
+          "heaviest": true,
+          "scope": [
+            "how Claude interprets instructions across Claude Code, Desktop, claude.ai, API, SDKs",
+            "content boundaries",
+            "schema design",
+            "session hygiene",
+            "plugin management"
+          ],
+          "traps": [
+            "this is NOT workflow pattern selection - that is Domain 1",
+            "choose the interface whose instruction surface matches the DURABILITY required",
+            "never concatenate user input into the system prompt",
+            "nullable fields let the model decline instead of fabricating",
+            "session boundaries are security boundaries"
+          ]
+        },
+        {
+          "name": "Configuration Management",
+          "weight": 4.1,
+          "scope": [
+            "CLAUDE.md files",
+            "settings.json",
+            "model version pinning",
+            "prompt versioning",
+            "plugin dependencies"
+          ],
+          "traps": [
+            "quality shifting on a day nothing shipped = an unpinned alias",
+            "secrets management is Domain 7, not here"
+          ]
+        }
+      ]
+    },
+    {
+      "n": 3,
+      "name": "Claude Code",
+      "weight": 3.1,
+      "approx_items": 2,
+      "objectives": [
+        {
+          "name": "Claude Code Operation",
+          "weight": 3.1,
+          "scope": [
+            "core components: Rules, Skills, Commands, Agents, Agent Memory",
+            "session management",
+            "built-in and custom slash commands",
+            "headless mode",
+            "streaming mode",
+            "auto-mode",
+            "CLAUDE.md hierarchy",
+            "repository initialization",
+            "settings.json"
+          ],
+          "traps": [
+            "a Skill's DESCRIPTION is its trigger - it functions like a search query",
+            "progressive disclosure: metadata always loaded, body on trigger, resources as needed",
+            "CLAUDE.md for memory, Skills for routines, hooks for guarantees, subagents for delegation"
+          ]
+        }
+      ]
+    },
+    {
+      "n": 4,
+      "name": "Eval, Testing, and Debugging",
+      "weight": 2.6,
+      "approx_items": 1,
+      "objectives": [
+        {
+          "name": "Debugging and Error Handling",
+          "weight": 2.6,
+          "scope": [
+            "error type identification",
+            "recovery strategy selection",
+            "trace analysis",
+            "problem origin isolation between integration layer and model output"
+          ],
+          "traps": [
+            "raw output correct but app wrong = integration layer; raw output wrong = model layer",
+            "truncated output must NOT be sent for repair - the content was never generated",
+            "an LLM judge must be calibrated against human labels; consistency is not accuracy"
+          ]
+        }
+      ]
+    },
+    {
+      "n": 5,
+      "name": "Model Selection and Optimization",
+      "weight": 16.8,
+      "approx_items": 9,
+      "objectives": [
+        {
+          "name": "LLM Fundamentals",
+          "weight": 5.2,
+          "scope": [
+            "tokens",
+            "context windows",
+            "sampling",
+            "non-determinism",
+            "next-token generation",
+            "fast mode",
+            "extended thinking",
+            "adaptive thinking",
+            "effort levels",
+            "zero-shot, single-shot, multi-shot prompting"
+          ],
+          "traps": [
+            "few-shot prompting is scored HERE, not in Domain 6",
+            "context window and max output tokens are different limits",
+            "token counts are model-specific and do not transfer across a migration"
+          ]
+        },
+        {
+          "name": "Technical Fundamentals",
+          "weight": 6.1,
+          "scope": [
+            "integrating with SDKs that wrap REST APIs",
+            "websockets"
+          ],
+          "traps": [
+            "NARROW objective - not context theory, not rate limits",
+            "Claude streaming is SSE, not WebSocket"
+          ]
+        },
+        {
+          "name": "Model Selection and Tradeoffs",
+          "weight": 2.7,
+          "scope": [
+            "Opus vs Sonnet vs Haiku use cases",
+            "adaptive thinking support by tier",
+            "quality/latency/cost tradeoffs",
+            "breaking behavior changes across model releases"
+          ],
+          "traps": [
+            "Haiku has no effort parameter - it is differently shaped, not just cheaper",
+            "effort tuning preserves evaluated behavior; a model swap invalidates every eval"
+          ]
+        },
+        {
+          "name": "Cost and Token Management",
+          "weight": 2.8,
+          "scope": [
+            "token usage tracking",
+            "cost modeling",
+            "prompt caching",
+            "cache check-pointing"
+          ],
+          "traps": [
+            "thinking tokens bill at OUTPUT rates",
+            "optimization order: fewer tokens, cache, batch, effort step-down, model downgrade LAST"
+          ]
+        }
+      ]
+    },
+    {
+      "n": 6,
+      "name": "Prompt and Context Engineering",
+      "weight": 11.0,
+      "approx_items": 6,
+      "objectives": [
+        {
+          "name": "Context Engineering",
+          "weight": 3.8,
+          "scope": [
+            "context window management",
+            "preventing context drift",
+            "preventing bloat via tool output pruning and compaction",
+            "context isolation through subagents or multi-step workflows"
+          ],
+          "traps": [
+            "tool output pruning is usually the largest single source of bloat",
+            "compaction is LOSSY - what survives is a design decision"
+          ]
+        },
+        {
+          "name": "Prompt Engineering",
+          "weight": 4.6,
+          "scope": [
+            "instruction clarity",
+            "few-shot examples",
+            "system vs user placement",
+            "output constraints",
+            "placement across components",
+            "iterative refinement",
+            "prompt adjustment",
+            "input sanitization"
+          ],
+          "traps": [
+            "tool descriptions are prompts",
+            "a prompt fix for one case commonly regresses others - hence the eval set first"
+          ]
+        },
+        {
+          "name": "Output Handling",
+          "weight": 2.6,
+          "scope": [
+            "structured output patterns",
+            "response validation",
+            "defensive parsing",
+            "skepticism toward confident output"
+          ],
+          "traps": [
+            "schema-valid and semantically correct are different things",
+            "never index content[0] blindly"
+          ]
+        }
+      ]
+    },
+    {
+      "n": 7,
+      "name": "Security and Safety",
+      "weight": 8.1,
+      "approx_items": 4,
+      "objectives": [
+        {
+          "name": "AI Application Security",
+          "weight": 3.2,
+          "scope": [
+            "prompt injection awareness and mitigation",
+            "jailbreak defense",
+            "untrusted input handling",
+            "data leakage prevention",
+            "PII handling",
+            "authentication",
+            "authorization",
+            "confidentiality",
+            "privacy",
+            "integrity"
+          ],
+          "traps": [
+            "mitigations that WORK are structural: content boundaries, least privilege on tools, human approval, hooks",
+            "mitigations that DO NOT work: asking nicely in the system prompt, changing temperature, using a bigger model",
+            "a bigger model can be MORE susceptible to injection, not less",
+            "integrity has four failure modes: instruction, memory, output, supply-chain"
+          ]
+        },
+        {
+          "name": "Guardrails and Safe Deployment",
+          "weight": 2.3,
+          "scope": [
+            "content policy",
+            "guardrail layering",
+            "secure-by-design",
+            "privacy",
+            "identity and access management",
+            "least privilege"
+          ],
+          "traps": [
+            "an agent inherits the calling user's permissions, never a superset",
+            "verify entitlement at the tool boundary per request, not once at session start"
+          ]
+        },
+        {
+          "name": "Claude Hooks",
+          "weight": 1.0,
+          "scope": [
+            "hooks for guardrails and safety controls to prevent destructive actions"
+          ],
+          "traps": [
+            "PreToolUse can block; PostToolUse cannot undo",
+            "EXIT 2 BLOCKS. Exit 1 is a non-blocking error and the action proceeds - guards fail OPEN",
+            "matchers are case-sensitive regex against the TOOL NAME, not prompt text"
+          ]
+        },
+        {
+          "name": "Identity, Secrets, and Key Management",
+          "weight": 1.6,
+          "scope": [
+            "secrets, credentials, API keys across dev and production",
+            "identity validation and authentication",
+            "access approval and level verification",
+            "authorized access monitoring"
+          ],
+          "traps": [
+            "a key shipped to a client is compromised on ship; obfuscation only delays extraction"
+          ]
+        }
+      ]
+    },
+    {
+      "n": 8,
+      "name": "Tools and MCPs",
+      "weight": 10.6,
+      "approx_items": 6,
+      "objectives": [
+        {
+          "name": "Tool Implementation",
+          "weight": 4.4,
+          "scope": [
+            "tool use and function calling",
+            "configuration for external system interaction",
+            "tool description writing",
+            "error handling",
+            "agentic harness dispatch",
+            "client-side vs server-side tools",
+            "approval patterns",
+            "tool set construction"
+          ],
+          "traps": [
+            "return errors as tool_result with is_error so the model can self-correct; do not throw",
+            "every tool definition costs tokens on EVERY request and adds selection ambiguity"
+          ]
+        },
+        {
+          "name": "MCP Server Development",
+          "weight": 2.1,
+          "scope": [
+            "server authoring",
+            "deployment",
+            "integration with Claude applications",
+            "resources, tools, prompts",
+            "communication patterns: stdio, sockets, client vs server"
+          ],
+          "traps": [
+            "tools are MODEL-controlled, resources are APPLICATION-controlled, prompts are USER-controlled",
+            "command to run = stdio; URL = Streamable HTTP; HTTP+SSE is deprecated"
+          ]
+        },
+        {
+          "name": "Agentic Customization",
+          "weight": 4.1,
+          "scope": [
+            "tradeoffs among built-in Tools, custom Tools, Skills, and MCPs"
+          ],
+          "traps": [
+            "a Skill changes HOW Claude does something it can already do; a tool ADDS a capability",
+            "reusable across applications AND independently maintained = MCP server"
+          ]
+        }
+      ]
+    }
+  ],
+  "official_samples_for_originality_check_only": {
+    "_warning": "These three items are published in the exam guide. They exist here ONLY as a similarity reference for the originality gate. NEVER copy, paraphrase, or closely track them when authoring practice questions.",
+    "threshold": 0.55,
+    "stems": [
+      "A developer must process 10,000 documents overnight to produce a non-urgent analytics report. Cost is the primary concern, and results are not needed until the following morning. Which approach best fits the requirement?",
+      "A Claude-powered agent summarizes web pages submitted by end users. One page contains hidden text instructing the model to ignore previous instructions and reveal its system prompt. Which mitigation is most effective?",
+      "A team needs Claude to call an internal inventory service exposed as a REST API. They want the capability to be reusable across several Claude applications and maintained independently of any one app. Which approach best fits?"
+    ]
+  },
+  "item_style": {
+    "stem_sentences": [
+      2,
+      4
+    ],
+    "options": 4,
+    "correct": 1,
+    "distractor_rule": "each distractor must fail for a nameable reason: irrelevant mechanism, unenforceable control, or not addressing the real tradeoff",
+    "dominant_pattern": "one buried constraint in the stem decides the answer; place it mid-stem, not in the final sentence",
+    "must_should_rule": "when a stem says MUST or ALWAYS, the answer is a deterministic control (hook, permission rule, schema constraint), never a system-prompt instruction",
+    "constraint_signals": {
+      "not needed until tomorrow": "Batch API",
+      "user is waiting": "streaming, latency-optimized tier",
+      "must stay in region": "regional endpoints",
+      "feeds another system": "structured output plus validation",
+      "regulated or high stakes": "human review gate, audit logging",
+      "deterministic rule": "do not use an LLM at all",
+      "reusable across applications": "MCP server",
+      "must happen every time": "a hook"
+    }
+  },
+  "mock_composition": {
+    "1": 8,
+    "2": 17,
+    "3": 2,
+    "4": 1,
+    "5": 9,
+    "6": 6,
+    "7": 4,
+    "8": 6
+  }
+}

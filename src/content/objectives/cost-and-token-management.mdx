@@ -1,0 +1,201 @@
+---
+id: "cost-and-token-management"
+domain: 5
+domainName: "Model Selection and Optimization"
+name: "Cost and Token Management"
+weight: 2.8
+tier: 2
+hot: false
+scope:
+  - "token usage tracking"
+  - "cost modeling"
+  - "prompt caching"
+  - "cache check-pointing"
+traps:
+  - "thinking tokens bill at OUTPUT rates"
+  - "optimization order: fewer tokens, cache, batch, effort step-down, model downgrade LAST"
+sources:
+  - label: "Pricing"
+    url: "https://platform.claude.com/docs/en/about-claude/pricing"
+  - label: "Prompt caching"
+    url: "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+  - label: "Token counting"
+    url: "https://platform.claude.com/docs/en/build-with-claude/token-counting"
+authored: true
+---
+
+## What this objective actually tests
+
+This objective is about picking the right lever, in the right order, to control what a Claude application costs — and about reading the `usage` object precisely enough to know whether a lever actually worked. The exam is not testing whether you know prompt caching exists; it's testing whether you'd reach for it *before* a model downgrade, whether you can place a `cache_control` breakpoint somewhere that will actually hit, and whether you know that a thinking-heavy response is billed as output, not as some separate free category.
+
+## Mechanism
+
+### Optimization order — cheapest lever first
+
+The blueprint states this order explicitly, and it is the single most tested idea in this objective:
+
+1. **Send fewer tokens.** Trim the prompt, retrieve less, compact history. Free and the highest per-request return.
+2. **Prompt caching** on any stable prefix.
+3. **Batch** for anything latency-tolerant. *(Batch API mechanics are scored in Domain 2 — Applications and Integration, under `claude-api-mechanics` — not here. This objective only needs you to know batch exists as a cost lever and stacks with caching; do not expect API-shape questions about it in this section.)*
+4. **Effort step-down** on the same model.
+5. **Model downgrade — last.** It invalidates every eval you've run, same as in Model Selection and Tradeoffs.
+
+The classic wrong answer dramatized in stems: a team proposes a tier downgrade as the *first* response to a cost complaint, when a cache breakpoint or an effort step would have fixed it without touching validated behavior. If a stem's "obvious" answer is "switch to a cheaper model," check whether a cache or effort lever was available and unused first — that's usually the actual answer.
+
+### Prompt caching mechanics, precisely
+
+[Certain — prompt caching docs, `platform.claude.com/docs/en/build-with-claude/prompt-caching`, checked 2026-08-25]
+
+- **Exact prefix match with a lookback window.** A cache write happens only at a `cache_control` breakpoint and stores a cumulative hash of everything up to and including that block. A cache read computes the hash at your breakpoint, checks for a matching entry, and — if there's no exact match — walks backward up to **20 blocks** looking for the most recent prior write. Any byte changed anywhere in the prefix (not just near the breakpoint) invalidates the match for everything after that point.
+- **Render order is `tools` → `system` → `messages`.** Put stable content first (deterministic tool list, frozen system prompt) and volatile content (timestamps, per-request IDs, the newest turn) after the last breakpoint. Changing tool definitions invalidates the tools cache *and* everything downstream of it; changing `tool_choice` or adding/removing images invalidates tools+system but not an already-cached messages prefix that sits after them; a thinking-configuration or effort change invalidates cache in a model-specific way; nothing before the changed level is affected.
+- **Minimum cacheable prefix is not uniform across tiers** — a prompt shorter than the minimum is silently processed *without* caching (no error):
+  | Model | Minimum tokens to cache |
+  |---|---|
+  | Opus 5, Fable 5, Mythos 5 | 512 |
+  | Sonnet 5, Opus 4.8, Sonnet 4.6, Sonnet 4.5, Opus 4.1, Opus 4 | 1,024 |
+  | Opus 4.5, Opus 4.6, **Haiku 4.5** | 4,096 |
+  | Mythos Preview, Opus 4.7, Haiku 3.5 | 2,048 |
+- **TTL is 5 minutes by default, with a 1-hour option.** 5-minute writes cost 1.25x the base input rate and refresh for free on every hit, measured from request start (not response end — a 4-minute stream leaves roughly 1 minute before the next request must land to keep the cache alive). The 1-hour option (`cache_control: {type: "ephemeral", ttl: "1h"}`) costs 2x the base input rate to write. A 5-minute cache pays for itself after one read; the 1-hour tier after two.
+- **Up to 4 breakpoints per request.** Automatic top-level `cache_control` caches the last cacheable block and moves forward as a conversation grows — the simplest option when fine-grained placement isn't needed. Explicit per-block `cache_control` gives control over exactly what's cached, which matters once a conversation exceeds the 20-block lookback window or has multiple stability tiers (e.g., a frozen system prompt at 1h TTL, a slower-changing document at 5m).
+
+### Token usage tracking via `usage`
+
+The response's `usage` object is the ground truth for cost, not an estimate:
+
+- `input_tokens` — tokens **after** the last cache breakpoint only, never the full prompt.
+- `cache_read_input_tokens` — tokens served from cache (≈0.1x base input cost).
+- `cache_creation_input_tokens` — tokens newly written to cache this request (1.25x for 5m writes, 2x for 1h; when mixing TTLs, the field splits into `cache_creation.ephemeral_5m_input_tokens` / `ephemeral_1h_input_tokens`).
+- `output_tokens` — generated tokens, billed at the output rate.
+- `output_tokens_details.thinking_tokens` — **a breakdown *within* `output_tokens`, not a separate field or a separate rate.** This is the trap: thinking/reasoning tokens are billed at the model's output rate, same as visible response text. A thinking-heavy request is not "free reasoning plus cheap output" — it's expensive output, twice.
+- If `cache_read_input_tokens` is **zero across repeated, supposedly-identical requests**, something is silently invalidating the cache — a `datetime.now()` or UUID rendered into the system prompt, unsorted JSON producing a different byte sequence per request, or a varying tool set. This is diagnostic, not cosmetic: silent cache misses look like normal traffic in a dashboard that only tracks total spend.
+
+### Cost modeling
+
+Total request cost sums five components, each at the model's own per-tier rate:
+
+```
+cost = input_tokens × input_rate
+     + cache_read_input_tokens × (0.1 × input_rate)
+     + cache_creation_5m_tokens × (1.25 × input_rate)
+     + cache_creation_1h_tokens × (2 × input_rate)
+     + output_tokens × output_rate            # includes thinking_tokens
+```
+
+[Certain — pricing page, checked 2026-08-25] Current per-million-token rates, standard (non-batch) pricing:
+
+| Tier | Input | Output | Cache read | Cache write (5m / 1h) |
+|---|---|---|---|---|
+| Fable 5 / Mythos 5 | $10 | $50 | $1 | $12.50 / $20 |
+| Opus 5 | $5 | $25 | $0.50 | $6.25 / $10 |
+| Sonnet 5 | $2 | $10 | $0.20 | $2.50 / $4 |
+| Haiku 4.5 | $1 | $5 | $0.10 | $1.25 / $2 |
+
+Output runs 5x input at every tier; cache read is a flat 0.1x of that tier's input rate; cache writes are 1.25x (5m) or 2x (1h) of input. These *ratios* are the stable, testable fact — the digits move with pricing changes.
+
+### Tracking and governance
+
+Log `input_tokens`, `output_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`, and thinking tokens **separately**, attributed per feature and per tenant — a single blended "tokens used" number hides which lever to pull. Alert on cost-per-transaction drift, not monthly totals, so a caching regression or an effort creep shows up before the bill does. Don't ship a global max-effort flag "to be safe" — that's the same overprovisioning mistake as defaulting every task to Opus, just moved into the effort dimension instead of the model dimension.
+
+## Decision table
+
+| When the stem says... | ...the answer is |
+|---|---|
+| A cost complaint's proposed fix is "downgrade the model tier" | Wrong order — try caching and effort step-down first; model downgrade is last because it invalidates evals |
+| Large static system prompt, steady repeated traffic, want the cheapest fix | A `cache_control` breakpoint after the stable content, ordered most-stable-first |
+| Agentic workflow runs longer than 5 minutes between calls but less than hourly | 1-hour TTL cache (`ttl: "1h"`) — pays for itself after two reads instead of one |
+| `cache_read_input_tokens` is 0 across requests that look identical | A silent invalidator — check for a timestamp/UUID in the prompt, unsorted JSON, or a varying tool set |
+| A team wants to report "how much did thinking cost us" separately from output | It can't be separated by rate — thinking tokens are billed at the output rate, inside `output_tokens_details.thinking_tokens`; track it as a labeled subset, not a different price |
+| "10,000 documents, not needed until tomorrow, cost is the primary concern" | That's a Batch API question — Domain 2 territory, not this objective; the Domain 5 cost levers here are caching/effort/token-trimming, and batch is only a one-line mention that it stacks with them |
+| A prompt below the model's cache minimum shows no cache fields and no error | Expected — caching silently no-ops below the per-tier minimum (512–4,096 tokens depending on model); it is not a bug |
+| Conversation has grown past 20 messages and cache hits stopped | Add or move an explicit breakpoint — the lookback window is 20 blocks; content further back than that needs its own checkpoint |
+
+## Code examples
+
+Both examples cache a large stable system prompt with an explicit breakpoint, then read the cache fields back from `usage` to confirm the hit — the only reliable way to know caching is actually working.
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic()
+
+LARGE_STABLE_SYSTEM_PROMPT = "...50KB of policy and reference docs..."
+
+def ask(question: str):
+    response = client.messages.create(
+        model="claude-opus-5",
+        max_tokens=1024,
+        system=[
+            {
+                "type": "text",
+                "text": LARGE_STABLE_SYSTEM_PROMPT,
+                # Breakpoint at the end of the stable block. Volatile content
+                # (the user's question) stays out of the cached prefix.
+                "cache_control": {"type": "ephemeral", "ttl": "1h"},
+            },
+        ],
+        messages=[{"role": "user", "content": question}],
+    )
+
+    u = response.usage
+    thinking = getattr(u, "output_tokens_details", None)
+    thinking_tokens = getattr(thinking, "thinking_tokens", 0) if thinking else 0
+    print(
+        f"input={u.input_tokens} "
+        f"cache_read={u.cache_read_input_tokens} "
+        f"cache_write={u.cache_creation_input_tokens} "
+        f"output={u.output_tokens} (thinking={thinking_tokens})"
+    )
+    # A cache_read of 0 on the *second* identical call means something in the
+    # prefix changed — check for a timestamp, unsorted JSON, or a tool diff.
+    return response
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+const LARGE_STABLE_SYSTEM_PROMPT = "...50KB of policy and reference docs...";
+
+async function ask(question: string) {
+  const response = await client.messages.create({
+    model: "claude-opus-5",
+    max_tokens: 1024,
+    system: [
+      {
+        type: "text",
+        text: LARGE_STABLE_SYSTEM_PROMPT,
+        // Breakpoint at the end of the stable block. Volatile content
+        // (the user's question) stays out of the cached prefix.
+        cache_control: { type: "ephemeral", ttl: "1h" },
+      },
+    ],
+    messages: [{ role: "user", content: question }],
+  });
+
+  const u = response.usage;
+  const thinkingTokens = u.output_tokens_details?.thinking_tokens ?? 0;
+  console.log(
+    `input=${u.input_tokens} cache_read=${u.cache_read_input_tokens} ` +
+      `cache_write=${u.cache_creation_input_tokens} ` +
+      `output=${u.output_tokens} (thinking=${thinkingTokens})`,
+  );
+  // A cache_read of 0 on the *second* identical call means something in the
+  // prefix changed — check for a timestamp, unsorted JSON, or a tool diff.
+  return response;
+}
+```
+
+## Named traps, expanded
+
+**"Thinking tokens bill at OUTPUT rates."** This is attractive to miss because thinking feels like internal, behind-the-scenes computation — something closer to a free "let me think" pause than billed content, especially since the raw chain of thought is often not even shown to you. It's wrong because the API meters it as generated tokens: `output_tokens_details.thinking_tokens` is a labeled subset *of* `output_tokens`, not a separate free bucket, and it bills at the same per-tier output rate as visible response text — 5x the input rate on every current tier. Recognize this trap whenever a stem proposes a high-effort or thinking-heavy configuration as a "safe" way to improve quality without meaningfully affecting cost — it isn't safe on cost, it's the single most expensive token category in the request.
+
+**"Optimization order: fewer tokens, cache, batch, effort step-down, model downgrade LAST."** This is attractive to get backwards because a model downgrade *looks* like the biggest, most obviously effective lever — cut the per-token rate and everything gets cheaper at a glance. It's wrong as a first move because it's the only lever in the list that changes model behavior, which means it invalidates every eval already run against the current model — the same risk profile as a tier swap in Model Selection and Tradeoffs. Recognize this trap whenever a stem frames "switch to a cheaper model" as the obvious fix for a cost problem that also mentions a large stable prompt (caching was available), a thinking-heavy workload (effort step-down was available), or non-urgent timing (batch was available) — one of those should come first.
+
+## Recall checks
+
+- A chat feature has a large static system prompt and steady traffic. Rank the next three cost levers to try, in order, and say why model downgrade isn't first.
+- Two identical requests 30 seconds apart both show `cache_creation_input_tokens` nonzero and `cache_read_input_tokens` at 0. What's the likely cause?
+- Why can't a team report "thinking cost" as a separate line item from "output cost" on their bill — what field would they actually read to break it out?
+- A prompt caching test on Claude Haiku 4.5 shows no cache fields populated at all, no error. What's the most likely explanation given the per-tier minimums?
+- A scenario says "10,000 documents, results not needed until tomorrow, cost is the primary concern." Which objective actually owns the answer to this question, and why doesn't it belong here?

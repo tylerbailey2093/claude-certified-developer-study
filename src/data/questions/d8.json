@@ -1,0 +1,242 @@
+[
+  {
+    "id": "legacy-059",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "A logistics company runs three separate Claude applications. All three need to query the same warehouse routing service, and the routing team wants to own and version that capability on its own release cycle. Which approach fits?",
+    "o": [
+      "Duplicate the routing tool definition inside each application",
+      "Expose the routing operations through an MCP server that all three applications connect to",
+      "Embed the routing rules in each application's system prompt so no integration is needed",
+      "Have each application call the routing service through a built-in tool"
+    ],
+    "a": 1,
+    "e": "Two phrases decide this: reusable across multiple applications, and maintained independently on its own cycle. That combination is the MCP server signal. Duplicated definitions drift apart the moment one team edits theirs, prompt-embedded rules are neither live nor maintainable, and built-in tools do not reach arbitrary internal services.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-060",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "A custom tool receives a malformed customer ID and its implementation raises an unhandled exception, ending the agent run. What is the better design?",
+    "o": [
+      "Catch the exception and return an empty result so the agent continues",
+      "Return a tool_result marked as an error with a message the model can act on, such as the expected ID format",
+      "Retry the tool call three times before failing",
+      "Add the ID format to the system prompt so the model never sends a bad one"
+    ],
+    "a": 1,
+    "e": "Returning an actionable error lets the model correct itself and retry, which is the point of the tool-result error channel. An empty result silently hides the failure, blind retries repeat the same bad input, and a system prompt note is a request rather than a handled failure path.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-061",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "An agent has 40 registered tools and frequently selects the wrong one. Which change addresses the root cause?",
+    "o": [
+      "Increase the effort level so the model reasons harder about selection",
+      "Consolidate overlapping tools and sharpen each description to say when to use it and when not to",
+      "Rename the tools alphabetically so selection is deterministic",
+      "Move the tool definitions from the request into the system prompt"
+    ],
+    "a": 1,
+    "e": "The model selects tools by reading their descriptions, so ambiguity between overlapping tools is a description and tool-set design problem. A large surface also costs tokens on every request. Effort does not fix ambiguous documentation.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-062",
+    "d": 8,
+    "s": "MCP Server Development",
+    "q": "An MCP server must run on a developer's own machine, spawned by the client, with no network exposure. Which transport applies?",
+    "o": [
+      "Streamable HTTP with OAuth",
+      "stdio, communicating over standard input and output",
+      "HTTP with Server-Sent Events",
+      "WebSocket with a bearer token"
+    ],
+    "a": 1,
+    "e": "stdio is the local transport where the client spawns the server as a subprocess and communicates over standard streams, with no network involved. Streamable HTTP is the current standard for remote servers, and the older HTTP+SSE transport is deprecated.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-063",
+    "d": 8,
+    "s": "MCP Server Development",
+    "q": "An MCP server exposes a read-only database schema that the client should pull into context. Which primitive fits?",
+    "o": [
+      "A tool, since the model needs to retrieve it",
+      "A resource, which exposes read-only data controlled by the application",
+      "A prompt, since it provides reference context",
+      "A sampling request back to the client"
+    ],
+    "a": 1,
+    "e": "Resources are the read-only data primitive, controlled by the application or client. Tools are model-controlled actions, and prompts are user-invoked reusable templates. Knowing which party controls each primitive is the testable distinction.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-064",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "A team wants Claude Code to follow their internal code review checklist consistently across projects. Claude can already read code and comment on it. Which approach fits best?",
+    "o": [
+      "A custom tool that performs the review",
+      "An MCP server exposing a review endpoint",
+      "A Skill containing the checklist and review procedure",
+      "A built-in tool with a longer description"
+    ],
+    "a": 2,
+    "e": "A Skill changes how Claude does something it can already do, which is exactly this case: the capability exists and what is missing is the procedure. A tool or MCP server would add a capability that is not needed, and built-in tool descriptions are not yours to author.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "new-mcp-server-development-01",
+    "d": 8,
+    "s": "MCP Server Development",
+    "q": "An MCP server for a legal-document workflow exposes a saved instruction such as \"Summarize this contract's indemnification clauses,\" which users pick from a menu inside the Claude application rather than the model deciding to run it on its own. Which primitive does this capability map to?",
+    "o": [
+      "A tool, because it performs an action within the document workflow",
+      "A prompt, a user-controlled reusable template invoked explicitly rather than by model decision",
+      "A resource, since it packages reference content for the model to read",
+      "A sampling request, since the server is asking the client to generate a completion"
+    ],
+    "a": 1,
+    "e": "Prompts are the user-controlled primitive: reusable templates a user explicitly selects, never triggered automatically. Tools are model-controlled actions the LLM invokes on its own judgment, which doesn't match a capability chosen from a menu. Resources are application-controlled read-only data pulled into context, not something a user runs. Sampling is a separate MCP mechanism where the server asks the client's model to complete something, unrelated to user-selected templates.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-tool-implementation-01",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "A team's weather-alerting tool calls an external forecasting API. The tool definition hardcodes the API key as a default value directly inside the tool's input schema so the agent can pass it through automatically, and the same tool definition is deployed unchanged straight from staging into production.",
+    "o": [
+      "Move the API key into the tool's description field so the model can see that it is required",
+      "Ask the model to redact the API key from its own responses whenever it appears",
+      "Pull the API key from a secret manager at execution time, scoped to the minimum access needed, and treat the endpoint as per-environment configuration rather than a value baked into the schema",
+      "Increase the tool's timeout so staging and production behave identically"
+    ],
+    "a": 2,
+    "e": "Credentials belong in a secret manager scoped to least privilege, and endpoints belong in per-environment configuration, never embedded in a schema the model reads and that ships unchanged between environments. Putting the key in the description field makes the leak risk worse, since that text is model-readable context that can be echoed back. Asking the model to redact the key is a detective patch on a problem that should never have put a secret in context in the first place. Timeout has nothing to do with credential handling or environment separation.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-tool-implementation-02",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "An engineer is designing an agent that runs shell commands on a customer's machine using Anthropic's own Bash tool schema, and separately searches the web using Anthropic's web search tool. She assumes that because both tools come from Anthropic, both are executed on Anthropic's infrastructure and neither requires her own code to run anything.",
+    "o": [
+      "Both assumptions are correct; Anthropic executes any tool whose schema it defines",
+      "The Bash tool is a client tool that her own infrastructure must execute and return as a tool_result; web search is a server tool that Anthropic's infrastructure executes and returns as a server_tool_use result",
+      "Neither tool requires execution at all; both return results directly from the model's training data",
+      "Web search is a client tool she must execute herself, while the Bash tool runs entirely on Anthropic's infrastructure"
+    ],
+    "a": 1,
+    "e": "Whether a tool is client-side or server-side depends on who executes it, not who authored the schema. The Bash tool is Anthropic-defined but still a client tool: her own harness has to run the command and return a tool_result. Web search is genuinely server-side; Anthropic's infrastructure executes it internally and surfaces a server_tool_use result with no tool_result required from her. The first option wrongly assumes authorship implies execution. The third ignores that tools by definition act on something outside the model's parameters. The fourth reverses the actual client/server assignment of the two tools named.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-tool-implementation-03",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "An agent has both a read-only list_invoices tool and a void_invoice tool that permanently cancels a customer invoice with no undo. The team originally required a human to confirm every single tool call, but within days support staff started reflexively clicking \"approve\" on every prompt, including for void_invoice.",
+    "o": [
+      "Keep requiring approval on every call, but add a warning icon next to destructive ones",
+      "Remove the approval step entirely, since staff aren't reading the prompts anyway",
+      "Require two separate staff members to approve every tool call, including read-only ones",
+      "Auto-approve read-only calls like list_invoices, and keep an explicit, separate confirmation step only for irreversible actions like void_invoice"
+    ],
+    "a": 3,
+    "e": "Approval fatigue happens when every call, regardless of risk, demands identical attention, so oversight collapses into a reflex click; narrowing confirmation to genuinely irreversible actions restores the signal. A warning icon doesn't change the volume of approvals causing the fatigue, and a fatigued reviewer can ignore a visual cue as easily as the prompt itself. Removing approval entirely abandons oversight on the one action that most needs it. Requiring two approvers on every call, including read-only ones, adds friction without addressing why staff stopped reading prompts in the first place, making the fatigue worse.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-tool-implementation-04",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "A platform team maintains one shared tool set used by every agent session, including a rarely used purge_tenant_data tool invoked by only two administrators a few times a year. Every session pays the token cost of that tool's full definition on every request regardless of who is logged in, and tool-selection accuracy has been degrading as the shared set has grown.",
+    "o": [
+      "Move purge_tenant_data out of the default set and load it only into the small number of sessions run by the administrators who actually need it",
+      "Shorten the tool's name to reduce its token count",
+      "Add a longer, more detailed description to purge_tenant_data so the model understands it better",
+      "Convert purge_tenant_data into an MCP server so it no longer counts against the context window"
+    ],
+    "a": 0,
+    "e": "Every registered tool definition is sent on every request whether or not it's used, and a larger shared set also increases selection ambiguity; scoping a rarely needed, high-privilege tool to only the sessions that need it removes both costs at once. Shortening the name saves a negligible number of tokens and does nothing about ambiguity. A longer description makes the per-request token cost worse without addressing who needs the tool. Moving the tool to MCP is a common misconception: MCP tool definitions are still declared to the model on every request and still consume context tokens, so this doesn't exempt it from the cost described.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agentic-customization-01",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "A team is building an agent that needs to run Python snippets to validate calculations before presenting results to users. An engineer starts drafting a custom tool schema that shells out to a sandboxed Python interpreter that their infrastructure team would need to build and maintain going forward.",
+    "o": [
+      "Use Anthropic's built-in code execution tool instead, since the capability already exists and doesn't need to be rebuilt",
+      "Build the custom tool as planned, since custom tools are always more secure than built-in ones",
+      "Write a Skill that teaches Claude to simulate Python execution by reasoning through the code manually",
+      "Package the custom sandbox as an MCP server so it can be reused later"
+    ],
+    "a": 0,
+    "e": "The first question in the decision framework is whether the capability already exists as an Anthropic-provided tool. It does here, so building and maintaining a parallel sandbox is wasted effort with no capability gained. The claim that custom tools are inherently more secure than built-in ones is simply false; built-in tools are Anthropic-maintained and don't automatically lose on security. A Skill can't substitute for a missing execution capability — no amount of procedural guidance lets Claude actually run code without a real execution environment. Wrapping the redundant sandbox as an MCP server still rebuilds a capability that already exists, plus adds infrastructure ownership on top.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agentic-customization-02",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "A support team wants every response from their Claude-powered agent to follow a specific tone, always cite the relevant help-center article, and always close with a specific escalation phrase. The agent can already read the help-center article library and compose responses; nothing about its capabilities is missing.",
+    "o": [
+      "A custom tool that formats and returns the final response text",
+      "An MCP server exposing a format_response endpoint",
+      "A Skill containing the tone rules, citation convention, and closing phrase",
+      "A built-in tool configured with the escalation phrase as a parameter"
+    ],
+    "a": 2,
+    "e": "Nothing here is a missing capability — the agent can already read articles and write responses — so the need is entirely about how it should perform a task it can already do, which is exactly what a Skill is for. A custom tool and an MCP server both reach for infrastructure that adds a capability the agent doesn't lack; wrapping 'write it this way' logic in a tool call adds integration overhead for a purely instructional need. There is no generic built-in tool for a company-specific tone and escalation phrase, so that option is fabricated.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-agentic-customization-03",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "A platform group runs a single internal API that checks employee time-off balances. Right now only the HR onboarding agent calls it, the API changes only when the onboarding agent's own team changes it, and there are no plans to expose it to any other application.",
+    "o": [
+      "An MCP server maintained independently of the onboarding agent",
+      "A custom tool defined directly inside the onboarding agent's application",
+      "A Skill describing how to interpret time-off balances",
+      "Anthropic's built-in tool for HR systems"
+    ],
+    "a": 1,
+    "e": "The deciding question is reuse across applications plus independent maintenance, and neither is true here: one app, one owning team, no separate lifecycle. A custom tool defined in that app is the simplest fit with no unneeded infrastructure. Standing up a separate MCP server buys nothing when there is only one caller and one team maintaining it in lockstep with the app. Checking a balance is a capability the agent doesn't currently have — calling an API — not a procedural or instructional need, so a Skill doesn't fit. There is no generic Anthropic-provided HR tool; that option should be recognized as invented.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agentic-customization-04",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "An engineering-assistant agent needs to periodically spin off a focused code-security review that reads an entire large repository, large enough that pulling all of it into the main conversation would crowd out everything else the user is discussing. The security review also needs read-only filesystem access that the main conversation must never be granted.",
+    "o": [
+      "A Skill containing the security review checklist, loaded into the main conversation",
+      "A custom tool that returns the entire repository as text",
+      "An MCP server that exposes the repository as a resource",
+      "A subagent with its own context window and its own, narrower tool permissions"
+    ],
+    "a": 3,
+    "e": "Two needs are described: a separate context window so the large read doesn't crowd out the main conversation, and different, narrower tool permissions than the main conversation should have. Both point to a subagent, which gets its own context and its own scoped access. A Skill loads into the current conversation and inherits its existing permissions, so it solves neither problem. A custom tool that dumps the whole repository as text puts the crowding problem straight into context instead of isolating it. An MCP server can supply read access to the data but doesn't address context isolation or permission scoping on its own.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-agentic-customization-05",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "A team wants their support agent to always summarize tickets using the company's specific five-section format, something the agent can already do by writing text, and separately to look up real-time shipment tracking from a carrier's API, which the agent currently has no way to access. Several other product teams beyond support already want shipment tracking, and the carrier integration will be versioned and patched independently by a platform team.",
+    "o": [
+      "A custom tool for the five-section format, and a Skill for shipment tracking",
+      "A Skill for the five-section format, and an MCP server for the shipment-tracking capability",
+      "A single MCP server that handles both the formatting and the tracking lookup",
+      "A built-in tool for the five-section format, and a custom tool for shipment tracking"
+    ],
+    "a": 1,
+    "e": "The two needs split cleanly: the five-section format is purely instructional, since the agent already has the capability to write text and just needs a convention, which is a Skill; shipment tracking is a missing capability, reused across multiple teams and independently versioned by a platform team, which is exactly the reuse-plus-independent-maintenance combination that points to an MCP server. Reversing the two is wrong on both counts: a tool for pure formatting is unnecessary machinery, and a Skill cannot grant the actual capability to call a carrier API. Bundling both into one MCP server puts an instructional need into infrastructure it doesn't need. There is no generic built-in tool for a company-specific format, and a bare custom tool ignores that the tracking capability is reused and independently maintained.",
+    "pattern": "scope-boundary"
+  }
+]

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "new-claude-hooks-01",
+    "d": 7,
+    "s": "Claude Hooks",
+    "q": "An engineering team adds a CLAUDE.md rule stating Claude Code must never run `git push --force` against the main branch. During a migration, a contributor pastes instructions from a Slack thread into the chat that override this rule, and the agent force-pushes to main anyway. Which control would have prevented this regardless of what instructions the agent received during that session?",
+    "o": [
+      "A more detailed CLAUDE.md rule listing examples of what counts as a force push",
+      "A PreToolUse hook matching the Bash tool that inspects the command and exits 2 to block any force push targeting main",
+      "A PostToolUse hook that reverts the push once it detects one occurred",
+      "A system-prompt instruction paired with a lower sampling temperature"
+    ],
+    "a": 1,
+    "e": "A rule that must always hold needs a deterministic control, not a prompt instruction that pasted text can override. A PreToolUse hook runs before the tool executes and, on exit 2, blocks it outright regardless of what the model was told in-session. More detailed CLAUDE.md wording is still a request, not a guarantee. PostToolUse fires after the push already happened, and a force push can rewrite history other developers have already pulled, so it cannot reliably undo the damage. Temperature affects sampling variance, not policy compliance.",
+    "pattern": "must-means-deterministic"
+  }
+]

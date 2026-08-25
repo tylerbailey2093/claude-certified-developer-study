@@ -1,0 +1,62 @@
+[
+  {
+    "id": "new-context-engineering-01",
+    "d": 6,
+    "s": "Context Engineering",
+    "q": "A deployed agent runs for many hours in a single session, taking on new subtasks as they arrive. By the end of the day it stops enforcing a formatting rule it applied correctly during the first two hours, even though nothing has removed that rule from the system prompt. The team wants a fix that addresses the actual failure without discarding conversation history early. Which change addresses it?",
+    "o": [
+      "Increase the model's context window size so more history fits",
+      "Restate the durable rule at natural decision points, and start a fresh session at task boundaries instead of running one indefinitely long session",
+      "Summarize the entire session so far and replace it with the summary",
+      "Move the rule out of the system prompt and repeat it in every user turn instead"
+    ],
+    "a": 1,
+    "e": "This is context drift, not bloat: the rule never left the window, it got crowded out by accumulating, competing content. The fix is session hygiene. A bigger window (A) doesn't stop newer content from crowding out the rule, it just delays the symptom. Summarizing the session (C) is compaction, a bloat fix aimed at a capacity problem this stem doesn't describe. Moving the rule out of the stable system layer and into every user turn (D) does the opposite of session hygiene, it makes the durable rule compete with per-request content on every single turn.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-context-engineering-02",
+    "d": 6,
+    "s": "Context Engineering",
+    "q": "An agentic pipeline calls a search API that returns full HTML pages and a code-execution tool that returns entire stdout logs. Token spend and latency have grown steadily as the pipeline chains more tool calls per task, even though none of the pipeline's instructions have changed. Which change is most likely to produce the largest reduction in context consumed per task?",
+    "o": [
+      "Switch to a model with a larger context window so the same payloads fit more comfortably",
+      "Summarize the conversation history every five turns",
+      "Filter and truncate the raw tool outputs to only the fields the next step actually needs, before they enter context",
+      "Lower the sampling temperature so responses are shorter"
+    ],
+    "a": 2,
+    "e": "Tool output pruning is usually the largest single source of bloat in agentic systems, and the stem points straight at it: growth tracks tool calls, not turn count. A larger window (A) tolerates the waste rather than eliminating it, and cost still scales with it. Summarizing history every five turns (B) is compaction, which targets accumulated turns, not the raw tool payloads the stem identifies as the actual bulk. Temperature (D) affects sampling randomness, not payload size, and isn't a reliable lever on output length.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-context-engineering-03",
+    "d": 6,
+    "s": "Context Engineering",
+    "q": "A long-running coding session nears its context limit, so the team enables automatic compaction to summarize and replace older turns whenever the window is 80% full, without specifying what the summary must retain. Two weeks later, an agent forgets a constraint that was established early in a session and never revisited afterward. What is the most accurate explanation?",
+    "o": [
+      "Compaction is non-lossy, so the constraint must have been removed by something else",
+      "The context window itself expired, unrelated to compaction",
+      "The constraint was never in context because system prompts do not persist across compaction",
+      "Compaction discarded the constraint because the summary boundary was left as a default rather than a deliberate design decision about what must survive"
+    ],
+    "a": 3,
+    "e": "Compaction is lossy by design, and what survives it has to be a deliberate design decision, usually decisions and outcomes rather than transcript detail. Leaving that undefined means an early, never-repeated constraint is exactly the kind of detail that gets summarized away. Option A is factually wrong, compaction is explicitly lossy. Option B invents a mechanism ('window expiry') that isn't how context management works. Option D describes a real risk, but it is not what happened here since the trap is the missing design decision, not that system prompts categorically fail to survive compaction.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-context-engineering-04",
+    "d": 6,
+    "s": "Context Engineering",
+    "q": "A coding agent needs to search a large monorepo to locate every caller of a deprecated function before making a change. The team wants a guarantee that the raw search results, which can run to tens of thousands of tokens per query, never appear in the parent agent's context, only a distilled list of file paths and line numbers. Which design provides that guarantee?",
+    "o": [
+      "Delegate the search to a subagent with its own context window, returning only the condensed result to the parent",
+      "Instruct the parent agent's system prompt to 'keep tool results brief and summarized'",
+      "Prune the search tool's output to the first 500 tokens before returning it",
+      "Increase max_tokens on the parent so it can hold the full result set without truncation"
+    ],
+    "a": 0,
+    "e": "Only isolating the search inside a subagent's own context window structurally guarantees the raw results never reach the parent, the parent simply never sees them. A system-prompt instruction (B) is a request the model can still fail to follow, not a guarantee, exactly the gap between a prompt and a deterministic control. Pruning to a fixed length (C) still lets raw, truncated content into the parent's context, violating the 'never appear' requirement, and risks cutting the exact lines the change needs. Raising max_tokens (D) increases capacity for the full result set, the opposite of keeping it out.",
+    "pattern": "must-means-deterministic"
+  }
+]

@@ -1,0 +1,47 @@
+[
+  {
+    "id": "new-understanding-requirements-01",
+    "d": 2,
+    "s": "Understanding Requirements",
+    "q": "A telehealth company routes post-visit session summaries through Claude for clinician review. A newly passed data protection law in the patient's home country prohibits any processing of health data outside that country's borders, even momentarily in transit. Which infrastructure requirement should the solution architecture satisfy?",
+    "o": [
+      "Encrypt the session summary with a customer-managed key before it leaves the clinic's network",
+      "Route the request through a regional API endpoint that guarantees in-country processing",
+      "Shorten the retention window on stored session summaries to reduce exposure",
+      "Increase the request timeout budget to accommodate cross-border network latency"
+    ],
+    "a": 1,
+    "e": "The constraint is where processing happens, not how long data is kept or how fast a response arrives. A regional endpoint pins inference to the required jurisdiction. Encryption protects confidentiality in transit but doesn't control the country in which the model actually runs, so it fails the residency requirement outright. Shortening retention addresses how long data is stored, a different requirement dimension than where it's processed. Increasing the timeout is a latency parameter with no bearing on jurisdiction.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-understanding-requirements-02",
+    "d": 2,
+    "s": "Understanding Requirements",
+    "q": "A brokerage firm's policy states that every response Claude sends to a retail customer must have account numbers stripped before delivery, with no exceptions permitted under any circumstance. A junior engineer proposes solving this by adding a instruction to the system prompt asking Claude to redact account numbers whenever it sees one. What does this requirement actually call for?",
+    "o": [
+      "A longer, more detailed system prompt describing exactly what an account number looks like",
+      "A higher reasoning-effort configuration on the model to improve redaction accuracy",
+      "Periodic manual audits of a sample of outgoing customer responses",
+      "A deterministic post-processing filter that runs on every response before delivery, independent of model behavior"
+    ],
+    "a": 3,
+    "e": "\"No exceptions permitted under any circumstance\" means the requirement demands a guarantee, and a guarantee requires a deterministic control that runs regardless of what the model decides. A prompt instruction, however detailed, is still a request the model tries to follow, not a guarantee, so option 0 fails on the same grounds as the junior engineer's original proposal. Higher reasoning effort can reduce error rates but never eliminates them, so it can't satisfy \"no exceptions.\" Sampled manual audits catch problems after some have already reached customers, which directly contradicts a zero-exception requirement.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-understanding-requirements-03",
+    "d": 2,
+    "s": "Understanding Requirements",
+    "q": "A project brief for an HR tool reads: 'Claude should draft a personalized onboarding email for each new hire based on their role and start date.' The same brief adds that the tool must stay responsive with sub-second turnaround even when 200 new hires start on the same day. A requirements analyst is sorting these two statements into a functional requirements document and an infrastructure requirements document.",
+    "o": [
+      "Both statements belong in infrastructure requirements, since they both describe system behavior under real operating conditions",
+      "Both statements belong in functional requirements, since neither one names a specific vendor or region",
+      "The email-drafting behavior is functional; the sub-second-at-200-concurrent-hires statement is infrastructure",
+      "The latency statement is functional, since it directly shapes what the end user experiences"
+    ],
+    "a": 2,
+    "e": "Functional requirements describe what the system does (draft a personalized email); infrastructure requirements describe the non-functional envelope it must operate within (a throughput and latency constraint under concurrent load). Calling both statements infrastructure ignores that drafting the email is itself the capability being built, not a constraint on it. Calling both functional, on the reasoning that neither names a vendor or region, misses that a capacity/performance ceiling is the textbook definition of an infrastructure requirement regardless of vendor mention. Labeling the latency statement functional conflates user-experienced quality with the feature itself — latency-under-load is a quality attribute, not a capability.",
+    "pattern": "buried-constraint"
+  }
+]

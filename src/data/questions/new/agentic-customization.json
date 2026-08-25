@@ -1,0 +1,77 @@
+[
+  {
+    "id": "new-agentic-customization-01",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "A team is building an agent that needs to run Python snippets to validate calculations before presenting results to users. An engineer starts drafting a custom tool schema that shells out to a sandboxed Python interpreter that their infrastructure team would need to build and maintain going forward.",
+    "o": [
+      "Use Anthropic's built-in code execution tool instead, since the capability already exists and doesn't need to be rebuilt",
+      "Build the custom tool as planned, since custom tools are always more secure than built-in ones",
+      "Write a Skill that teaches Claude to simulate Python execution by reasoning through the code manually",
+      "Package the custom sandbox as an MCP server so it can be reused later"
+    ],
+    "a": 0,
+    "e": "The first question in the decision framework is whether the capability already exists as an Anthropic-provided tool. It does here, so building and maintaining a parallel sandbox is wasted effort with no capability gained. The claim that custom tools are inherently more secure than built-in ones is simply false; built-in tools are Anthropic-maintained and don't automatically lose on security. A Skill can't substitute for a missing execution capability — no amount of procedural guidance lets Claude actually run code without a real execution environment. Wrapping the redundant sandbox as an MCP server still rebuilds a capability that already exists, plus adds infrastructure ownership on top.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agentic-customization-02",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "A support team wants every response from their Claude-powered agent to follow a specific tone, always cite the relevant help-center article, and always close with a specific escalation phrase. The agent can already read the help-center article library and compose responses; nothing about its capabilities is missing.",
+    "o": [
+      "A custom tool that formats and returns the final response text",
+      "An MCP server exposing a format_response endpoint",
+      "A Skill containing the tone rules, citation convention, and closing phrase",
+      "A built-in tool configured with the escalation phrase as a parameter"
+    ],
+    "a": 2,
+    "e": "Nothing here is a missing capability — the agent can already read articles and write responses — so the need is entirely about how it should perform a task it can already do, which is exactly what a Skill is for. A custom tool and an MCP server both reach for infrastructure that adds a capability the agent doesn't lack; wrapping 'write it this way' logic in a tool call adds integration overhead for a purely instructional need. There is no generic built-in tool for a company-specific tone and escalation phrase, so that option is fabricated.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-agentic-customization-03",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "A platform group runs a single internal API that checks employee time-off balances. Right now only the HR onboarding agent calls it, the API changes only when the onboarding agent's own team changes it, and there are no plans to expose it to any other application.",
+    "o": [
+      "An MCP server maintained independently of the onboarding agent",
+      "A custom tool defined directly inside the onboarding agent's application",
+      "A Skill describing how to interpret time-off balances",
+      "Anthropic's built-in tool for HR systems"
+    ],
+    "a": 1,
+    "e": "The deciding question is reuse across applications plus independent maintenance, and neither is true here: one app, one owning team, no separate lifecycle. A custom tool defined in that app is the simplest fit with no unneeded infrastructure. Standing up a separate MCP server buys nothing when there is only one caller and one team maintaining it in lockstep with the app. Checking a balance is a capability the agent doesn't currently have — calling an API — not a procedural or instructional need, so a Skill doesn't fit. There is no generic Anthropic-provided HR tool; that option should be recognized as invented.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agentic-customization-04",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "An engineering-assistant agent needs to periodically spin off a focused code-security review that reads an entire large repository, large enough that pulling all of it into the main conversation would crowd out everything else the user is discussing. The security review also needs read-only filesystem access that the main conversation must never be granted.",
+    "o": [
+      "A Skill containing the security review checklist, loaded into the main conversation",
+      "A custom tool that returns the entire repository as text",
+      "An MCP server that exposes the repository as a resource",
+      "A subagent with its own context window and its own, narrower tool permissions"
+    ],
+    "a": 3,
+    "e": "Two needs are described: a separate context window so the large read doesn't crowd out the main conversation, and different, narrower tool permissions than the main conversation should have. Both point to a subagent, which gets its own context and its own scoped access. A Skill loads into the current conversation and inherits its existing permissions, so it solves neither problem. A custom tool that dumps the whole repository as text puts the crowding problem straight into context instead of isolating it. An MCP server can supply read access to the data but doesn't address context isolation or permission scoping on its own.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-agentic-customization-05",
+    "d": 8,
+    "s": "Agentic Customization",
+    "q": "A team wants their support agent to always summarize tickets using the company's specific five-section format, something the agent can already do by writing text, and separately to look up real-time shipment tracking from a carrier's API, which the agent currently has no way to access. Several other product teams beyond support already want shipment tracking, and the carrier integration will be versioned and patched independently by a platform team.",
+    "o": [
+      "A custom tool for the five-section format, and a Skill for shipment tracking",
+      "A Skill for the five-section format, and an MCP server for the shipment-tracking capability",
+      "A single MCP server that handles both the formatting and the tracking lookup",
+      "A built-in tool for the five-section format, and a custom tool for shipment tracking"
+    ],
+    "a": 1,
+    "e": "The two needs split cleanly: the five-section format is purely instructional, since the agent already has the capability to write text and just needs a convention, which is a Skill; shipment tracking is a missing capability, reused across multiple teams and independently versioned by a platform team, which is exactly the reuse-plus-independent-maintenance combination that points to an MCP server. Reversing the two is wrong on both counts: a tool for pure formatting is unnecessary machinery, and a Skill cannot grant the actual capability to call a carrier API. Bundling both into one MCP server puts an instructional need into infrastructure it doesn't need. There is no generic built-in tool for a company-specific format, and a bare custom tool ignores that the tracking capability is reused and independently maintained.",
+    "pattern": "scope-boundary"
+  }
+]

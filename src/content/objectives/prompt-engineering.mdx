@@ -1,0 +1,157 @@
+---
+id: "prompt-engineering"
+domain: 6
+domainName: "Prompt and Context Engineering"
+name: "Prompt Engineering"
+weight: 4.6
+tier: 2
+hot: false
+scope:
+  - "instruction clarity"
+  - "few-shot examples"
+  - "system vs user placement"
+  - "output constraints"
+  - "placement across components"
+  - "iterative refinement"
+  - "prompt adjustment"
+  - "input sanitization"
+traps:
+  - "tool descriptions are prompts"
+  - "a prompt fix for one case commonly regresses others - hence the eval set first"
+sources:
+  - label: "Prompt engineering"
+    url: "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview"
+authored: true
+---
+
+## What this objective actually tests
+
+This objective tests **how** to write and place instructions well — clarity, example construction, structural placement across `system`, `user`, tool descriptions, and adjacent config surfaces, output constraints, and sanitizing untrusted input. It's narrower than it sounds: the zero/single/multi-shot taxonomy — how many examples, why more than one usually helps — is scored in Domain 5 LLM Fundamentals. This objective assumes that taxonomy and tests whether you apply the rest of the prompt-craft toolkit well in a real application.
+
+## Mechanism
+
+### Instruction clarity — explicit beats clever
+
+State what to do, not just what to avoid. An instruction that only rules things out ("don't be verbose") leaves the model to infer the positive target, and ambiguity is where run-to-run non-determinism does the most visible damage.
+
+### System vs. user placement — durability, caching, trust boundary
+
+The split is durability, not topic. **`system`** — a top-level parameter, not a message role — holds the role, durable constraints, and rules that apply to every request; even one sentence of role-setting there measurably focuses tone. **`user`** holds task-specific data: the document, the question, this request's specifics.
+
+Two mechanical reasons this matters beyond tidiness. **Prompt caching** matches a stable prefix (tools, then system, then messages, in that order) — per-request data in `system` changes that "stable" prefix every call and silently defeats the cache. And the **trust boundary**: `system` is developer-authored and should stay that way; concatenating user text into it blurs trusted instructions and untrusted content, the seam most prompt-injection mitigations protect (Claude Application Design covers the content-boundary side; this is the placement-discipline half).
+
+### Few-shot examples — concrete construction
+
+Examples are one of the most reliable levers on format, tone, and structure — more reliable than describing the format in prose. Good examples are **relevant** (mirror the real use case) and **diverse** (typical case plus real edge cases — empty, ambiguous, out-of-scope input — varied enough that the model doesn't lock onto an incidental shared pattern that wasn't the point).
+
+Construction pattern: 2–4 canonical examples in consistent tags (`<example>`), unambiguously delimited from the live task. Stuffing in every edge case ever seen is a common overcorrection. Placement follows durability: a stable format-example set applies to every call and can sit in `system`; examples specific to one request belong with it in `user`.
+
+### Output constraints
+
+Prefer a structural mechanism over a polite request. "JSON only" in prose is a soft constraint the model can still violate. `output_config.format` with a JSON Schema, or a tool with `strict: true`, uses constrained decoding — the sampler itself is restricted so no emitted token can violate the schema. Same logic as any exam stem requiring something must or always hold: a prompt is a request the model can get wrong; a schema constraint is a guarantee enforced at generation time.
+
+### Placement across components — tool descriptions are prompts
+
+The same instruction lands differently depending on the surface — `system`, `user`, a tool's `description`, `CLAUDE.md`, a hook — and picking the wrong surface for the durability needed is a distinct failure from writing the instruction badly. A tool's `name`, `description`, and parameter descriptions are read and acted on exactly like any other instruction text. A vague description ("does stuff with the database") produces the same ambiguity failure as a vague system prompt, with worse blast radius — the model may call it at the wrong time or with wrong arguments. The same craft — clarity, a usage example, an explicit statement of when *not* to call it — belongs in tool descriptions too.
+
+### Iterative refinement — the eval set comes first
+
+Change one thing, re-run the eval set, keep it or revert. A prompt edit that fixes one reported failure commonly regresses others, and without a fixed eval set that regression is invisible — you only see the case you were staring at, not the ones you silently broke.
+
+### Input sanitization
+
+Untrusted input — user text, a retrieved document, external tool output — must be clearly delimited (XML tags, an explicit "untrusted content" frame) and never interpolated directly into instruction-bearing text. Delimit-and-never-concatenate, applied consistently, is the technique — a structural discipline, not a promise made in the prompt itself.
+
+## Decision table
+
+| When the stem says... | ...the answer is |
+|---|---|
+| Behavior must apply to every request, regardless of what's asked | `system` — durable, not per-request |
+| A specific document or question is handled this one time | `user` — request-specific, not durable |
+| Current document text was put in `system` and caching stopped working | Move it to `user` — per-request content breaks the cached-prefix match |
+| "JSON only" in prose still occasionally yields malformed or prose-prefixed output | Structured output (`output_config.format` or `strict: true`), not a stronger instruction |
+| A tool is called at the wrong time or with wrong arguments despite a good system prompt | Rewrite the tool's `description` — it's read as an instruction too |
+| A prompt change fixed one reported bug and shipped without further testing | Wrong — re-run the full eval set first; a fix for one case commonly regresses others |
+| Few-shot examples are near-identical and the model copied an incidental pattern | Add diversity — the examples weren't varied enough to isolate the signal |
+| Raw text from a retrieved web page is concatenated directly into the instruction | Sanitization failure — delimit untrusted content, never interpolate it |
+| The stem frames the question as "how many examples is enough" | Scope boundary — that's Domain 5's shot-count taxonomy, not this objective |
+
+## Code examples
+
+Both place a durable role and format contract in `system`, task data in `user`, and diverse tagged examples rather than one repeated pattern.
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic()
+
+SYSTEM_PROMPT = """You are a support-ticket triage assistant. Classify each
+ticket into exactly one category: billing, bug, feature_request, or other.
+Respond with only the category name, lowercase, no punctuation.
+
+<example><ticket>My card was charged twice for the same invoice.</ticket>
+<category>billing</category></example>
+<example><ticket>The export button does nothing on Safari.</ticket>
+<category>bug</category></example>
+<example><ticket>Could you add a dark mode option?</ticket>
+<category>feature_request</category></example>
+<example><ticket>What are your support hours?</ticket>
+<category>other</category></example>"""
+# Role, format contract, and stable examples live in `system` — apply to
+# every ticket and stay eligible for prompt caching.
+
+def classify_ticket(ticket_text: str) -> str:
+    # Per-request data goes in `user`, delimited from the instruction layer.
+    msg = client.messages.create(
+        model="claude-opus-5",
+        max_tokens=10,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": f"<ticket>{ticket_text}</ticket>"}],
+    )
+    return msg.content[0].text.strip()
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+const SYSTEM_PROMPT = `You are a support-ticket triage assistant. Classify each
+ticket into exactly one category: billing, bug, feature_request, or other.
+Respond with only the category name, lowercase, no punctuation.
+
+<example><ticket>My card was charged twice for the same invoice.</ticket>
+<category>billing</category></example>
+<example><ticket>The export button does nothing on Safari.</ticket>
+<category>bug</category></example>
+<example><ticket>Could you add a dark mode option?</ticket>
+<category>feature_request</category></example>
+<example><ticket>What are your support hours?</ticket>
+<category>other</category></example>`;
+// Role, format contract, and examples live in `system` — durable, cacheable.
+
+async function classifyTicket(ticketText: string): Promise<string> {
+  const msg = await client.messages.create({
+    model: "claude-opus-5",
+    max_tokens: 10,
+    system: SYSTEM_PROMPT,
+    messages: [{ role: "user", content: `<ticket>${ticketText}</ticket>` }],
+  });
+  const block = msg.content[0];
+  return block.type === "text" ? block.text.trim() : "";
+}
+```
+
+## Named traps, expanded
+
+**"Tool descriptions are prompts."** Easy to miss because a tool definition looks like configuration rather than something the model "reads." Wrong to treat it that way — the model conditions its tool-calling decisions directly on that text, so vague wording produces the same failure class as a vague system prompt: unclear intent, wrong tool chosen. Recognize this whenever a stem shows tool misuse despite a well-written system prompt — the fix is almost always the tool's own description.
+
+**"A prompt fix for one case commonly regresses others."** Attractive because a fixed reported failure feels like unambiguous progress, and re-running a full eval set feels like overhead for a one-line change. Wrong because prompt changes are broad-spectrum — reweighting a phrase for case A can shift behavior on cases B and C that shared context, and without a before/after eval run those regressions ship invisibly. Recognize this whenever a stem ships a prompt change on the strength of the one case that motivated it.
+
+## Recall checks
+
+- Why does putting a per-request document in `system` break prompt caching, and where should it go instead?
+- What two properties should few-shot examples have, and what goes wrong when they're relevant but not diverse?
+- A stem argues adding one more example will fix a classification prompt. Which domain owns that claim, and what does this objective own instead?
+- Why is "ask for JSON in the prompt" weaker than a JSON Schema passed to `output_config.format`?
+- An agent keeps calling the wrong tool despite a careful system prompt. What's the first thing to inspect, and why?

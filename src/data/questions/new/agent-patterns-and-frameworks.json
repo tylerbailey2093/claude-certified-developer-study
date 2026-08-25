@@ -1,0 +1,62 @@
+[
+  {
+    "id": "new-agent-patterns-and-frameworks-01",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "A deployment agent must never make more than fifty tool calls in a single run, regardless of how capable the underlying model is or how the prompt is worded, because a runaway run has already caused a production incident. Which control actually guarantees that ceiling holds?",
+    "o": [
+      "A harness-level counter that stops the loop once fifty tool calls have been made, independent of the model's own judgment",
+      "Switching to a more capable model that is less likely to get stuck in a loop",
+      "Lowering the sampling temperature so the model's tool choices are more consistent",
+      "Adding a system-prompt instruction telling the model to stop after fifty tool calls"
+    ],
+    "a": 0,
+    "e": "Only a harness-level counter enforced in code guarantees the ceiling, because it doesn't depend on the model choosing to comply. A more capable model reduces how often loops happen but never guarantees a hard limit. Lowering temperature changes variability, not termination. A system-prompt instruction is a request the model can fail to follow, not a guarantee -- the same distinction that makes unbounded loops a harness failure rather than a model failure.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-02",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "A long-running research agent writes short notes to a local file as it works through a forty-step investigation, and reads those notes back on later steps, even though this costs it extra tool calls it wouldn't otherwise need. What best explains why this design choice is worth that overhead?",
+    "o": [
+      "It permanently increases the size of the agent's underlying context window",
+      "It gives the agent persistent memory outside the context window, preserving progress and dependencies without keeping the full history in-context",
+      "It replaces the harness's responsibility to bound the loop with a timeout or iteration limit",
+      "It lets the underlying API retain state between two otherwise unrelated conversations"
+    ],
+    "a": 1,
+    "e": "Structured note-taking is a memory pattern: it persists progress and dependencies outside the context window at low overhead, so the agent doesn't need to keep everything in-context. It does not change context-window size, does not substitute for loop-termination bounds, and does not make the API stateful -- each wrong option borrows a real mechanism from an adjacent concern that note-taking doesn't actually touch.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-03",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "An agent's conversation has grown large enough that old tool outputs are consuming most of the available context, even though the agent no longer needs to re-inspect any of them. The team wants the lightest-touch fix available and specifically wants to avoid summarizing anything. Which lever fits?",
+    "o": [
+      "Compaction: summarize the whole conversation and reinitiate a new context window",
+      "Switch to a model with a larger context window so the old outputs simply fit",
+      "Tool-result clearing: drop the stale raw tool outputs from the message history",
+      "Rewrite the system prompt to be shorter"
+    ],
+    "a": 2,
+    "e": "Tool-result clearing is the lightest-touch lever and involves no summarization -- it just drops stale raw outputs the agent no longer needs. Compaction is exactly the summarization the team said to avoid. A larger context window doesn't manage anything, it just delays the same growth problem. The system prompt isn't what's consuming context in this scenario, so shortening it doesn't address the stated cause.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-04",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "A Python team wants every tool call and model response validated against typed schemas at development time, with as little custom parsing code as possible, and they explicitly do not need a general-purpose graph engine for branching, cyclical control flow. Which framework fits best?",
+    "o": [
+      "LangGraph, for its explicit graph of nodes and edges",
+      "Strands Agents, for its minimal-scaffolding model-driven loop",
+      "A hand-rolled loop with no framework at all",
+      "PydanticAI, for its typed, validated structured output built on Pydantic models"
+    ],
+    "a": 3,
+    "e": "PydanticAI's core value is typed, validated structured output via Pydantic models, which is exactly the team's stated requirement. LangGraph is built around explicit graph orchestration for branching, stateful control flow -- the team explicitly said they don't need that. Strands centers on a thin, model-driven loop, not on schema validation. A hand-rolled loop maximizes the custom parsing and validation code the team wants to minimize, the opposite of what they asked for.",
+    "pattern": "buried-constraint"
+  }
+]

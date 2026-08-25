@@ -1,0 +1,107 @@
+[
+  {
+    "id": "new-technical-fundamentals-01",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A team is building an internal tool in a language with no official Anthropic SDK, so they call the Messages API directly over HTTPS. Midway through planning, someone notes that network calls occasionally time out under load and the client must recover without surfacing an error to the user. What have they taken on that the SDK would have handled for them?",
+    "o": [
+      "Nothing — raw HTTP calls behave identically to SDK calls in every respect",
+      "Retry-with-backoff logic, SSE event parsing, and typed response handling",
+      "A different pricing tier reserved for raw REST access",
+      "A separate authentication scheme required only for non-SDK clients"
+    ],
+    "a": 1,
+    "e": "Correct: the SDKs wrap the same REST API but add retries with backoff, SSE assembly, and typed models — none of that exists over raw HTTP unless you build it. (A) is wrong because raw HTTP and SDK calls hit the identical endpoint but the SDK adds real behavior on top; they are not equivalent. (C) is wrong because pricing is per-token and identical regardless of transport. (D) is wrong because authentication (the API key) is unchanged whether you use an SDK or call REST directly.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-technical-fundamentals-02",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "An engineering standard states that every outbound Messages API call must automatically retry connection errors and 5xx responses with exponential backoff, and that no individual engineer should have to remember to add this per call. Where should this guarantee live?",
+    "o": [
+      "In a README instructing engineers to wrap each call in a try/except that retries manually",
+      "In code review comments reminding authors to add retry logic before merging",
+      "In the SDK client's default retry configuration, so the guarantee applies regardless of whether an individual engineer remembers to add it",
+      "In the system prompt, telling Claude to ask the caller to retry failed requests"
+    ],
+    "a": 2,
+    "e": "Correct: 'must happen every time, with no engineer having to remember' describes a deterministic default, and the SDK client's built-in retry configuration (2 retries, exponential backoff, applied automatically) is exactly that. (A) and (B) are both documentation or process — they rely on humans remembering, which is precisely what the requirement rules out. (D) is a category error: a system prompt shapes Claude's generated text, it has no mechanism to intercept or retry a failed HTTP request the client already made.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-technical-fundamentals-03",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A support engineer is troubleshooting a chat app where the context window fills up mid-conversation, forcing older turns to be dropped. Separately, the app needs to display Claude's reply token-by-token as it's generated. Which mechanism does the Claude API itself use to deliver those tokens to the caller?",
+    "o": [
+      "A persistent WebSocket connection opened by the SDK to api.anthropic.com",
+      "Long polling, with the client re-requesting the endpoint every 500ms",
+      "A gRPC bidirectional stream negotiated during authentication",
+      "Server-Sent Events (SSE), one-way from the API to the caller"
+    ],
+    "a": 3,
+    "e": "Correct: the context-window detail is scenery — the actual question is which transport delivers streamed tokens, and the Messages API only ever streams over SSE, one-way server to client. (A) is the classic bait: 'streaming' primes people toward websockets, but Anthropic hosts no websocket endpoint. (B) and (C) are real transports elsewhere in software but neither is what `stream: true` actually uses on this API.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-technical-fundamentals-04",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A voice assistant streams Claude's reply to a user, who can speak over it to interrupt before it finishes. The interrupt has to reach the application within milliseconds, and the application's connection to Claude for that turn is already an in-flight SSE stream. What should the client-to-application leg use to carry that interrupt?",
+    "o": [
+      "A WebSocket between the browser and the application's own backend, separate from the backend's SSE connection to Claude",
+      "Nothing extra — the existing SSE connection to Claude already accepts client-sent interrupts",
+      "A second REST POST to a dedicated /messages/interrupt endpoint",
+      "Increasing max_tokens so the response finishes before the user can interrupt"
+    ],
+    "a": 0,
+    "e": "Correct: SSE is one-way, so a low-latency, bidirectional interrupt channel has to be something the application adds itself — a websocket between browser and backend, sitting alongside (not replacing) the backend's SSE leg to Claude. (B) is wrong because SSE cannot carry client-to-server messages at all. (C) is invented — no such endpoint exists, and even if it did, request/response round-trips add latency the millisecond requirement rules out. (D) doesn't address the interrupt requirement; it just makes the response longer.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-technical-fundamentals-05",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A team calls the Messages API with raw HTTP instead of an official SDK, citing a need for tight control over the transport layer. Select the two responsibilities this decision requires them to implement themselves that the SDKs provide by default.",
+    "o": [
+      "Retry-with-backoff on transient errors (connection failures, 429, and 5xx responses)",
+      "Assembling streamed Server-Sent Events into a usable response object",
+      "A lower per-token price, since raw HTTP skips the SDK's markup",
+      "API key generation, since raw HTTP requires a different credential type"
+    ],
+    "a": [0, 1],
+    "e": "Correct: retries-with-backoff and SSE-to-object assembly are both SDK conveniences the team now has to hand-roll. (C) is wrong because there is no SDK markup — pricing is per-token and set by the API regardless of client. (D) is wrong because the same API key and header-based auth work identically for SDK and raw HTTP calls; nothing about the credential type changes.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-technical-fundamentals-06",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "During a traffic spike, a client starts receiving 429 responses and the team debates how to handle it. Which part of that debate is actually decided by SDK and websocket mechanics — this objective — rather than by rate-limit or token-budget reasoning tested elsewhere?",
+    "o": [
+      "The exact backoff curve to use once a 429 is received",
+      "How many tokens per minute the account's rate limit allows",
+      "Whether the SDK's default retry configuration already retries 429s automatically, versus a raw HTTP call needing that logic written by hand",
+      "Whether truncating conversation history would reduce the 429 rate"
+    ],
+    "a": 2,
+    "e": "Correct: 'does the SDK already handle this, or do I have to write it myself for a raw HTTP call' is exactly the SDK-vs-REST mechanics this objective covers. (A) is backoff-curve tuning and (B) is rate-limit capacity planning — both real questions, but they live in Applications & Integration / LLM Fundamentals, not here. (D) is a token-budget mitigation strategy, also outside this objective's narrow scope.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-technical-fundamentals-07",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A script needs to enumerate every message batch a workspace has ever created, not just the first page the API returns. The team notes that new batches are created daily, so any script hardcoding a fixed number of pages would eventually start missing recent ones. What should the script use?",
+    "o": [
+      "A fixed loop that calls the list endpoint exactly 10 times and stops",
+      "The SDK's auto-pagination iterator (for example, `for batch in client.messages.batches.list()`), which fetches additional pages as needed",
+      "Raising max_tokens so more batches fit into a single page",
+      "Polling a WebSocket endpoint for newly created batches"
+    ],
+    "a": 1,
+    "e": "Correct: the buried constraint is that the batch count keeps growing, so a hardcoded page count is exactly the failure mode the SDK's auto-pagination avoids by following cursors until the list is exhausted. (A) is the failure mode itself — a fixed page count. (C) is a category error: max_tokens governs response length for a message generation, not how many list items a page returns. (D) invents a websocket feature the batches-list endpoint doesn't have; listing is a paginated REST endpoint, not a streamed one.",
+    "pattern": "buried-constraint"
+  }
+]

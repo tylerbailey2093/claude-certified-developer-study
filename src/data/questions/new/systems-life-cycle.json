@@ -1,0 +1,32 @@
+[
+  {
+    "id": "new-systems-life-cycle-01",
+    "d": 2,
+    "s": "Systems Life Cycle",
+    "q": "A team wants a repeatable way to describe how they take a Claude-powered feature from initial concept through iterative development, release, and ongoing operation. A vendor pitches a proprietary 'AI Development Lifecycle' framework built specifically for LLM-based projects, arguing that generic IT frameworks predate large language models and can't account for non-deterministic behavior.",
+    "o": [
+      "Adopt the vendor's proprietary AI Development Lifecycle, since generic IT frameworks predate LLM applications",
+      "Rely on prompt engineering best practices alone, since they govern how the feature behaves in production",
+      "Apply the generic systems life cycle (plan, develop, test, implement, operate, maintain) using Agile or DevOps practices, adding evals as the test gate",
+      "Design a new lifecycle framework from scratch, since no existing framework accounts for non-deterministic model output"
+    ],
+    "a": 2,
+    "e": "The objective is scoped as generic IT systems life cycle management; Claude-application work maps onto the same plan-develop-test-implement-operate-maintain arc as any other system, with Agile or DevOps supplying the iteration and release discipline and evals replacing exact-match tests as the quality gate. Adopting a proprietary 'AI-specific' framework is the trap this objective is built to catch — an engineered-to-sound-plausible distractor that ignores that the generic model already covers this arc. Prompt engineering is a technique applied during development, not a lifecycle framework in its own right. Building a new framework from scratch overstates the problem: non-determinism is handled by changing what the existing test gate checks, not by discarding the gate.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-systems-life-cycle-02",
+    "d": 2,
+    "s": "Systems Life Cycle",
+    "q": "A Claude-powered pipeline is already live in production. An engineer wants to bump the pinned model version and adjust two prompts. Company policy requires a documented change record, a risk assessment, and sign-off from a change advisory board before any modification reaches production, regardless of how small the change is. Which management discipline governs this requirement?",
+    "o": [
+      "Scrum sprint planning, since the change can be scoped and sized as a backlog item",
+      "Waterfall requirements sign-off, since the system's original scope must be honored",
+      "DevOps continuous deployment, which is designed to automate this kind of approval away",
+      "ITIL-style change and release management"
+    ],
+    "a": 3,
+    "e": "Documented change records, risk assessment, and change advisory board sign-off before any production modification, no matter how small, is the definition of ITIL-style service management governing a live system. Sprint planning organizes how development work gets scheduled and estimated, not how a change to a live production system gets approved. Waterfall governs how a project's own phases are sequenced during initial build, not ongoing change control after go-live. DevOps automates delivery pipelines, but 'automates approval away' directly contradicts the stem's explicit requirement for a human sign-off — a distractor that sounds efficient while ignoring the stated constraint.",
+    "pattern": "buried-constraint"
+  }
+]

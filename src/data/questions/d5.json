@@ -1,0 +1,383 @@
+[
+  {
+    "id": "legacy-038",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "Which statement about tokens is correct?",
+    "o": [
+      "Token counts are identical across all Claude models",
+      "Token counts are model-specific and should be re-measured when migrating models",
+      "One token always equals one word",
+      "Only input text is tokenized; output is billed by character"
+    ],
+    "a": 1,
+    "e": "Tokenization is model-specific, so counts measured against one model don't transfer. Newer models use a different tokenizer that can produce meaningfully more tokens for identical text, which changes effective cost even at a flat rate.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-039",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "A team fills a 1M-token context window with retrieved documents on every request. What is the main concern?",
+    "o": [
+      "The request will be rejected for exceeding limits",
+      "Retrieval quality degrades in very long contexts and cost rises, so advertised context is not effective context",
+      "Thinking will be automatically disabled",
+      "The response will always hit max_tokens"
+    ],
+    "a": 1,
+    "e": "Context is a finite resource with diminishing returns: recall degrades as the window fills and every token is billed. Filling the window because capacity exists is a design smell rather than a hard failure.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-040",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "A classification task produces inconsistent output formatting. Which prompting technique most directly addresses this?",
+    "o": [
+      "Zero-shot with a longer instruction",
+      "Multi-shot, providing several diverse examples of the desired output format",
+      "Raising max_tokens to give more room for formatting",
+      "Increasing temperature to encourage variety"
+    ],
+    "a": 1,
+    "e": "Few-shot examples establish format and handle edge cases more reliably than prose instruction. Diverse canonical examples beat many similar ones, and the block belongs in the cached prefix to control cost.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-041",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "Which statement about thinking tokens is correct?",
+    "o": [
+      "They are free because they are not shown to the user",
+      "They are billed at output token rates",
+      "They are billed at cached input rates",
+      "They count toward max_tokens but are not billed"
+    ],
+    "a": 1,
+    "e": "Thinking tokens bill at output rates even when collapsed, making them the most commonly missed line in a cost model. They also consume max_tokens before the visible answer starts, which is why a tight budget carried over from an older model causes mysterious truncation.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-042",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "Which transport does Claude API streaming use?",
+    "o": [
+      "WebSockets, providing full-duplex communication",
+      "Server-sent events, a one-way server-to-client stream",
+      "Long polling over repeated HTTP requests",
+      "gRPC bidirectional streaming"
+    ],
+    "a": 1,
+    "e": "Claude streaming uses server-sent events, one-way from server to client. Teams often add a WebSocket between their browser client and their own server when the client needs to send mid-stream, but that is their transport layer, not the Claude API's.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-043",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A team builds in a language with no official Anthropic SDK and calls the REST API directly. What do they take on?",
+    "o": [
+      "Nothing; the API behaves identically either way",
+      "Responsibility for retries with backoff, SSE parsing, and timeout handling the SDK would provide",
+      "A different pricing tier for raw HTTP access",
+      "A requirement to implement their own authentication scheme"
+    ],
+    "a": 1,
+    "e": "The SDKs wrap the same REST API but add retries, streaming assembly, timeout handling, and typed models. Calling raw HTTP means inheriting those responsibilities. Pricing and authentication are unchanged.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-044",
+    "d": 5,
+    "s": "Model Selection and Tradeoffs",
+    "q": "A high-volume, latency-sensitive routing step classifies incoming messages into six categories. Which tier fits best?",
+    "o": [
+      "The most capable available model, for accuracy",
+      "The fastest, lowest-cost tier, validated with evals",
+      "The mid-tier model with maximum effort",
+      "Whichever tier the rest of the application already uses"
+    ],
+    "a": 1,
+    "e": "Narrow, high-volume, latency-sensitive classification is what the fast, low-cost tier is for, provided evals confirm the quality bar. Defaulting to the most capable model for every task is the classic overprovisioning mistake.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-045",
+    "d": 5,
+    "s": "Model Selection and Tradeoffs",
+    "q": "After migrating to a newer model, requests that previously worked return 400 errors on the thinking parameter. What is the likely cause?",
+    "o": [
+      "The API key lacks permission for the new model",
+      "The newer model runs adaptive thinking and rejects manual thinking budgets",
+      "The context window shrank below the request size",
+      "Thinking is only available on the Batch API"
+    ],
+    "a": 1,
+    "e": "Breaking behavior changes across releases are explicitly in scope. Newer models use adaptive thinking with effort as the control and reject manual budget_tokens, which is why migration means reading the guide and re-running evals rather than swapping a model string.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-046",
+    "d": 5,
+    "s": "Model Selection and Tradeoffs",
+    "q": "A team migrating to Opus 5 finds their requests now return 400 when they set temperature to 0 for deterministic extraction. What should they do?",
+    "o": [
+      "Set temperature to 1 explicitly and accept the variability",
+      "Remove the sampling parameter and control output using effort plus a structured output schema",
+      "Downgrade to a model that still accepts temperature",
+      "Wrap the call in a retry loop until it succeeds"
+    ],
+    "a": 1,
+    "e": "Non-default sampling parameters return 400 on the newest models; effort has replaced them as the control surface. For deterministic extraction specifically, a structured output schema constrains the shape far more reliably than temperature ever did.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-047",
+    "d": 5,
+    "s": "Cost and Token Management",
+    "q": "A team wants to cut cost on a chat feature with a large static system prompt and steady traffic. Which lever should they try first?",
+    "o": [
+      "Downgrade to a smaller model tier",
+      "Add a cache_control breakpoint after the static system prompt",
+      "Reduce max_tokens by half",
+      "Increase temperature to shorten responses"
+    ],
+    "a": 1,
+    "e": "Caching a large stable prefix under steady traffic is the highest-return, lowest-risk lever, and cached reads cost roughly a tenth of normal input. Model downgrade comes last because it changes behavior and invalidates existing evals.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-048",
+    "d": 5,
+    "s": "Cost and Token Management",
+    "q": "Where should cache_control breakpoints be placed for best cache utilization?",
+    "o": [
+      "At the end of the most recently added user message only",
+      "At stability boundaries, with the most stable content ordered first in the prompt",
+      "Randomly distributed to increase the chance of a hit",
+      "Only on tool definitions, since tools change least"
+    ],
+    "a": 1,
+    "e": "Caching matches a prefix in the order tools, system, then messages, so breakpoints at stability boundaries with stable content first prevent a late change from invalidating everything behind it. Multiple breakpoints can hit independently.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "new-cost-and-token-management-01",
+    "d": 5,
+    "s": "Cost and Token Management",
+    "q": "A real-time chat assistant carries a 40KB frozen system prompt and receives traffic all day. Every response must still return to the user immediately, so nothing in the pipeline can tolerate an asynchronous delay. The team wants to cut cost without breaking that latency requirement. Which change fits?",
+    "o": [
+      "Route the requests through the Batch API for its 50% token discount",
+      "Add a cache_control breakpoint after the frozen system prompt",
+      "Downgrade the chat assistant to a cheaper model tier",
+      "Cut max_tokens in half to shrink every response"
+    ],
+    "a": 1,
+    "e": "A cache breakpoint after the stable, unchanging system prompt is the highest-return, lowest-risk lever here, and it doesn't touch response timing at all. The Batch API is wrong for a nameable reason beyond just being scored in Domain 2 API Mechanics rather than this objective: batch processing is inherently asynchronous and can't satisfy an 'answer must return immediately' constraint, so it fails the stem's own requirement regardless of its 50% discount. A model downgrade is the last lever in the optimization order, not the first, because it invalidates existing evals. Cutting max_tokens risks truncating legitimate responses and doesn't address the actual cost driver, which is the repeated 40KB prefix.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-cost-and-token-management-02",
+    "d": 5,
+    "s": "Cost and Token Management",
+    "q": "A research agent runs for hours a day on Claude Opus 5 at effort xhigh. Finance flags the output-token line item as unexpectedly high, even though every visible response in the transcript is a short paragraph. An engineer dismisses this as a metering bug and opens a support ticket. What actually explains the line item?",
+    "o": [
+      "It is a metering bug, and the support ticket is the right next step",
+      "output_tokens includes thinking_tokens, and effort xhigh on Opus 5 drives far more reasoning tokens than the short visible answer suggests",
+      "cache_creation_input_tokens is being double-counted into the output-token total",
+      "The pricing page's output rate for Claude Opus 5 must be incorrect and needs verification"
+    ],
+    "a": 1,
+    "e": "Thinking tokens are billed at the model's output rate and reported inside output_tokens_details.thinking_tokens, which is a labeled subset of output_tokens rather than a separate free category. A long-running agent at effort xhigh generates substantial internal reasoning even when the final visible text is short, and that reasoning is billed the same as any other output token. Option A dismisses documented, correct behavior instead of reading the usage breakdown. Option C names the wrong field — cache creation tokens are priced and reported separately from output tokens, not merged into them. Option D assumes a pricing error rather than checking the actual usage breakdown, which is the first thing to verify.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-llm-fundamentals-01",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "A team runs requests against a model with a 200,000-token context window. Their conversation history sits at 190,000 tokens, and they set max_tokens to 64,000 hoping to get a long generated report back in one call, but the response cuts off well short of 64,000 output tokens. A teammate insists this must be a bug because max_tokens should guarantee that many output tokens regardless of input length. Which explanation is correct?",
+    "o": [
+      "It is a bug: max_tokens is a fixed allocation reserved before the request starts, entirely separate from the context window.",
+      "The cutoff means the model exceeded its training data limit, which is unrelated to context window size.",
+      "max_tokens sets a ceiling, not a guarantee: input and output share one context-window budget, so once input plus generated tokens reach that shared ceiling, generation stops even if max_tokens has not been reached.",
+      "max_tokens only applies to text output; thinking tokens are counted separately and unlimited, so the report was truncated by a content filter instead."
+    ],
+    "a": 2,
+    "e": "Correct answer C: the context window is one shared budget covering the system prompt, messages, tool definitions, and all output for the turn, including thinking. At 190,000 tokens of input against a 200,000-token window, only 10,000 tokens of room remain regardless of what max_tokens is set to, so generation stops early. Option A is wrong because it treats max_tokens as an independent reservation rather than a ceiling within the shared budget. Option B invents an unrelated concept (training data size) that has nothing to do with the context window limit being described. Option D is wrong because thinking tokens count toward the same window and are not unlimited, and nothing in the scenario suggests a content filter.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-llm-fundamentals-02",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "A study guide author is deciding where to place four related topics inside a blueprint that separates a 'Model Selection and Optimization' domain from a 'Prompt and Context Engineering' domain: zero-shot, single-shot, and multi-shot prompting; and structuring a prompt with XML tags plus managing long conversation history via context compaction. Select the two statements below that correctly describe where each topic belongs.",
+    "o": [
+      "Zero-shot, single-shot, and multi-shot prompting belong in Prompt and Context Engineering, since choosing how many examples to include is fundamentally about crafting the prompt's text.",
+      "Zero-shot, single-shot, and multi-shot prompting belong in Model Selection and Optimization, not Prompt and Context Engineering, despite reading like a general prompting topic.",
+      "XML tag structuring belongs in Model Selection and Optimization because it affects which model tier is chosen for a task.",
+      "XML tag structuring and context compaction both belong in Prompt and Context Engineering, since they concern how a single request's content is organized and managed."
+    ],
+    "a": [
+      1,
+      3
+    ],
+    "e": "Correct answers B and D. B is correct because the blueprint deliberately places example-count prompting techniques (zero/single/multi-shot) under Model Selection and Optimization rather than Prompt and Context Engineering, even though it reads like a pure prompt-writing topic. D is correct because XML tag structuring and context compaction are exactly the kind of within-request content organization that Prompt and Context Engineering does own. Option A fails because it states the intuitive-but-wrong placement directly contradicted by the blueprint's explicit scope split. Option C fails because XML tags are a formatting technique with no connection to model tier selection, which is a separate objective entirely.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-llm-fundamentals-03",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "A finance team wants an automated pipeline that must produce the exact same invoice-categorization output every single time it processes the same invoice text, byte-for-byte, so they can diff outputs across nightly runs without any manual review. An engineer proposes setting temperature to 0 on every call and calling it done. Which response correctly evaluates this proposal?",
+    "o": [
+      "The proposal is sound: temperature 0 is defined as fully deterministic, so identical inputs are guaranteed to produce identical outputs on every call.",
+      "The team should instead set top_p to 0 alongside temperature 0, since together these are documented to eliminate all output variance.",
+      "The team should raise max_tokens to guarantee stability, since truncated responses are the only source of run-to-run variance at temperature 0.",
+      "Temperature 0 makes decoding greedy but does not guarantee byte-identical output across calls; floating-point non-associativity and request batching can still shift results, so a hard byte-for-byte guarantee cannot come from a sampling parameter alone."
+    ],
+    "a": 3,
+    "e": "Correct answer D: temperature 0 selects the highest-probability token at each step (greedy decoding), but infrastructure-level effects such as GPU floating-point non-associativity and batching with other concurrent requests mean two calls with identical input and parameters are still not guaranteed to match exactly. A pipeline that must diff outputs byte-for-byte needs a deterministic check outside the sampling parameter, not a parameter tweak alone. Option A states the common misconception that temperature 0 equals a determinism guarantee. Option B fabricates a documented top_p combination that does not exist. Option C misattributes the variance to output truncation, which is not the mechanism described in the scenario.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-llm-fundamentals-04",
+    "d": 5,
+    "s": "LLM Fundamentals",
+    "q": "A team hard-codes a per-request token budget of 3,000 tokens for a summarization prompt, calibrated by counting tokens on one model during development. Six months later they migrate the same prompt template to a newer model generation with an updated tokenizer, without re-measuring anything, and the pipeline starts truncating input that used to fit comfortably. Which practice would have prevented this?",
+    "o": [
+      "Increase max_tokens instead of re-counting, since max_tokens and input token budgets are governed by the same underlying tokenizer figure.",
+      "Re-run token counting against the new model after any migration, since token counts are model-specific and a count calibrated on one model's tokenizer does not reliably transfer to another.",
+      "Switch to counting words instead of tokens, since word counts are consistent across all model generations and avoid the tokenizer dependency entirely.",
+      "Nothing could have prevented this: token budgets calibrated on one model are guaranteed to transfer exactly to any newer model in the same family."
+    ],
+    "a": 1,
+    "e": "Correct answer B: token counts depend on the specific tokenizer a model version uses, so a budget measured against one model's tokenizer is not safe to reuse unmeasured after a migration; re-counting against the new model is what prevents the silent truncation. Option A confuses two different limits: max_tokens governs output length, not the input token budget being described, so raising it does not address the input-side miscount. Option C is wrong because the token-to-word ratio itself varies by content type and by tokenizer, so word counts are not a stable substitute. Option D asserts a guarantee that directly contradicts the scenario, which demonstrates the opposite.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-model-selection-and-tradeoffs-01",
+    "d": 5,
+    "s": "Model Selection and Tradeoffs",
+    "q": "A compliance workflow synthesizes conflicting clauses across long contracts using Claude Sonnet 5 at effort high, and the evals gating this workflow were all tuned against that configuration. Latency is now a concern, so an engineer proposes switching the workflow to Claude Haiku 4.5 at effort low to speed things up while keeping quality about the same. What is wrong with this proposal?",
+    "o": [
+      "Nothing is wrong — Haiku 4.5 at effort low will reliably match Sonnet 5's quality on this task",
+      "Claude Haiku 4.5 has no effort parameter, and swapping tiers invalidates the evals that were tuned on Sonnet 5's behavior",
+      "Effort low always increases latency compared to effort high, so the proposal will make the workflow slower",
+      "Claude Sonnet 5 does not support adaptive thinking, so the current baseline is already misconfigured"
+    ],
+    "a": 1,
+    "e": "Haiku 4.5 is differently shaped, not just cheaper: it runs extended thinking only and has no effort parameter at all, so 'effort low' on Haiku isn't a valid configuration to begin with. Even setting that aside, a tier swap invalidates every eval run against the old model, which is exactly what the workflow's evals were tuned on — the correct move is to step effort down on Sonnet 5 first, not swap tiers. Option A ignores both problems. Option C inverts the actual relationship between effort and latency (lower effort reduces reasoning depth and typically latency, it doesn't guarantee the opposite outcome described). Option D is a false factual claim — Sonnet 5 does support adaptive thinking.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-technical-fundamentals-01",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A team is building an internal tool in a language with no official Anthropic SDK, so they call the Messages API directly over HTTPS. Midway through planning, someone notes that network calls occasionally time out under load and the client must recover without surfacing an error to the user. What have they taken on that the SDK would have handled for them?",
+    "o": [
+      "Nothing — raw HTTP calls behave identically to SDK calls in every respect",
+      "Retry-with-backoff logic, SSE event parsing, and typed response handling",
+      "A different pricing tier reserved for raw REST access",
+      "A separate authentication scheme required only for non-SDK clients"
+    ],
+    "a": 1,
+    "e": "Correct: the SDKs wrap the same REST API but add retries with backoff, SSE assembly, and typed models — none of that exists over raw HTTP unless you build it. (A) is wrong because raw HTTP and SDK calls hit the identical endpoint but the SDK adds real behavior on top; they are not equivalent. (C) is wrong because pricing is per-token and identical regardless of transport. (D) is wrong because authentication (the API key) is unchanged whether you use an SDK or call REST directly.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-technical-fundamentals-02",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "An engineering standard states that every outbound Messages API call must automatically retry connection errors and 5xx responses with exponential backoff, and that no individual engineer should have to remember to add this per call. Where should this guarantee live?",
+    "o": [
+      "In a README instructing engineers to wrap each call in a try/except that retries manually",
+      "In code review comments reminding authors to add retry logic before merging",
+      "In the SDK client's default retry configuration, so the guarantee applies regardless of whether an individual engineer remembers to add it",
+      "In the system prompt, telling Claude to ask the caller to retry failed requests"
+    ],
+    "a": 2,
+    "e": "Correct: 'must happen every time, with no engineer having to remember' describes a deterministic default, and the SDK client's built-in retry configuration (2 retries, exponential backoff, applied automatically) is exactly that. (A) and (B) are both documentation or process — they rely on humans remembering, which is precisely what the requirement rules out. (D) is a category error: a system prompt shapes Claude's generated text, it has no mechanism to intercept or retry a failed HTTP request the client already made.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-technical-fundamentals-03",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A support engineer is troubleshooting a chat app where the context window fills up mid-conversation, forcing older turns to be dropped. Separately, the app needs to display Claude's reply token-by-token as it's generated. Which mechanism does the Claude API itself use to deliver those tokens to the caller?",
+    "o": [
+      "A persistent WebSocket connection opened by the SDK to api.anthropic.com",
+      "Long polling, with the client re-requesting the endpoint every 500ms",
+      "A gRPC bidirectional stream negotiated during authentication",
+      "Server-Sent Events (SSE), one-way from the API to the caller"
+    ],
+    "a": 3,
+    "e": "Correct: the context-window detail is scenery — the actual question is which transport delivers streamed tokens, and the Messages API only ever streams over SSE, one-way server to client. (A) is the classic bait: 'streaming' primes people toward websockets, but Anthropic hosts no websocket endpoint. (B) and (C) are real transports elsewhere in software but neither is what `stream: true` actually uses on this API.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-technical-fundamentals-04",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A voice assistant streams Claude's reply to a user, who can speak over it to interrupt before it finishes. The interrupt has to reach the application within milliseconds, and the application's connection to Claude for that turn is already an in-flight SSE stream. What should the client-to-application leg use to carry that interrupt?",
+    "o": [
+      "A WebSocket between the browser and the application's own backend, separate from the backend's SSE connection to Claude",
+      "Nothing extra — the existing SSE connection to Claude already accepts client-sent interrupts",
+      "A second REST POST to a dedicated /messages/interrupt endpoint",
+      "Increasing max_tokens so the response finishes before the user can interrupt"
+    ],
+    "a": 0,
+    "e": "Correct: SSE is one-way, so a low-latency, bidirectional interrupt channel has to be something the application adds itself — a websocket between browser and backend, sitting alongside (not replacing) the backend's SSE leg to Claude. (B) is wrong because SSE cannot carry client-to-server messages at all. (C) is invented — no such endpoint exists, and even if it did, request/response round-trips add latency the millisecond requirement rules out. (D) doesn't address the interrupt requirement; it just makes the response longer.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-technical-fundamentals-05",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A team calls the Messages API with raw HTTP instead of an official SDK, citing a need for tight control over the transport layer. Select the two responsibilities this decision requires them to implement themselves that the SDKs provide by default.",
+    "o": [
+      "Retry-with-backoff on transient errors (connection failures, 429, and 5xx responses)",
+      "Assembling streamed Server-Sent Events into a usable response object",
+      "A lower per-token price, since raw HTTP skips the SDK's markup",
+      "API key generation, since raw HTTP requires a different credential type"
+    ],
+    "a": [
+      0,
+      1
+    ],
+    "e": "Correct: retries-with-backoff and SSE-to-object assembly are both SDK conveniences the team now has to hand-roll. (C) is wrong because there is no SDK markup — pricing is per-token and set by the API regardless of client. (D) is wrong because the same API key and header-based auth work identically for SDK and raw HTTP calls; nothing about the credential type changes.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-technical-fundamentals-06",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "During a traffic spike, a client starts receiving 429 responses and the team debates how to handle it. Which part of that debate is actually decided by SDK and websocket mechanics — this objective — rather than by rate-limit or token-budget reasoning tested elsewhere?",
+    "o": [
+      "The exact backoff curve to use once a 429 is received",
+      "How many tokens per minute the account's rate limit allows",
+      "Whether the SDK's default retry configuration already retries 429s automatically, versus a raw HTTP call needing that logic written by hand",
+      "Whether truncating conversation history would reduce the 429 rate"
+    ],
+    "a": 2,
+    "e": "Correct: 'does the SDK already handle this, or do I have to write it myself for a raw HTTP call' is exactly the SDK-vs-REST mechanics this objective covers. (A) is backoff-curve tuning and (B) is rate-limit capacity planning — both real questions, but they live in Applications & Integration / LLM Fundamentals, not here. (D) is a token-budget mitigation strategy, also outside this objective's narrow scope.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-technical-fundamentals-07",
+    "d": 5,
+    "s": "Technical Fundamentals",
+    "q": "A script needs to enumerate every message batch a workspace has ever created, not just the first page the API returns. The team notes that new batches are created daily, so any script hardcoding a fixed number of pages would eventually start missing recent ones. What should the script use?",
+    "o": [
+      "A fixed loop that calls the list endpoint exactly 10 times and stops",
+      "The SDK's auto-pagination iterator (for example, `for batch in client.messages.batches.list()`), which fetches additional pages as needed",
+      "Raising max_tokens so more batches fit into a single page",
+      "Polling a WebSocket endpoint for newly created batches"
+    ],
+    "a": 1,
+    "e": "Correct: the buried constraint is that the batch count keeps growing, so a hardcoded page count is exactly the failure mode the SDK's auto-pagination avoids by following cursors until the list is exhausted. (A) is the failure mode itself — a fixed page count. (C) is a category error: max_tokens governs response length for a message generation, not how many list items a page returns. (D) invents a websocket feature the batches-list endpoint doesn't have; listing is a paginated REST endpoint, not a streamed one.",
+    "pattern": "buried-constraint"
+  }
+]

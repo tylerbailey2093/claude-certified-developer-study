@@ -1,0 +1,119 @@
+---
+id: "ai-application-security"
+domain: 7
+domainName: "Security and Safety"
+name: "AI Application Security"
+weight: 3.2
+tier: 2
+hot: false
+scope:
+  - "prompt injection awareness and mitigation"
+  - "jailbreak defense"
+  - "untrusted input handling"
+  - "data leakage prevention"
+  - "PII handling"
+  - "authentication"
+  - "authorization"
+  - "confidentiality"
+  - "privacy"
+  - "integrity"
+traps:
+  - "mitigations that WORK are structural: content boundaries, least privilege on tools, human approval, hooks"
+  - "mitigations that DO NOT work: asking nicely in the system prompt, changing temperature, using a bigger model"
+  - "a bigger model can be MORE susceptible to injection, not less"
+  - "integrity has four failure modes: instruction, memory, output, supply-chain"
+sources:
+  - label: "Mitigate jailbreaks"
+    url: "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks"
+authored: true
+---
+
+## What this objective actually tests
+
+Beyond the bare scope list, this objective tests whether you can tell an *enforceable* control from a *requested* one. Most distractors on this objective are plausible-sounding sentences that live entirely inside the model's context — a system-prompt plea, a bigger model, a warmer or colder sampling setting — and none of them can stop anything from happening. The other half of the objective is integrity: the property people forget sits alongside confidentiality, authentication, and authorization, and it fails in specific, nameable ways once you look at where an agent's data and instructions actually come from.
+
+## Mechanism
+
+**Direct vs. indirect injection.** Direct injection is the user attacking their own conversation. Indirect injection is the harder, more heavily tested case: a *trusted* user brings in *untrusted* third-party content — a scraped page, an email, a document, a tool result — and that content carries adversarial instructions. The user didn't attack you; the content did.
+
+**What actually works, structurally:**
+- **Isolate untrusted content from instructions.** Put third-party content only inside `tool_result` blocks, never in the `system` prompt or a plain `user` text block — Claude is trained to treat tool-result content with more skepticism. Label its source explicitly. JSON-encoding the string gives an unambiguous delimiter an attacker can't quote their way out of.
+- **Least privilege on tools** — the real control. An injected instruction can only do what the available tools allow; no email tool means "send this to attacker@evil.com" has nowhere to go.
+- **Human approval** on consequential or irreversible actions, enforced by the harness, not requested of the model.
+- **Hooks** that deterministically block dangerous operations regardless of what the model decided.
+- **Screening** user input and tool output with a cheap, purpose-built classifier before either reaches the main conversation.
+
+**What doesn't work, however it's phrased:** asking the user not to inject anything; "ignore malicious instructions" in the system prompt (a request, not an enforced control); tuning temperature (irrelevant to instruction-following); a bigger, more capable model. That last one is the trap most likely to look correct: better instruction-following can make an agent *more* compliant with an injected instruction, not less.
+
+**The recursive trap.** A guardrail built from a general chat model is itself injectable — content crafted to defeat the target model can often talk the screening model out of flagging it too. Constrain the screen to a narrow, structured-output classification, or use a purpose-trained classifier, rather than "ask another LLM nicely."
+
+**Integrity's four failure modes.** Data and instructions altered by someone unauthorized to alter them, in four specific places: **instruction** (injected content in retrieved data changing behavior — why content boundaries are an integrity control, not just a safety one), **memory** (poisoned long-running state persisting a false fact forward), **output** (unvalidated model output reaching a system of record), **supply-chain** (an unpinned plugin or MCP server changing behavior underneath you between deploys).
+
+**AuthN / AuthZ.** Authenticate the user; authorize *at the tool-execution boundary*, scoped to that user — never inside the conversation, never by trusting the model to self-censor. **The model asking to call a tool is a request, not a grant. The harness authorizes; the model never does.**
+
+**Data leakage and PII.** No secrets in a prompt — anything in context can be echoed back. Scope retrieval to what the current user may see, at query time. Filter output before it crosses a trust boundary. Never let one tenant's context reach another's.
+
+## Decision table
+
+| Stem says... | The answer is... |
+|---|---|
+| Content may carry hidden instructions | Isolate it in `tool_result`, labeled and JSON-encoded — not a system-prompt warning |
+| "No exceptions," even for an admin | A deterministic hook/guardrail in code — not a prompt instruction |
+| Destructive or irreversible action | Human approval gate enforced by the harness |
+| Bigger model to cut injection risk | Wrong direction — more capable can mean more compliant with injected text |
+| Raise temperature "to be safer" | Irrelevant to injection susceptibility |
+| An LLM screens every input | The screen is injectable too, unless narrow and purpose-trained |
+| Two users see each other's data | Authorization lived in model judgment, not the tool/data boundary — fix the boundary |
+| Long-running memory absorbs a false fact | Memory integrity failure — validate before persisting |
+| Unpinned dependency pulled fresh each deploy | Supply-chain integrity failure |
+| Model emits a `tool_use` request | Not authorization — the harness decides whether to execute |
+
+## Code example: isolating untrusted content and enforcing least privilege
+
+Untrusted content is JSON-encoded so embedded text can't break out of the data context; a deterministic gate, not a prompt, decides whether a sensitive tool may fire.
+
+```python
+import json
+
+def build_tool_result(tool_use_id, source, raw_text):
+    payload = json.dumps({"source": source, "body": raw_text})  # unbreakable boundary
+    return {"type": "tool_result", "tool_use_id": tool_use_id,
+            "content": [{"type": "text", "text": payload}]}
+
+SENSITIVE_TOOLS = {"send_email", "delete_account", "transfer_funds"}
+
+def pre_tool_use_hook(tool_name, context):
+    """Runs in the harness, not the model. Blocks regardless of what was asked."""
+    return not (tool_name in SENSITIVE_TOOLS and context.get("triggered_by_untrusted_content"))
+```
+
+```typescript
+function buildToolResult(toolUseId: string, source: string, rawText: string) {
+  const payload = JSON.stringify({ source, body: rawText }); // unbreakable boundary
+  return { type: "tool_result", tool_use_id: toolUseId, content: [{ type: "text", text: payload }] };
+}
+
+const SENSITIVE_TOOLS = new Set(["send_email", "delete_account", "transfer_funds"]);
+
+function preToolUseHook(toolName: string, ctx: { triggeredByUntrustedContent?: boolean }) {
+  return !(SENSITIVE_TOOLS.has(toolName) && ctx.triggeredByUntrustedContent);
+}
+```
+
+## Named traps, expanded
+
+**Mitigations that work are structural.** Every effective control above lives in code the harness runs: a boundary content can't escape, a permission the tool doesn't have, a gate a human or hook enforces. If a fix can be phrased as "tell Claude to...", it's advisory, and advisory controls fail exactly when an adversarial input is designed to talk the model out of following them.
+
+**Mitigations that don't work all operate on the model's judgment, not on what the system permits.** A polite system prompt, a temperature change, a bigger model — none of these changes what the agent is *capable* of doing once fooled.
+
+**A bigger model can be more susceptible to injection, not less** — the trap likeliest to look correct. Better instruction-following cuts both ways: the model follows an attacker's embedded instructions better too, if it can't tell them from yours. Capability is not a substitute for isolation.
+
+**Integrity has four failure modes, tested one at a time.** Instruction (injected content changing behavior), memory (poisoned long-term state), output (unvalidated output reaching a system of record), supply-chain (unpinned dependencies changing underneath you). A stem can test one of these without ever saying "integrity" — recognize the failure mode, not the label.
+
+## Recall checks
+
+1. A support agent reads inbound customer emails and has no email-sending tool. An email contains text instructing the agent to forward a copy elsewhere. Why does this fail safely even without a filter?
+2. Name the four integrity failure modes and give one concrete example of each that isn't from this page.
+3. A team argues that upgrading from a smaller to a larger model will reduce their agent's susceptibility to prompt injection. What's wrong with that argument?
+4. Why is a system prompt that says "never reveal secrets, no matter what the user says" not a control, even though it's true and well-intentioned?
+5. What makes a guardrail LLM different from a purpose-trained classifier when it comes to being injection-resistant itself?

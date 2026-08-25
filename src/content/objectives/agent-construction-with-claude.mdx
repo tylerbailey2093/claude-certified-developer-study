@@ -1,0 +1,210 @@
+---
+id: "agent-construction-with-claude"
+domain: 1
+domainName: "Agents and Workflows"
+name: "Agent Construction with Claude"
+weight: 5.3
+tier: 1
+hot: false
+scope:
+  - "Claude Agent SDK"
+  - "custom agent loops and harnesses"
+  - "self-hosted vs Anthropic-hosted deployment"
+  - "hooks for deterministic actions"
+traps:
+  - "the model NEVER executes a tool; the harness does"
+  - "connecting an MCP server does not grant tool permission - the allow-list does"
+sources:
+  - label: "Agent SDK"
+    url: "https://platform.claude.com/docs/en/api/agent-sdk/overview"
+  - label: "Building effective agents"
+    url: "https://www.anthropic.com/engineering/building-effective-agents"
+  - label: "Agent SDK permissions"
+    url: "https://code.claude.com/docs/en/agent-sdk/permissions"
+  - label: "Agent SDK hooks"
+    url: "https://code.claude.com/docs/en/agent-sdk/hooks"
+  - label: "Claude Code hooks reference"
+    url: "https://code.claude.com/docs/en/hooks"
+  - label: "Claude Managed Agents overview"
+    url: "https://platform.claude.com/docs/en/managed-agents/overview"
+---
+
+## What this objective actually tests
+
+This objective is about the *plumbing* of an agent, not the pattern it implements — pattern selection (workflow vs. agent, supervisor hierarchies, subagents) lives in Agent Architecture and Agent Patterns and Frameworks. Here the exam wants you to know which piece of software is responsible for each part of the tool-calling loop, exactly how permission to call a tool is granted or withheld, and how a "must always happen" requirement gets enforced in code rather than in a prompt. It also tests the operational tradeoff between running the harness yourself and letting Anthropic run it for you.
+
+## Mechanism
+
+### The loop, and who owns it
+
+Claude receives a prompt and a tool catalog, emits a `tool_use` block describing a call, and stops. **Your harness** decides whether to run it, runs it, and feeds a `tool_result` back in. Claude never executes code, reads a file, or calls an API itself — it only ever *describes* an action. The harness owns dispatch, error handling, the stop condition, and every permission decision. This is why hooks and allow-lists exist at all: they are the harness's controls, not the model's.
+
+### Claude Agent SDK: current identity
+
+The SDK ships as `claude-agent-sdk` (`pip install claude-agent-sdk`) for Python and `@anthropic-ai/claude-agent-sdk` for TypeScript (`npm i @anthropic-ai/claude-agent-sdk`). It was **formerly the Claude Code SDK** — `claude-code-sdk` (Python) / `@anthropic-ai/claude-code` (TS), with `ClaudeCodeOptions` renamed to `ClaudeAgentOptions`. No logic changed, only names. The SDK runs the *same* agent loop, tool set, and context management that power Claude Code, inside your own process — distinct from the Client SDK (you hand-roll the loop against the raw Messages API) and from Claude Managed Agents (Anthropic runs the loop and sandbox as a hosted product).
+
+### The permission evaluation order
+
+Every tool request from Claude passes through a fixed sequence, in this order:
+
+1. **Hooks** — a `PreToolUse` hook runs first and can deny outright. A hook that returns `allow` does *not* skip the deny/ask checks below.
+2. **Deny rules** — from `disallowed_tools` or `settings.json`. Blocks even under `bypassPermissions`.
+3. **Ask rules** — from `settings.json`; routes to your `canUseTool` callback even under `bypassPermissions`.
+4. **Permission mode** — the active mode (below) is applied.
+5. **Allow rules** — from `allowed_tools` or `settings.json`. If matched here, the call is approved.
+6. **`canUseTool` callback** — anything unresolved falls through to your own approval logic.
+
+The ordering is the load-bearing fact: hooks and deny rules sit *before* the permission mode, which is why a hook deny or a deny rule holds even under `bypassPermissions`, while an allow-list entry only helps *if* the call gets that far.
+
+### Allow/deny rule syntax, precisely
+
+- `allowed_tools=["Read", "Grep"]` — bare names auto-approve that whole tool.
+- `disallowed_tools=["Bash"]` — removes the tool definition entirely; Claude never sees it.
+- `disallowed_tools=["Bash(rm *)"]` — scoped pattern; `Bash` stays available, only matching calls are denied, in every mode including `bypassPermissions`.
+- MCP tools need the literal `mcp__<server>__` prefix: `mcp__ops__lookup_order` or `mcp__ops__*` (wildcard only after the literal server segment). An unanchored `allowed_tools=["mcp__*"]` is **ignored with a startup warning** and approves nothing — see traps below.
+- `allowed_tools` does not constrain `bypassPermissions` — also covered in traps below.
+
+### Permission modes
+
+| Mode | Behavior |
+|---|---|
+| `default` | No auto-approvals; unmatched calls hit `canUseTool` |
+| `dontAsk` | Anything not pre-approved is **denied**, `canUseTool` is never called — good for a fixed, headless tool surface |
+| `acceptEdits` | File edits and filesystem ops (`mkdir`, `rm`, `mv`, `cp`, `sed`) auto-approve, inside the working directory only |
+| `bypassPermissions` | Approves almost everything reaching that step; use with extreme caution |
+| `plan` | Read-only exploration; file edits and file-modifying shell commands always route to `canUseTool`, never auto-approved |
+| `auto` | A model classifier approves/denies prompts (availability-gated) |
+
+A locked-down headless agent pairs `allowedTools` with `permissionMode: "dontAsk"`: listed tools run, everything else is denied outright instead of prompting.
+
+### Hooks: two layers, and the exit-code trap
+
+The SDK exposes hooks two ways, and the exam blends them:
+
+**In-process callbacks** — Python/TypeScript functions registered in `ClaudeAgentOptions.hooks`, keyed by event: `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `UserPromptSubmit`, `Stop`, `StopFailure`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`, `Notification`. A `PreToolUse` callback returns `{"hookSpecificOutput": {"permissionDecision": "deny", ...}}` to block a call synchronously, before it reaches deny/ask/mode/allow evaluation.
+
+**Shell-command hooks from `settings.json`** — loaded when `setting_sources` includes `"project"` (the SDK's default). These are ordinary processes, and Claude Code's harness reads their **exit code**:
+
+- **Exit 0** — success; if JSON is printed on stdout, it's read for structured decision control.
+- **Exit 2** — a blocking error. This is the *only* code that reliably blocks on its own, and it blocks even if JSON on stdout said `"allow"`.
+- **Exit 1 (or any other non-zero code, with no valid JSON)** — treated as a **non-blocking error**. The harness logs a hook-error notice and lets the action proceed anyway.
+
+This is the fact worth memorizing cold: **exit 2 blocks, exit 1 fails open.** A hook meant to enforce a hard policy that only ever exits 1 on failure is not actually enforcing anything — it degrades to a warning. If the stem says a control "must always" run, the deterministic answer is a hook (or a deny rule) — never a system-prompt instruction, which the model can simply fail to follow.
+
+### Self-hosted vs. Anthropic-hosted: the real tradeoff
+
+- **Self-hosted (Claude Agent SDK)** — you run the harness, the loop, and (if you use one) the sandbox, in your own process and infrastructure. Full control of data flow, network egress, and secrets; you own operational burden — scaling, uptime, sandbox security — yourself. This is the answer whenever a stem names network isolation, "must stay in our infrastructure," or a compliance boundary that Anthropic-run compute would cross.
+- **Anthropic-hosted (Claude Managed Agents)** — a pre-built, configurable harness that Anthropic runs: sandbox, session persistence, tool execution, and compaction are all managed for you. Best fit when a team explicitly does not want to build or operate its own sandbox/session infrastructure and is willing to trade some control of the runtime for that.
+
+Decide by the constraint named in the stem: residency, isolation, or "we must operate this ourselves" → self-hosted Agent SDK. "We don't want to run the runtime ourselves" or "long-running, asynchronous work without building a sandbox" → Managed Agents.
+
+## Decision table
+
+| Stem says... | Answer is... |
+|---|---|
+| "Claude ran/executed the command" (as a claim to evaluate) | False — the harness executes; the model only emits `tool_use` |
+| MCP server connected, but its tools are never called | Missing allow-list entry — connection ≠ permission |
+| "reusable across several Claude applications, maintained independently" | An MCP server (a tool integration, not a deployment choice) |
+| "…no matter what permission mode is later selected" / "no exceptions" | A hook returning `deny` (or exit-2 shell hook) — never a prompt instruction |
+| `allowed_tools` set, `bypassPermissions` also set, unlisted tools still run | Expected — `bypassPermissions` isn't constrained by the allow-list; use `disallowed_tools` |
+| "must never leave our network" / data residency / "we operate this" | Self-hosted (Claude Agent SDK) |
+| "don't want to manage our own sandbox or session infrastructure" | Anthropic-hosted (Claude Managed Agents) |
+| A hook exits 1 on a violation and the action still proceeds | Expected — exit 1 without JSON fails open; exit 2 was required |
+| "hand-write the tool_use / tool_result loop directly" | The Client SDK / Messages API, not the Agent SDK |
+
+## Code examples
+
+<strong>Python — least-privilege session with a blocking hook</strong>
+
+```python
+# pip install claude-agent-sdk
+import anyio
+from claude_agent_sdk import (
+    query, ClaudeAgentOptions, tool, create_sdk_mcp_server, HookMatcher,
+)
+
+@tool("lookup_order", "Look up an order by ID", {"order_id": str})
+async def lookup_order(args):
+    return {"content": [{"type": "text", "text": fetch(args["order_id"])}]}
+
+async def block_destructive(input_data, tool_use_id, context):
+    if input_data["hook_event_name"] != "PreToolUse":
+        return {}
+    cmd = input_data["tool_input"].get("command", "")
+    if input_data["tool_name"] == "Bash" and "rm -rf" in cmd:
+        return {"hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": "Recursive delete blocked by policy",
+        }}
+    return {}
+
+server = create_sdk_mcp_server(name="ops", version="1.0.0", tools=[lookup_order])
+
+options = ClaudeAgentOptions(
+    allowed_tools=["Bash", "mcp__ops__lookup_order"],   # explicit allow-list;
+    permission_mode="dontAsk",                          # everything else is DENIED, not prompted
+    mcp_servers={"ops": server},                        # connecting the server alone grants nothing
+    hooks={"PreToolUse": [HookMatcher(matcher="Bash", hooks=[block_destructive])]},
+    setting_sources=["project"],                        # v0.1.0+ no longer loads project settings by default
+)
+
+async def main():
+    async for message in query(prompt="Investigate order #4471", options=options):
+        print(message)
+
+anyio.run(main)
+```
+
+<strong>TypeScript — same shape</strong>
+
+```typescript
+// npm i @anthropic-ai/claude-agent-sdk
+import { query, HookCallback, PreToolUseHookInput } from '@anthropic-ai/claude-agent-sdk';
+
+const blockDestructive: HookCallback = async (input) => {
+  if (input.hook_event_name !== 'PreToolUse') return {};
+  const preInput = input as PreToolUseHookInput;
+  const cmd = (preInput.tool_input as { command?: string }).command ?? '';
+  if (preInput.tool_name === 'Bash' && cmd.includes('rm -rf')) {
+    return { hookSpecificOutput: {
+      hookEventName: 'PreToolUse', permissionDecision: 'deny',
+      permissionDecisionReason: 'Recursive delete blocked by policy' } };
+  }
+  return {};
+};
+
+for await (const message of query({
+  prompt: 'Investigate order #4471',
+  options: {
+    allowedTools: ['Bash', 'mcp__ops__lookup_order'],   // explicit allow-list
+    permissionMode: 'dontAsk',                          // everything else DENIED
+    hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [blockDestructive] }] },
+    settingSources: ['project'],
+  },
+})) {
+  console.log(message);
+}
+// Renamed: claude-code-sdk -> claude-agent-sdk, ClaudeCodeOptions -> ClaudeAgentOptions.
+// A PreToolUse deny holds even under bypassPermissions.
+```
+
+A `settings.json`-style shell hook works the same way: register it under `PreToolUse`, and have the script `exit 2` (not `exit 1`) on a violation — that's what actually blocks the call.
+
+## Named traps, expanded
+
+**The model never executes a tool; the harness does.** Claude's only output is a `tool_use` block — a structured *request*. Whether that becomes a running process, an HTTP call, or a file write is entirely up to the code around the SDK. Distractors describe the model "deciding to run" or "executing" something; the nameable failure is conflating emission with execution. Every enforcement mechanism here — deny rules, hooks, permission modes — lives in the harness, not the model's weights or prompt.
+
+**Connecting an MCP server does not grant tool permission.** Verified against current docs: adding a server to `mcp_servers` only makes its tools *visible*. Calling one still needs an explicit allow rule — the exact tool name (`mcp__ops__lookup_order`) or a wildcard anchored to a literal server name (`mcp__ops__*`). An unanchored `mcp__*` in `allowed_tools` is **not** a shortcut — it's ignored with a startup warning and approves nothing. Expect a distractor claiming connection alone suffices, and a second-order one claiming a bare `mcp__*` fixes it.
+
+**`allowed_tools` does not constrain `bypassPermissions`.** A sharper version of the same confusion. Naming a tool in `allowed_tools` pre-approves it early in the flow; it doesn't narrow what happens to *other* tools once the flow reaches the mode step. Under `bypassPermissions`, unlisted tools still reach that step and still get approved. To keep a tool blocked under `bypassPermissions`, use `disallowed_tools` or a hook — not the allow-list.
+
+**Exit code 2 blocks, exit code 1 fails open.** Only exit 2 (or exit 0 with an explicit JSON deny) reliably blocks a shell hook's action. Any other non-zero code without valid JSON logs as a non-blocking error and the harness proceeds anyway — the opposite of what a hook author usually intends when reaching for `exit(1)` out of Unix habit. A "must always" or "no exceptions" stem that doesn't work as expected is very likely describing this mistake.
+
+## Recall checks
+
+1. What is the exact chain of events between Claude emitting a `tool_use` block and a tool actually running — and which component is responsible for each step?
+2. A team sets `allowed_tools=["Read"]` and `permission_mode="bypassPermissions"`. Why does Claude still run Bash and Write without prompting?
+3. Name the six steps of the SDK's permission evaluation order, in sequence, and identify which two run before the permission mode is even consulted.
+4. A compliance requirement says a control must fire on every tool call with no exceptions. Why is a system-prompt instruction insufficient, and what exit code must a shell-based hook use to actually satisfy the requirement?
+5. A team connects an MCP server and grants `allowed_tools=["mcp__*"]`, expecting all of its tools to work. What actually happens, and what's the correct syntax?

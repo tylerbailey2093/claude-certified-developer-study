@@ -1,0 +1,47 @@
+[
+  {
+    "id": "new-configuration-management-01",
+    "d": 2,
+    "s": "Configuration Management",
+    "q": "A platform team distributes an internal plugin through a private marketplace. To signal a new release, they bump the version field in the marketplace catalog entry from 1.2.0 to 1.3.0, but forget that the plugin's own plugin.json manifest still declares version 1.2.0. Team members run the plugin update command afterward.",
+    "o": [
+      "Users receive version 1.3.0, because the marketplace entry takes precedence for signaling new releases",
+      "Claude Code throws a version-conflict error and blocks the update until the two files agree",
+      "Users keep the cached 1.2.0 build, because Claude Code resolves the version from plugin.json first, silently masking the marketplace entry's value",
+      "Claude Code merges the two version strings and installs whichever one is numerically higher"
+    ],
+    "a": 2,
+    "e": "Claude Code resolves a plugin's version from its own plugin.json manifest before consulting the marketplace catalog entry, and does so without warning, so a stale manifest version silently masks a version bump made only in the marketplace entry. Assuming the marketplace entry wins gets the precedence backwards. There is no conflict error raised when the two disagree; the mismatch is silent, which is exactly the danger the mechanism creates. There is no merge-and-take-higher behavior either — one field wins outright, and it isn't the marketplace entry.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-configuration-management-02",
+    "d": 2,
+    "s": "Configuration Management",
+    "q": "A model an application depends on moves from Active to Deprecated status. Anthropic names a recommended replacement and sets a retirement date roughly 90 days out. The on-call engineer's instinct is to switch the pinned model identifier in every environment, including production, the same day the deprecation notice arrives.",
+    "o": [
+      "Leave the deprecated model pinned everywhere until the retirement date, to avoid any risk of a behavior change before then",
+      "Switch every environment, including production, immediately, since deprecated models are already less reliable",
+      "Remove the explicit model pin entirely and switch to an alias, so future deprecations are absorbed automatically",
+      "Test the replacement model against the existing eval suite first, then roll the pin forward once results clear the bar, well before the retirement date"
+    ],
+    "a": 3,
+    "e": "Configuration-management discipline gates any pinned-model change on an eval re-run before promoting it to production, and does so with enough runway before a hard deadline to absorb a failed evaluation. Waiting until the retirement date risks a forced, untested cutover with no time to react if the replacement regresses. Switching immediately without running the eval suite reintroduces exactly the 'quality shifted with no controlled deploy' risk that pinning exists to prevent. Removing the pin in favor of an alias trades one drift problem for a worse one, since an alias updates on Anthropic's schedule rather than on a schedule the team controls.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-configuration-management-03",
+    "d": 2,
+    "s": "Configuration Management",
+    "q": "A team lead wants two things guaranteed on every Claude Code invocation across the team, with no reliance on the model choosing to comply: a specific destructive shell command must always be blocked outright, and a formatter script must always run after every file edit. Select the two configuration mechanisms that actually guarantee this behavior regardless of what Claude decides.",
+    "o": [
+      "A CLAUDE.md instruction telling Claude never to run that command and to run the formatter after every edit",
+      "A permissions.deny rule in the shared, committed project settings.json blocking the command",
+      "A PostToolUse hook configured in settings.json that runs the formatter after every file edit",
+      "A longer, more detailed instruction appended to every request asking Claude to follow both rules"
+    ],
+    "a": [1, 2],
+    "e": "Permission rules and hooks configured in settings.json are enforced by the Claude Code client itself, independent of what the model decides to do on any given turn, which is exactly what 'guaranteed, no exceptions' requires. A CLAUDE.md instruction is delivered as context the model reads and tries to follow, not a control the client enforces, so however clearly it's worded it remains a request rather than a guarantee. Appending a longer instruction to every request has the identical failure mode as the CLAUDE.md option: rewording or relocating a plain-language instruction doesn't change the fact that it's advisory, not deterministic.",
+    "pattern": "must-means-deterministic"
+  }
+]

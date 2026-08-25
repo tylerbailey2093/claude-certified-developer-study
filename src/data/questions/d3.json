@@ -1,0 +1,77 @@
+[
+  {
+    "id": "legacy-032",
+    "d": 3,
+    "s": "Claude Code Operation",
+    "q": "A CI pipeline needs Claude Code to run non-interactively and return machine-parseable results. Which configuration applies?",
+    "o": [
+      "Interactive mode with auto-approval enabled",
+      "Headless mode with a JSON output format",
+      "Streaming mode with verbose output",
+      "A custom slash command invoked at build time"
+    ],
+    "a": 1,
+    "e": "Headless mode is the non-interactive execution path for CI and scripting, and a JSON output format makes results parseable. Interactive and streaming modes both assume a human is present.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-033",
+    "d": 3,
+    "s": "Claude Code Operation",
+    "q": "A Skill written to check brand voice in draft articles keeps firing on unrelated JSON config edits. What is the fix?",
+    "o": [
+      "Move the Skill from the project directory to the user directory",
+      "Rewrite the description to state precisely which files and situations it applies to",
+      "Convert the Skill into a hook so it only runs on demand",
+      "Reduce the length of the Skill's instructions"
+    ],
+    "a": 1,
+    "e": "Claude decides whether to load a Skill by reading its description, so the description functions as the trigger and should be written like a search query. Broad wording matches everything. Location doesn't affect matching, and body length is irrelevant since progressive disclosure keeps it out of context until the Skill fires.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-034",
+    "d": 3,
+    "s": "Claude Code Operation",
+    "q": "CLAUDE.md files exist at the user level and in a project directory with different instructions. What happens?",
+    "o": [
+      "Only the user-level file is used",
+      "They are merged, with the more specific project-level context layering onto the broader level",
+      "The session fails until the conflict is resolved",
+      "Only the file in the current working directory is used"
+    ],
+    "a": 1,
+    "e": "CLAUDE.md is hierarchical across enterprise, user, project, and subdirectory levels, and the levels merge with more specific context layering on. This is why shared project rules belong in the committed project file.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "new-claude-code-operation-01",
+    "d": 3,
+    "s": "Claude Code Operation",
+    "q": "A team wants every change touching src/payments/ to run a compliance script before a commit can happen, with no path for the agent to skip the step even if it judges the script unnecessary. Where should this rule live?",
+    "o": [
+      "A .claude/rules/payments.md file scoped to that path with paths frontmatter",
+      "A PreToolUse hook in settings.json that matches the commit command and runs the script first",
+      "A Skill named payments-compliance with a description telling Claude when to run it",
+      "A line in the project CLAUDE.md stating the compliance script must always run first"
+    ],
+    "a": 1,
+    "e": "A hook bound to a lifecycle event like PreToolUse is the only mechanism here that is code, not context — it runs regardless of what Claude decides. A path-scoped rule and a CLAUDE.md instruction are both context Claude reads and can deviate from under ambiguity; a Skill is discretionary and triggers on a description match, not on every matching commit. Any stem requiring a step with no possible skip is describing a hook.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-claude-code-operation-02",
+    "d": 3,
+    "s": "Claude Code Operation",
+    "q": "An engineer wants Claude Code to work through a long backlog of small refactors overnight with far fewer approval prompts, but still wants any command that reaches outside the repository or resembles a prompt-injection attempt blocked automatically rather than approved. Which permission mode fits both requirements?",
+    "o": [
+      "bypassPermissions, since it removes prompting entirely for the overnight run",
+      "acceptEdits, since file writes and common filesystem commands stop requiring approval",
+      "auto, since a classifier model reviews actions and still blocks scope escalation and injection",
+      "dontAsk, since it denies anything outside the existing allow rules without prompting"
+    ],
+    "a": 2,
+    "e": "auto hands most approval decisions to a separate classifier that still screens for scope escalation, untrusted infrastructure, and prompt injection, which is exactly the combination the stem asks for. bypassPermissions skips checks entirely, which drops the safety requirement. acceptEdits only auto-approves writes and common filesystem commands, leaving other shell and network activity still gated, and adds no injection screening of its own. dontAsk denies anything not already allow-listed instead of approving more of the backlog, so it doesn't reduce prompts the way the stem wants.",
+    "pattern": "buried-constraint"
+  }
+]

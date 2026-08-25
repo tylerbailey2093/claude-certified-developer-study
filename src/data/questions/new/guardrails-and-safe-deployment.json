@@ -1,0 +1,32 @@
+[
+  {
+    "id": "new-guardrails-and-safe-deployment-01",
+    "d": 7,
+    "s": "Guardrails and Safe Deployment",
+    "q": "A team deploys a customer-support agent with a system-prompt rule telling Claude to never reveal a customer's full account number. During testing, a cleverly worded support ticket causes the agent to include a full account number in its reply anyway, even though the system-prompt rule was in place the entire time. Which addition would have reliably stopped this from reaching the customer?",
+    "o": [
+      "Rewrite the system-prompt rule with stronger wording and more emphatic language",
+      "Add an output filter that redacts account-number patterns before the response is sent",
+      "Add more few-shot examples of refusals to the system prompt",
+      "Rely on the model's built-in safety training without any additional layer"
+    ],
+    "a": 1,
+    "e": "A system-prompt rule is a request the model can still be talked out of by a sufficiently crafted input; it is one layer, not a guarantee. An output filter that redacts the pattern deterministically before the response ships is a second, independent layer that catches what the first layer missed. Stronger wording and more examples are still prompt-layer fixes with the same failure mode, and relying solely on built-in safety training abandons layering entirely.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-guardrails-and-safe-deployment-02",
+    "d": 7,
+    "s": "Guardrails and Safe Deployment",
+    "q": "A company's Claude-powered assistants inherit each employee's own permissions, checked once when the employee authenticates at the start of the day. At 10:00 a.m. a manager revokes an employee's access to the payroll system after a role change. At 10:15 a.m. the employee asks her assistant to pull a payroll report, and the request succeeds. What is the root cause?",
+    "o": [
+      "The assistant used a shared service account instead of the employee's own identity",
+      "Entitlement was cached from a session-start check instead of verified at the tool boundary on each request",
+      "The system prompt failed to instruct the assistant to refuse payroll requests after a role change",
+      "The manager should have manually revoked the assistant's session token when access was removed"
+    ],
+    "a": 1,
+    "e": "The setup already has the agent inheriting the user's own permissions, so a shared account isn't the issue. The failure is that entitlement was verified once at login and cached, instead of being checked at the tool boundary on every request; a later revocation had no way to take effect mid-session. A system-prompt instruction can't know about a role change that happened after the prompt was written, and manual token revocation per event doesn't scale into a systemic fix.",
+    "pattern": "buried-constraint"
+  }
+]

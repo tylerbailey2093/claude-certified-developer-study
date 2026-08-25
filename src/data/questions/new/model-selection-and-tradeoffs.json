@@ -1,0 +1,17 @@
+[
+  {
+    "id": "new-model-selection-and-tradeoffs-01",
+    "d": 5,
+    "s": "Model Selection and Tradeoffs",
+    "q": "A compliance workflow synthesizes conflicting clauses across long contracts using Claude Sonnet 5 at effort high, and the evals gating this workflow were all tuned against that configuration. Latency is now a concern, so an engineer proposes switching the workflow to Claude Haiku 4.5 at effort low to speed things up while keeping quality about the same. What is wrong with this proposal?",
+    "o": [
+      "Nothing is wrong — Haiku 4.5 at effort low will reliably match Sonnet 5's quality on this task",
+      "Claude Haiku 4.5 has no effort parameter, and swapping tiers invalidates the evals that were tuned on Sonnet 5's behavior",
+      "Effort low always increases latency compared to effort high, so the proposal will make the workflow slower",
+      "Claude Sonnet 5 does not support adaptive thinking, so the current baseline is already misconfigured"
+    ],
+    "a": 1,
+    "e": "Haiku 4.5 is differently shaped, not just cheaper: it runs extended thinking only and has no effort parameter at all, so 'effort low' on Haiku isn't a valid configuration to begin with. Even setting that aside, a tier swap invalidates every eval run against the old model, which is exactly what the workflow's evals were tuned on — the correct move is to step effort down on Sonnet 5 first, not swap tiers. Option A ignores both problems. Option C inverts the actual relationship between effort and latency (lower effort reduces reasoning depth and typically latency, it doesn't guarantee the opposite outcome described). Option D is a false factual claim — Sonnet 5 does support adaptive thinking.",
+    "pattern": "buried-constraint"
+  }
+]

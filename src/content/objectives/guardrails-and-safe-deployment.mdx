@@ -1,0 +1,86 @@
+---
+id: "guardrails-and-safe-deployment"
+domain: 7
+domainName: "Security and Safety"
+name: "Guardrails and Safe Deployment"
+weight: 2.3
+tier: 2
+hot: false
+scope:
+  - "content policy"
+  - "guardrail layering"
+  - "secure-by-design"
+  - "privacy"
+  - "identity and access management"
+  - "least privilege"
+traps:
+  - "an agent inherits the calling user's permissions, never a superset"
+  - "verify entitlement at the tool boundary per request, not once at session start"
+sources:
+  - label: "Strengthen guardrails"
+    url: "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations"
+authored: true
+---
+
+## What this objective actually tests
+
+This objective checks whether you reach for a *control* rather than a *request* when a system must be safe by construction, not by good intentions. It covers two things that get tested together: layering guardrails so no single filter is a single point of failure, and applying least-privilege identity to an agent that acts on a human's behalf. Distractors typically propose a softer mechanism (a system-prompt instruction, a one-time check, a broader service account "for reliability") where the stem actually demands a deterministic, per-request control.
+
+## Mechanism
+
+**Guardrail layering (defense in depth).** No single layer is trusted to catch everything:
+
+- **Input filtering** — screen and sanitize what enters context: user text, retrieved documents, tool results. This is where prompt-injection attempts (hidden instructions in a fetched web page, a PDF, a ticket body) get caught before they reach the model.
+- **In-flight constraints** — system-prompt boundaries and, more importantly, scoped tool permissions. A well-scoped tool surface limits blast radius even if the model is fully manipulated.
+- **Output filtering** — validation, classifiers, schema checks on what the model produces before it reaches a user or a downstream system.
+- **Hooks** — deterministic code at fixed lifecycle points (see the Claude Hooks objective). This is the layer that turns "should not" into "cannot."
+- **Human approval** — a review gate for irreversible, regulated, or high-blast-radius actions. The layer of last resort, not the only layer.
+
+Layers are independent on purpose: a bypass of one (a clever injection that slips past input filtering) still has to clear the others.
+
+**Least-privilege IAM for an agent acting on a user's behalf.** The agent is a delegate, not a principal:
+
+- It inherits **exactly the calling user's permissions — never a superset.** A shared high-privilege service account "for reliability" is the wrong answer whenever a stem involves an agent acting for a specific logged-in user.
+- Entitlement is verified **at the tool boundary, on every request** — not cached from a session-start check. A user's access can change mid-session (revoked role, expired grant); a stale check misses it.
+- Scope by task, not by role. A broad role grant handed wholesale to an agent gives it standing access to everything that role can touch, most of which no single task needs.
+
+Named agent-specific threats worth recognizing by name: prompt injection, tool poisoning (a malicious or compromised tool description/response), identity and privilege abuse, memory poisoning, and supply-chain risk from installed tooling (skills, MCP servers, dependencies).
+
+**Deployment practice**: staged rollout, feature flags, a kill switch, monitoring for anomalous tool-call patterns, an incident-response plan, and audit trails — the same production-safety toolkit as any other system, applied to one that can take actions.
+
+## Decision table
+
+| When the stem says... | ...the answer is |
+|---|---|
+| An agent needs a "reliable" way to always have enough access | Reject the shared/broad service account — inherit the calling user's own permissions, nothing more |
+| Access "was granted this morning" but must be re-checked | Verify entitlement at the tool boundary per request, not a session-start check |
+| A page or document the agent reads contains embedded instructions | Input-side filtering/sanitization catches this before it reaches context — not a system-prompt warning |
+| An action is irreversible or regulated | A human approval gate, layered on top of (not instead of) automated filtering |
+| One filter is described as "sufficient" for safety | Wrong framing — guardrails are layered so no single filter is a single point of failure |
+| A destructive action "must never" happen, full stop | A hook or permission rule (deterministic), never a prompt instruction — see Claude Hooks |
+
+## Example
+
+```python
+# Tool-boundary entitlement check, evaluated on every call — not cached at login.
+def call_tool(user, tool_name, args):
+    if not entitlements.check(user.id, tool_name, scope=args.get("resource_id")):
+        raise PermissionError(f"{user.id} lacks current grant for {tool_name}")
+    return TOOLS[tool_name](**args)   # agent never holds more than user's live grant
+```
+
+The check runs inside the tool-invocation path itself, not once when the session opens — a revoked grant takes effect on the very next call, and the agent's own permission set never exceeds what `entitlements.check` returns for that user at that moment.
+
+## Named traps, expanded
+
+**"An agent inherits the calling user's permissions, never a superset."** This is attractive to violate because a broader service account looks like it removes a class of "access denied" failures and simplifies the integration. It's wrong because it converts a single compromised or manipulated agent session into access to everything the service account can touch, not just what the requesting user could touch — the opposite of least privilege. Recognize this trap whenever a stem frames a shared or elevated credential as a reliability or convenience improvement for an agent acting on behalf of specific users.
+
+**"Verify entitlement at the tool boundary per request, not once at session start."** This is attractive because a session-start check feels efficient — check once, trust it for the session. It's wrong because permissions are not static: a role can be revoked, a grant can expire, a document's ACL can change, all mid-session, and a cached check has no way to see it. Recognize this trap whenever a stem describes access being validated "at login" or "when the session begins" for anything that must reflect current, not historical, entitlement.
+
+## Recall checks
+
+- Name the five layers of guardrail defense in depth, in the order an input would pass through them.
+- An agent acting for a logged-in user requests a tool call. Where and how often should its permission be checked?
+- Name three of the five agent-specific threats this objective expects you to recognize by name.
+- Why does "give the agent a broadly-privileged service account for reliability" fail the least-privilege test even when it reduces permission errors?
+- What deployment practices (beyond guardrail layering itself) does "secure-by-design" for an agent rollout include?

@@ -1,0 +1,77 @@
+[
+  {
+    "id": "new-agent-architecture-01",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "A support-ticket pipeline classifies each incoming ticket into billing, technical, or account-access, then hands it to a category-specific prompt tuned for that ticket type. Every ticket follows this same two-step flow, though the specialized prompt used in step two differs meaningfully depending on the category. Which architecture fits this pipeline?",
+    "o": [
+      "A single fixed prompt chain that runs the same two prompts on every ticket regardless of category",
+      "Routing: classify the ticket, then dispatch it to the prompt built for that category",
+      "An autonomous agent that decides at runtime how many classification passes to run",
+      "An orchestrator-workers design where a central call invents ticket categories on the fly"
+    ],
+    "a": 1,
+    "e": "Routing fits because the categories are fixed but genuinely need different downstream handling -- that's the definition of routing, not plain chaining. Option A ignores the stated per-category difference in step two, collapsing routing into a single fixed chain. Option C adds agent-level runtime flexibility a fixed two-step flow never needs. Option D misapplies orchestrator-workers, which decides subtasks at runtime -- here the three categories are already known in advance.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agent-architecture-02",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "An engineering-metrics agent must read a 200,000-line CI log to isolate the root cause of a flaky test, then hand a two-paragraph summary back to the parent conversation. The team wants to guarantee the parent's context never fills up with raw log lines, no matter how long the log-scanning takes. Which choice best satisfies that guarantee?",
+    "o": [
+      "Increase the parent's context window so it can hold the entire log alongside the rest of the conversation",
+      "Enable prompt caching on the log content so repeated reads are cheaper",
+      "Run the log-scanning in a subagent with its own context window and return only the distilled summary",
+      "Run the log-scanning in a subagent so it can execute in parallel with the rest of the pipeline"
+    ],
+    "a": 2,
+    "e": "A subagent with its own window keeps the raw log isolated; only the condensed summary re-enters the parent's context, which is the guarantee the team wants. A bigger window still fills up with raw lines eventually and doesn't prevent pollution. Prompt caching is a cost/latency optimization -- cached content still occupies context, it doesn't isolate it. Framing the subagent's value as parallel execution names the secondary benefit, not the primary reason, and there's nothing else described running concurrently for it to parallelize against.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agent-architecture-03",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "A team is weighing whether to add a manager agent that delegates a task to three specialist subagents, when a single call already handles that task adequately today. Select the two costs this hierarchy specifically introduces that the single-call design does not have.",
+    "o": [
+      "Additional token cost and latency at every manager-to-worker hop",
+      "Errors a worker makes can propagate upward and compound through the manager's synthesis step",
+      "The system permanently loses the ability to call external tools",
+      "The model's underlying context-window limit becomes smaller than before"
+    ],
+    "a": [0, 1],
+    "e": "Hop cost/latency and compounding worker error are the two costs a manager/subagent hierarchy actually adds over a single call. Losing tool-calling ability is false -- hierarchy depth doesn't affect tool access. A shrinking context-window limit is also false -- that's a fixed model property, untouched by how many subagents sit underneath a manager. Both wrong options borrow real-sounding constraints from elsewhere that don't actually apply here.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-agent-architecture-04",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "A code-review pipeline must run three checks in the exact same order on every single pull request with no exceptions: lint, then type-check, then test. Which implementation actually guarantees that ordering holds every time?",
+    "o": [
+      "A system prompt instructing an agent to always run lint, type-check, then test in that order",
+      "An evaluator-optimizer loop that keeps retrying the three checks until all of them pass",
+      "A manager agent that decides at runtime which of the three checks are relevant to run",
+      "Fixed code that calls lint, then type-check, then test, with no model in the decision path"
+    ],
+    "a": 3,
+    "e": "Only code with no model in the decision path guarantees the order, which is what 'must ... with no exceptions' demands. A system-prompt instruction is a request the model can fail to follow, not a guarantee. An evaluator-optimizer loop assumes criteria to iteratively refine against, which doesn't apply to a fixed three-step checklist, and retries don't guarantee ordering either. A manager deciding which checks are relevant introduces exactly the runtime variability the requirement rules out.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-agent-architecture-05",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "A document-tagging task applies the exact same three tags via the same three tools to every document, with no variation across runs. A colleague argues for building this as an autonomous agent instead of a fixed workflow because, in their words, agents are 'more flexible and more modern.' What is the strongest architectural counterargument?",
+    "o": [
+      "Flexibility has no payoff when the steps and tools are already fully known and identical every run; a fixed workflow gets the same result with less cost and less unpredictable behavior",
+      "Agents are structurally incapable of reliable tool use, so a workflow is the only option that works at all",
+      "Only a workflow can use the Claude API's tool-use feature; agents cannot register tools",
+      "An agent architecture always requires a manager delegating to a subagent hierarchy, which this simple task doesn't justify"
+    ],
+    "a": 0,
+    "e": "The correct counterargument is a cost/complexity one: identical, fully-known steps get no benefit from agent flexibility, so the workflow wins on cost and predictability. The other three options invent false technical limitations -- agents can call tools reliably, both workflows and agents use the same tool-use feature, and a single agent never requires a manager/subagent hierarchy. Each sounds like a plausible technical fact but fails on that basis alone.",
+    "pattern": "scope-boundary"
+  }
+]

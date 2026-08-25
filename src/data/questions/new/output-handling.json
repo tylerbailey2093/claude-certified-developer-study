@@ -1,0 +1,32 @@
+[
+  {
+    "id": "new-output-handling-01",
+    "d": 6,
+    "s": "Output Handling",
+    "q": "An extraction pipeline uses output_config.format with a JSON Schema to pull a customer name, account ID, and support tier from a transcript. QA reports zero schema validation failures over the past month. A downstream billing job that trusts the extracted account_id field has been charging the wrong customers. Investigation shows every extracted record was valid JSON matching the schema exactly. What does this reveal?",
+    "o": [
+      "The schema must be malformed, since valid records shouldn't cause wrong charges",
+      "Schema validation guarantees shape and type, not that the extracted values are the correct ones; a semantic validation step is still required",
+      "output_config.format is unreliable and should be replaced with prompt-only instructions asking for JSON",
+      "The billing job should retry the extraction request until it gets a different account_id"
+    ],
+    "a": 1,
+    "e": "Schema-valid and semantically correct are different guarantees. The schema confirms shape, types, and required fields; it says nothing about whether account_id actually belongs to the right customer, that requires a separate domain-level check. Nothing in the stem indicates the schema itself is broken (A), a technically valid document is not evidence of a malformed schema. Constrained decoding did its job producing well-formed output (C); reverting to prompt-only JSON requests would remove that structural guarantee without adding the missing semantic check. Retrying the same extraction (D) doesn't fix a systematically wrong mapping and still skips the validation step that was actually missing.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-output-handling-02",
+    "d": 6,
+    "s": "Output Handling",
+    "q": "A summarization service must never route a partially generated response to a human reviewer for 'cleanup,' because reviewers have started unintentionally inventing plausible-sounding endings for cut-off summaries. The service already sets a generous max_tokens. Which check enforces that 'never' requirement deterministically, rather than depending on a reviewer's judgment each time?",
+    "o": [
+      "A prompt instruction telling the reviewer not to guess when a summary looks incomplete",
+      "A style guide asking writers to flag incomplete-looking summaries before editing them",
+      "Code that inspects stop_reason and automatically routes anything other than end_turn or stop_sequence away from the reviewer, before it's ever displayed",
+      "A larger max_tokens value so truncation becomes rare enough to ignore in practice"
+    ],
+    "a": 2,
+    "e": "Checking stop_reason in code and gating on it is a deterministic control the reviewer's compliance can't undermine, exactly the distinction between a request and a guarantee that a 'must never' requirement calls for. A prompt instruction to the reviewer (A) and a style guide (B) both depend on a human noticing and complying every single time, which is precisely the failure already happening. A larger max_tokens value (D) reduces how often truncation occurs but doesn't eliminate it, 'rare enough to ignore' is not the same as never, and max_tokens can still be hit.",
+    "pattern": "must-means-deterministic"
+  }
+]

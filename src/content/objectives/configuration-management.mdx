@@ -1,0 +1,228 @@
+---
+id: "configuration-management"
+domain: 2
+domainName: "Applications and Integration"
+name: "Configuration Management"
+weight: 4.1
+tier: 2
+hot: false
+scope:
+  - "CLAUDE.md files"
+  - "settings.json"
+  - "model version pinning"
+  - "prompt versioning"
+  - "plugin dependencies"
+traps:
+  - "quality shifting on a day nothing shipped = an unpinned alias"
+  - "secrets management is Domain 7, not here"
+sources:
+  - label: "Claude Code settings"
+    url: "https://code.claude.com/docs/en/settings"
+  - label: "Model deprecations"
+    url: "https://platform.claude.com/docs/en/about-claude/model-deprecations"
+authored: true
+---
+
+## What this objective actually tests
+
+This objective tests **configuration as artifact**: whether CLAUDE.md, settings.json,
+model identifiers, prompts, and plugin dependencies are treated with the same
+versioning, review, and pinning discipline as application code. The recurring exam
+mechanic is distinguishing configuration that is merely *contextual guidance* from
+configuration that is *deterministically enforced* — and catching the specific
+failure mode where an unpinned reference (a model alias, an unversioned plugin
+source) lets production behavior drift with no corresponding deploy. Secrets
+management is explicitly out of scope here — it's Domain 7 — so a stem about API
+key storage or rotation is testing a different objective even if it mentions
+`settings.json`.
+
+## Mechanism
+
+**CLAUDE.md hierarchy and how it actually loads.** CLAUDE.md files exist at four
+scopes: **managed/enterprise policy** (an OS-level file such as
+`/etc/claude-code/CLAUDE.md`, or a `claudeMd` key inside `managed-settings.json`,
+deployed by IT/DevOps and un-excludable by any user), **user** (`~/.claude/CLAUDE.md`,
+personal, applies across all of one person's projects), **project**
+(`./CLAUDE.md` or `./.claude/CLAUDE.md`, committed and shared with the team), and
+**local** (`./CLAUDE.local.md`, personal-to-one-project, gitignored). The important
+mechanical detail — and a real exam trap — is that these levels are **concatenated
+into context, not overridden**: all discovered files are loaded together, ordered
+from broadest scope to most specific, so a project instruction appears *after* a
+user instruction in context (more specific content is read last, which affects
+recency, not precedence). [Verified: code.claude.com/docs/en/memory] Subdirectory
+CLAUDE.md files are the one exception to "load everything at launch" — they load
+on demand, only when Claude reads a file in that subdirectory.
+
+**CLAUDE.md is guidance, not enforcement — this is the load-bearing fact for the
+whole objective.** CLAUDE.md content is delivered as a user message after the
+system prompt; Claude tries to follow it, but nothing guarantees compliance,
+especially for vague or conflicting instructions. Anything that must hold
+*regardless of what the model decides* — blocking a command outright, forcing a
+script to run after every edit — belongs in `settings.json` (a `permissions.deny`
+rule, a hook), which the client enforces mechanically, not in CLAUDE.md, which the
+model merely reads. [Verified: code.claude.com/docs/en/memory — "Settings rules
+are enforced by the client regardless of what Claude decides to do."]
+
+**settings.json scopes and what belongs where.** Four scopes, same shape as
+CLAUDE.md: **managed** (organization-deployed, highest precedence for policy),
+**user** (`~/.claude/settings.json`), **project** (`.claude/settings.json`,
+committed, shared with the team), and **local** (`.claude/settings.local.json`,
+gitignored, personal overrides). [Verified: code.claude.com/docs/en/settings-reference]
+Anything protecting production — a permission rule, a hook that blocks a
+dangerous command — belongs in the **shared, committed** project settings.json.
+Putting it in `.local.json` means a teammate's machine silently doesn't have the
+guardrail, since that file is never shared.
+
+**Model version pinning.** Claude Code's `model` field (and `ANTHROPIC_MODEL` /
+`ANTHROPIC_DEFAULT_MODEL`) accepts either a full model name or an **alias**
+(`sonnet`, `opus`, `haiku`, `best`, `fable`, `opusplan`, and `[1m]` variants). The
+exam-relevant fact: **aliases point to "the recommended version for your
+provider" and are explicitly documented to update over time** — the same alias
+string can resolve to a different underlying model after Anthropic ships a
+change, with no deploy on your side. [Verified: code.claude.com/docs/en/model-config
+— "Aliases point to the recommended version for your provider and update over
+time. To pin to a specific version, use the full model name... or set the
+corresponding environment variable."] Pinning means using an explicit, versioned
+model identifier (or the matching `ANTHROPIC_DEFAULT_*_MODEL` override) in
+production, and gating any pin change on a fresh eval-suite run before promoting
+it — the same discipline as any other pinned dependency bump. Model lifecycle has
+four named states — **Active, Legacy, Deprecated, Retired** — a deprecated model
+ships a named replacement and a retirement date with at least 60 days' notice;
+requests to a retired model fail outright. [Verified: platform.claude.com/docs/en/about-claude/model-deprecations]
+
+**Prompt versioning.** Prompts are code: they belong in source control, go
+through review, take semantic version tags, and have eval results tied to each
+version so a regression can be attributed to a specific prompt change and rolled
+back exactly as fast as a code rollback. Editing a production prompt directly
+(in a database, in a live console) without that trail is the anti-pattern this
+objective is built to catch.
+
+**Plugin dependencies.** A plugin's version resolves from, in order: the
+`version` field in its own `plugin.json`, then the marketplace catalog entry's
+`version` field, then (for git sources without an explicit version) the resolved
+commit SHA, then an archive's SHA-256, then a command source's output hash.
+**If both `plugin.json` and the marketplace entry declare a version, `plugin.json`
+wins silently** — a stale manifest version can mask a version bump made in the
+marketplace catalog with no warning. [Verified: code.claude.com/docs/en/plugin-marketplaces]
+Git-based plugin sources support both `ref` (a branch or tag) and `sha` (an exact
+commit); when both are set, **`sha` is the effective pin** and Claude Code checks
+out that exact commit. Omitting `version` on a git source tracks the latest
+resolved commit automatically — convenient for active internal development, risky
+for anything needing reproducible production installs, where an explicit version
+or `sha` pin is the correct choice. Users receive updates via `/plugin update` (one
+plugin) or `/plugin update` with no argument (all plugins); a marketplace itself is
+refreshed separately with `/plugin marketplace update`.
+
+## Decision table
+
+| When the stem says… | The answer is… |
+|---|---|
+| "Output quality changed on a day with no deploy and no prompt change" | An unpinned model alias drifted underneath the application — pin an explicit dated model ID and gate future bumps on an eval re-run |
+| "Move the model string into an environment variable to fix the drift" | Doesn't fix it — an env var holding an alias still resolves to whatever the alias currently points to; the fix is pinning the *value*, not relocating where it's read from |
+| "Every teammate must share the same permission rules and hooks" | Commit them to the shared, project-level `.claude/settings.json` — never `.local.json` |
+| "This must be true no matter what Claude decides to do" | `settings.json` (permission rule or hook) — CLAUDE.md is guidance the model reads, not an enforced control |
+| "A personal sandbox URL that shouldn't be shared with the team" | `.claude/settings.local.json` or `CLAUDE.local.md` — gitignored, personal |
+| "Org-wide instruction that no individual developer can turn off" | Managed/enterprise CLAUDE.md (or `claudeMd` in `managed-settings.json`) |
+| "The plugin marketplace entry version was bumped but users still got the old build" | `plugin.json`'s own `version` field silently wins over the marketplace entry — check the manifest, not just the catalog |
+| "Reproducible installs across the whole team, pinned to an exact commit" | A git-based plugin source with an explicit `sha`, not just a `ref` (branch/tag) |
+| "How should API keys or credentials be stored/rotated for this Claude app?" | Out of scope here — that's Domain 7 secrets management, not configuration management |
+
+## Code examples
+
+**Pinning a model explicitly instead of relying on an alias, with a timeout as an
+explicit infrastructure setting rather than an implicit default:**
+
+```python
+from anthropic import Anthropic
+
+# BAD in production: model="sonnet" resolves to "whatever sonnet currently means"
+# GOOD: an explicit, versioned identifier that only changes when you change it
+client = Anthropic()
+resp = client.messages.create(
+    model="claude-sonnet-4-5-20250929",  # pinned, dated model ID
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Summarize this ticket."}],
+)
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+// BAD in production: model: "sonnet" — an alias, not a pin
+// GOOD: pin the exact, dated model identifier
+const client = new Anthropic();
+const resp = await client.messages.create({
+  model: "claude-sonnet-4-5-20250929",
+  max_tokens: 1024,
+  messages: [{ role: "user", content: "Summarize this ticket." }],
+});
+```
+
+**A minimal shared `.claude/settings.json` that enforces a guardrail no CLAUDE.md
+instruction could guarantee — a deny rule and a formatting hook run regardless of
+what Claude decides:**
+
+```json
+{
+  "permissions": {
+    "deny": ["Bash(rm -rf *)"]
+  },
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "Edit", "hooks": [{ "type": "command", "command": "npx prettier --write \"$CLAUDE_FILE_PATH\"" }] }
+    ]
+  }
+}
+```
+
+**Pinning a plugin to an exact commit so an install is reproducible, instead of
+tracking a moving branch:**
+
+```json
+{
+  "name": "internal-review-plugin",
+  "source": {
+    "source": "github",
+    "repo": "acme-corp/review-plugin",
+    "ref": "main",
+    "sha": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
+  }
+}
+```
+
+## Named traps, expanded
+
+**Quality shifting on a day nothing shipped = an unpinned alias.** This is the
+signature failure pattern for the whole objective: no deploy, no prompt edit, no
+infrastructure change — yet behavior changed. The only configuration surface that
+can move without a corresponding commit is an alias resolving differently, because
+Anthropic (not you) controls what it points to and updates it over time. The
+distractor that looks like a fix but isn't is relocating the alias string into an
+environment variable or a settings file — the value is still an alias, so the
+drift risk moves with it rather than disappearing. The real fix is always an
+explicit, versioned model identifier plus an eval gate before any intentional
+version bump.
+
+**Secrets management is Domain 7, not here.** This objective covers configuration
+*as an artifact to version, pin, and review* — CLAUDE.md content, settings.json
+structure, model IDs, prompt versions, plugin sources. The moment a stem is about
+*how a credential is stored, injected, or rotated*, it has crossed into Domain 7
+security and safety, even though the credential might live inside the very same
+`settings.json` file this objective covers. Don't let the filename pull you into
+the wrong domain.
+
+## Recall checks
+
+1. Explain, in one sentence, why moving a model alias into an environment variable
+   does not fix the "quality changed with no deploy" symptom.
+2. List the four CLAUDE.md scopes in load order from broadest to most specific,
+   and state whether a more specific file *overrides* or *is concatenated after*
+   a broader one.
+3. A teammate wants a rule enforced "no matter what Claude decides." Name the two
+   configuration surfaces that can actually guarantee that, and explain why
+   CLAUDE.md cannot.
+4. A plugin's marketplace entry says version 2.0.0; its own `plugin.json` still
+   says 1.4.0. Which version do users actually get, and why does this happen
+   silently?
+5. Give one concrete example of a configuration-management topic and the
+   look-alike Domain 7 topic it's easy to confuse it with.

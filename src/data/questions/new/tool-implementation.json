@@ -1,0 +1,62 @@
+[
+  {
+    "id": "new-tool-implementation-01",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "A team's weather-alerting tool calls an external forecasting API. The tool definition hardcodes the API key as a default value directly inside the tool's input schema so the agent can pass it through automatically, and the same tool definition is deployed unchanged straight from staging into production.",
+    "o": [
+      "Move the API key into the tool's description field so the model can see that it is required",
+      "Ask the model to redact the API key from its own responses whenever it appears",
+      "Pull the API key from a secret manager at execution time, scoped to the minimum access needed, and treat the endpoint as per-environment configuration rather than a value baked into the schema",
+      "Increase the tool's timeout so staging and production behave identically"
+    ],
+    "a": 2,
+    "e": "Credentials belong in a secret manager scoped to least privilege, and endpoints belong in per-environment configuration, never embedded in a schema the model reads and that ships unchanged between environments. Putting the key in the description field makes the leak risk worse, since that text is model-readable context that can be echoed back. Asking the model to redact the key is a detective patch on a problem that should never have put a secret in context in the first place. Timeout has nothing to do with credential handling or environment separation.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-tool-implementation-02",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "An engineer is designing an agent that runs shell commands on a customer's machine using Anthropic's own Bash tool schema, and separately searches the web using Anthropic's web search tool. She assumes that because both tools come from Anthropic, both are executed on Anthropic's infrastructure and neither requires her own code to run anything.",
+    "o": [
+      "Both assumptions are correct; Anthropic executes any tool whose schema it defines",
+      "The Bash tool is a client tool that her own infrastructure must execute and return as a tool_result; web search is a server tool that Anthropic's infrastructure executes and returns as a server_tool_use result",
+      "Neither tool requires execution at all; both return results directly from the model's training data",
+      "Web search is a client tool she must execute herself, while the Bash tool runs entirely on Anthropic's infrastructure"
+    ],
+    "a": 1,
+    "e": "Whether a tool is client-side or server-side depends on who executes it, not who authored the schema. The Bash tool is Anthropic-defined but still a client tool: her own harness has to run the command and return a tool_result. Web search is genuinely server-side; Anthropic's infrastructure executes it internally and surfaces a server_tool_use result with no tool_result required from her. The first option wrongly assumes authorship implies execution. The third ignores that tools by definition act on something outside the model's parameters. The fourth reverses the actual client/server assignment of the two tools named.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-tool-implementation-03",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "An agent has both a read-only list_invoices tool and a void_invoice tool that permanently cancels a customer invoice with no undo. The team originally required a human to confirm every single tool call, but within days support staff started reflexively clicking \"approve\" on every prompt, including for void_invoice.",
+    "o": [
+      "Keep requiring approval on every call, but add a warning icon next to destructive ones",
+      "Remove the approval step entirely, since staff aren't reading the prompts anyway",
+      "Require two separate staff members to approve every tool call, including read-only ones",
+      "Auto-approve read-only calls like list_invoices, and keep an explicit, separate confirmation step only for irreversible actions like void_invoice"
+    ],
+    "a": 3,
+    "e": "Approval fatigue happens when every call, regardless of risk, demands identical attention, so oversight collapses into a reflex click; narrowing confirmation to genuinely irreversible actions restores the signal. A warning icon doesn't change the volume of approvals causing the fatigue, and a fatigued reviewer can ignore a visual cue as easily as the prompt itself. Removing approval entirely abandons oversight on the one action that most needs it. Requiring two approvers on every call, including read-only ones, adds friction without addressing why staff stopped reading prompts in the first place, making the fatigue worse.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-tool-implementation-04",
+    "d": 8,
+    "s": "Tool Implementation",
+    "q": "A platform team maintains one shared tool set used by every agent session, including a rarely used purge_tenant_data tool invoked by only two administrators a few times a year. Every session pays the token cost of that tool's full definition on every request regardless of who is logged in, and tool-selection accuracy has been degrading as the shared set has grown.",
+    "o": [
+      "Move purge_tenant_data out of the default set and load it only into the small number of sessions run by the administrators who actually need it",
+      "Shorten the tool's name to reduce its token count",
+      "Add a longer, more detailed description to purge_tenant_data so the model understands it better",
+      "Convert purge_tenant_data into an MCP server so it no longer counts against the context window"
+    ],
+    "a": 0,
+    "e": "Every registered tool definition is sent on every request whether or not it's used, and a larger shared set also increases selection ambiguity; scoping a rarely needed, high-privilege tool to only the sessions that need it removes both costs at once. Shortening the name saves a negligible number of tokens and does nothing about ambiguity. A longer description makes the per-request token cost worse without addressing who needs the tool. Moving the tool to MCP is a common misconception: MCP tool definitions are still declared to the model on every request and still consume context tokens, so this doesn't exempt it from the cost described.",
+    "pattern": "buried-constraint"
+  }
+]

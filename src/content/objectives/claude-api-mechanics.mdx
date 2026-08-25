@@ -1,0 +1,353 @@
+---
+id: "claude-api-mechanics"
+domain: 2
+domainName: "Applications and Integration"
+name: "Claude API Mechanics"
+weight: 6.8
+tier: 1
+hot: false
+scope:
+  - "messages"
+  - "tools"
+  - "streaming"
+  - "vision"
+  - "thinking"
+  - "caching"
+  - "third-party vendors (Bedrock, Google Cloud, Microsoft Foundry)"
+  - "Messages API data access patterns"
+  - "batch API"
+  - "realtime vs batch tradeoffs"
+traps:
+  - "system is a top-level parameter, not a message role"
+  - "content is a LIST OF BLOCKS"
+  - "stop_reason arrives on a 200 and is not an error"
+  - "final usage arrives in message_delta, not message_start"
+  - "an error event can arrive AFTER a 200 in a stream"
+  - "batch results are UNORDERED - join on custom_id"
+  - "cache prefix order is tools then system then messages, matched exactly"
+  - "regional endpoints answer data residency; global endpoints do not"
+sources:
+  - label: "Messages"
+    url: "https://platform.claude.com/docs/en/build-with-claude/working-with-messages"
+  - label: "Streaming"
+    url: "https://platform.claude.com/docs/en/build-with-claude/streaming"
+  - label: "Prompt caching"
+    url: "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+  - label: "Batch"
+    url: "https://platform.claude.com/docs/en/build-with-claude/batch-processing"
+  - label: "Tool use"
+    url: "https://platform.claude.com/docs/en/agents-and-tools/tool-use"
+  - label: "PDF support"
+    url: "https://platform.claude.com/docs/en/build-with-claude/pdf-support"
+  - label: "Files API"
+    url: "https://platform.claude.com/docs/en/build-with-claude/files"
+  - label: "Citations"
+    url: "https://platform.claude.com/docs/en/build-with-claude/citations"
+  - label: "Vision"
+    url: "https://platform.claude.com/docs/en/build-with-claude/vision"
+  - label: "Extended thinking"
+    url: "https://platform.claude.com/docs/en/build-with-claude/extended-thinking"
+  - label: "Tool use overview"
+    url: "https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview"
+authored: true
+---
+
+## What this objective actually tests
+
+This objective is less about knowing individual parameters and more about knowing where a
+given piece of state *lives* — is `stop_reason` an error or a normal field, does usage arrive
+early or late in a stream, does a result come back in submission order, does a cache
+breakpoint protect everything before it or only the block it sits on. Every trap below is a
+"where does this live" question in disguise. The exam also tests the realtime-vs-batch
+decision itself: nearly every stem that mentions a deadline, an SLA, or "before morning" is
+actually asking you to pick between the synchronous Messages API and the async Batches API,
+not to debug a code snippet.
+
+## Mechanism
+
+*Facts below are verified against platform.claude.com/docs (see Sources) as of Aug 2026,
+except where marked `[engineering knowledge]` — those are real but landed after the July 2026
+exam guide's effective date and shouldn't be treated as exam-certain specifics.*
+
+### Request shape
+
+A `POST /v1/messages` request has `model`, `max_tokens`, `messages`, and an optional
+**top-level** `system` string or block array — `system` is never a role inside `messages`.
+`messages[].content` is a string shorthand for one text block, or a **list of typed content
+blocks** (`text`, `image`, `document`, `tool_use`, `tool_result`, `thinking`, …); code that
+reads `response.content[0].text` breaks the moment a `thinking` or `tool_use` block precedes
+text, so always filter by `block.type`. The API is stateless — every request resends the full
+history, including prior `assistant` turns verbatim.
+
+On Claude Opus 5, Opus 4.8, and Fable 5, a `{"role": "system", ...}` entry can appear inside
+`messages`, but only **mid-conversation**, after a user turn, and never as `messages[0]` — a
+same-authority operator instruction that doesn't disturb the cached prefix before it, distinct
+from the top-level `system` field that carries first-turn instructions.
+
+`stop_reason` arrives on every **successful (200)** response — `end_turn`, `max_tokens`,
+`stop_sequence`, `tool_use`, `pause_turn`, `refusal` — describing how generation ended, not
+signaling failure. A `refusal` also carries `stop_details.category`/`.explanation`.
+
+### Streaming
+
+`stream: true` returns SSE in a fixed envelope: `message_start` (empty `content`) → per block,
+`content_block_start` → one or more `content_block_delta` → `content_block_stop` → one or more
+`message_delta` (top-level changes, **cumulative** `usage`, final `stop_reason`) →
+`message_stop`. `ping` events can appear anywhere. The HTTP status commits *before* generation
+finishes, so an `error` event (e.g. `overloaded_error`) can land **after** the 200, mid-stream
+— logs show all-green while a user watches text stop mid-sentence. Tool-use deltas
+(`input_json_delta`) stream partial JSON strings; accumulate and parse once at
+`content_block_stop`, never string-match a partial payload.
+
+### Tools
+
+A tool is `{name, description, input_schema}`; add `strict: true` for a schema-guaranteed
+`tool_use.input`. Default `tool_choice` is `{"type": "auto"}`; force with `{"type": "tool"}` /
+`{"type": "any"}`, or cap to one call with `disable_parallel_tool_use: true`. Parallel calls
+put **multiple** `tool_use` blocks in one assistant message — execute concurrently, return
+**every** `tool_result` in a **single** user message (splitting them trains the model away
+from batching). A failed call still returns a `tool_result`, marked `is_error: true`.
+
+### Prompt caching
+
+`cache_control: {"type": "ephemeral", "ttl": "5m" | "1h"}` marks a breakpoint. The cache is a
+**prefix match** rendered as **tools → system → messages**: a change at any level invalidates
+that level and everything after it — a `tools` edit busts tools+system+messages, a `system`
+edit busts system+messages only, a trailing `messages` edit busts messages alone. Up to 4
+breakpoints per request. Minimum cacheable length is **model-dependent**, not a flat 1,024:
+512 tokens (Opus 5 / Fable 5 / Mythos 5), 1,024 (Opus 4.8, Sonnet 5 / 4.6 / 4.5), 2,048 (Opus
+4.7), 4,096 (Haiku 4.5, Opus 4.6 / 4.5) — under the floor, it silently doesn't cache (check
+`usage.cache_{creation,read}_input_tokens`, no error is raised). Reads cost 0.1× base input; a
+5-minute write costs 1.25×, a 1-hour write 2× — a 5-minute cache pays for itself after one read.
+
+### Vision and documents
+
+Images arrive as `base64`, `url`, or Files-API `file_id` blocks, priced by 28×28-pixel visual
+tokens — `⌈width/28⌉ × ⌈height/28⌉` — downscaled to a per-model tier first (standard: 1568 px
+/ 1568 tokens max; Claude 4.7+ high-resolution: 2576 px / 4784 tokens max). Limits: 100
+images/request on 200K-context models, 600 on others; 10 MB per base64 image (5 MB on
+Bedrock/Vertex). PDFs run through the **same vision pipeline**, not text extraction — charts
+and layout survive — capped at 32 MB and 600 pages, dropping to 100 pages under a 1M-token
+context window. `citations: {"enabled": true}` on a `document` block grounds output in cited
+passages with page/char offsets; incompatible with `output_config.format`.
+
+### Thinking
+
+Two mechanisms. **Manual/extended** — `thinking: {"type": "enabled", "budget_tokens": N}` —
+sets a fixed target (min 1,024, must be `< max_tokens`, bills at output rates) and is the
+*only* mode on Sonnet 4.5, Opus 4.5, Haiku 4.5 and earlier; deprecated on the 4.6 generation,
+rejected (400) on Opus 4.7+, Sonnet 5, Fable 5. Newer models use **adaptive** —
+`thinking: {"type": "adaptive"}` — where Claude decides whether/how much to reason, steered by
+`output_config.effort` (`low`…`max`) instead of a token count. `[engineering knowledge]`:
+current-gen models also reject non-default `temperature`/`top_p`/`top_k` and assistant prefill
+with a 400 — both post-date the exam guide.
+
+### Batch
+
+`messages.batches.create(requests=[{custom_id, params}, ...])` runs async at a flat **50%
+discount**, independent of how long it takes. A batch holds up to 100,000 requests or 256 MB
+(whichever hits first), and **expires — losing anything unfinished — if it doesn't complete
+within 24 hours**, though most finish in under an hour; results stay downloadable for 29 days.
+`stream: true`, `speed`, and `max_tokens: 0` are all rejected inside a batch. The fact tested
+most: **results return in arbitrary order** — join on `custom_id` (1–64 chars,
+`^[a-zA-Z0-9_-]{1,64}$`), never by array position.
+
+### Third-party vendors and data access
+
+Claude runs on Amazon Bedrock, Google Cloud Vertex AI, and Microsoft Foundry, alongside the
+first-party API — model IDs, beta availability, and auth all differ per platform (Bedrock
+prefixes IDs with `anthropic.`; Vertex uses GCP ADC, no key). The recurring distinction:
+**regional endpoints pin inference to a region for data-residency requirements; global
+endpoints route dynamically for availability**, the opposite property. Reading a response
+stays uniform everywhere: iterate `content` by `block.type`, read `usage.*` (plus cache fields
+when caching), check `stop_reason`/`stop_details` — whether the payload came from a single
+call, a stream's final `message_delta`, or a batch result's `.result.message`.
+
+## Decision table
+
+| When the stem says… | The answer is… |
+|---|---|
+| A request with `{"role": "system", ...}` **inside** `messages[0]` fails with 400 | `system` is a top-level parameter, not a message role — move it out of the array (unless the stem is specifically describing a *mid-conversation* system message on a supporting model, which must follow a user turn) |
+| Code does `response.content[0].text` and breaks after thinking/tool use was enabled | `content` is a list of typed blocks — filter by `block.type` instead of indexing |
+| "The response returned 200 but `stop_reason` was `max_tokens`/`tool_use` — is this an error?" | No — `stop_reason` is normal response data on a successful call; only the `error` event/type is an error |
+| "Where do the final token counts / final `stop_reason` show up while streaming?" | The `message_delta` event (cumulative `usage`) — `message_start` has empty content and no final usage yet |
+| Dashboards show HTTP 200 for every call, but users see answers cut off mid-sentence | An `error` event arrived **after** the 200 — the status line commits before generation finishes |
+| "How do you match a batch result back to its original input?" | `custom_id` — batch results return in **unordered**, independent completion order |
+| Cache reads dropped to zero after a change that "only touched the tool list" (or system, or messages) | Cache prefix order is fixed as tools → system → messages; a change at any level invalidates that level and everything downstream of it |
+| "Data must not leave the EU" / "must stay in-region" vs. "route wherever has capacity" | Regional endpoint answers residency requirements; global endpoint optimizes availability, not compliance |
+| "Not needed until tomorrow morning" / a hard deadline with slack, high volume, no one waiting | Batch API (50% cost, async, unordered results) over the synchronous Messages API |
+
+## Code examples
+
+**Content blocks and stop_reason**
+
+```python
+resp = client.messages.create(
+    model="claude-opus-5", max_tokens=1024,
+    system="You are a concise assistant.",       # top-level, not a role
+    messages=[{"role": "user", "content": "Hello"}],
+)
+for block in resp.content:                        # content is a LIST OF BLOCKS
+    if block.type == "text":
+        print(block.text)
+if resp.stop_reason == "refusal":
+    print(resp.stop_details.category)              # only populated on refusal
+```
+
+```typescript
+const resp = await client.messages.create({
+  model: "claude-opus-5", max_tokens: 1024,
+  system: "You are a concise assistant.",
+  messages: [{ role: "user", content: "Hello" }],
+});
+for (const block of resp.content) {                // narrow by .type before .text
+  if (block.type === "text") console.log(block.text);
+}
+if (resp.stop_reason === "refusal" && resp.stop_details) {
+  console.log(resp.stop_details.category);
+}
+```
+
+**Streaming — where usage lives, and the post-200 error**
+
+```python
+with client.messages.stream(
+    model="claude-opus-5", max_tokens=1024,
+    messages=[{"role": "user", "content": "Explain tail call optimization."}],
+) as stream:
+    for event in stream:
+        if event.type == "content_block_delta" and event.delta.type == "text_delta":
+            print(event.delta.text, end="", flush=True)
+        elif event.type == "message_delta":
+            print("\nstop:", event.delta.stop_reason, event.usage)  # final data lives HERE
+        elif event.type == "error":
+            print("\nmid-stream failure after the 200:", event.error)
+    final = stream.get_final_message()
+```
+
+```typescript
+const stream = client.messages.stream({
+  model: "claude-opus-5", max_tokens: 1024,
+  messages: [{ role: "user", content: "Explain tail call optimization." }],
+});
+stream.on("text", (t) => process.stdout.write(t));
+stream.on("error", (err) => console.error("mid-stream failure after the 200:", err));
+const finalMessage = await stream.finalMessage();
+```
+
+**Batch — 50% off, unordered results joined on custom_id**
+
+```python
+batch = client.messages.batches.create(requests=[
+    {"custom_id": f"doc-{i}",
+     "params": {"model": "claude-opus-5", "max_tokens": 1024,
+                "messages": [{"role": "user", "content": doc}]}}
+    for i, doc in enumerate(documents)
+])
+# Poll .processing_status until "ended" (finishes <1h typically; hard-expires at 24h)
+results = {}
+for r in client.messages.batches.results(batch.id):
+    if r.result.type == "succeeded":
+        results[r.custom_id] = r.result.message      # NEVER zip by position
+    elif r.result.type == "errored":
+        retry_later.append(r.custom_id)
+```
+
+```typescript
+const batch = await client.messages.batches.create({
+  requests: documents.map((doc, i) => ({
+    custom_id: `doc-${i}`,
+    params: { model: "claude-opus-5", max_tokens: 1024,
+              messages: [{ role: "user", content: doc }] },
+  })),
+});
+const results: Record<string, unknown> = {};
+for await (const r of client.messages.batches.results(batch.id)) {
+  if (r.result.type === "succeeded") results[r.custom_id] = r.result.message;
+}
+```
+
+**Caching — fixed prefix order, model-dependent minimum**
+
+```python
+resp = client.messages.create(
+    model="claude-opus-5", max_tokens=1024,
+    # ORDER IS FIXED: tools, then system, then messages.
+    tools=tools,                                       # any change here busts everything below
+    system=[
+        {"type": "text", "text": "You are a support assistant."},
+        {"type": "text", "text": PRODUCT_DOCS,          # large + stable + past the min-token floor
+         "cache_control": {"type": "ephemeral", "ttl": "1h"}},
+    ],
+    messages=[{"role": "user", "content": question}],
+)
+print(resp.usage.cache_creation_input_tokens, resp.usage.cache_read_input_tokens)
+```
+
+```typescript
+const resp = await client.messages.create({
+  model: "claude-opus-5", max_tokens: 1024,
+  tools,
+  system: [
+    { type: "text", text: "You are a support assistant." },
+    { type: "text", text: PRODUCT_DOCS,
+      cache_control: { type: "ephemeral", ttl: "1h" } },
+  ],
+  messages: [{ role: "user", content: question }],
+});
+console.log(resp.usage.cache_creation_input_tokens, resp.usage.cache_read_input_tokens);
+```
+
+## Named traps, expanded
+
+**`system` is a top-level parameter, not a message role.** The distractor answer — "add
+`{"role": "system", ...}` as `messages[0]`" — is attractive because plenty of *other* chat
+APIs model system instructions exactly that way, and because the newest Claude models genuinely
+do accept a `system`-role entry *mid-conversation*. The exam trap is testing whether you know
+the top-level field is still required for turn-zero instructions and that the mid-conversation
+form has placement rules (must follow a user turn, can't be `messages[0]`).
+
+**`content` is a list of blocks.** `response.content[0].text` is attractive because it works
+in every demo where the model only ever returns plain text. It silently breaks the instant
+thinking, tool use, or a second text block enters the response — which is exactly when a stem
+introduces it, because the failure is invisible until content composition changes.
+
+**`stop_reason` arrives on a 200 and is not an error.** Distractor logic: engineers trained on
+REST conventions expect "the request didn't fully succeed" to map to a non-2xx status. Claude
+reports *how a well-formed request ended* as a data field on a successful response — treating
+`max_tokens` or `tool_use` as failure conditions in a try/catch is a real, common bug.
+
+**Final usage arrives in `message_delta`, not `message_start`.** `message_start` looks like
+the natural place to log usage because it's the first event with a `Message` shape — but its
+`content` is empty and its `usage` is pre-generation. The cumulative, final numbers only land
+on `message_delta`, possibly split across more than one such event.
+
+**An error event can arrive after a 200 in a stream.** This is the one most likely to survive
+into production unnoticed: HTTP status is committed at the top of the response, before
+generation is complete, so "200 in the access log" and "the user got a complete answer" are
+two different claims. Health checks that only look at status codes will miss this class of
+failure entirely.
+
+**Batch results are unordered — join on `custom_id`.** The tempting shortcut is zipping
+`results` against the original input list by index, because that's what you'd do with a
+synchronous loop. Batch requests are processed independently and concurrently, so completion
+order has no relationship to submission order; only `custom_id` is a safe join key.
+
+**Cache prefix order is tools → system → messages, matched exactly.** The trap here is scope:
+engineers correctly remember "don't touch the system prompt" but forget that `tools` sits
+*before* `system` in the hierarchy, so a tools-array change (even an unused, flag-gated tool)
+silently invalidates the system and message caches too — with no error, just a quiet drop in
+`cache_read_input_tokens`.
+
+**Regional endpoints answer data residency; global endpoints do not.** The distractor is
+attractive because "global" sounds like the more capable, more available option — and it is,
+for latency and uptime. It is the wrong lever entirely for a residency or compliance
+requirement, which needs inference pinned to a specific region, not routed away from it.
+
+## Recall checks
+
+1. Without looking it up: state the four-event envelope of a streamed response in order, and name which event carries the final `stop_reason`.
+2. A cached request's `tools` array gains one new, rarely-used entry. Which three parts of the request lose their cache — and which, if any, keep it?
+3. Explain why a batch pipeline that zips `results` to `documents` by list index is a data-integrity bug, not just a style issue.
+4. A stem says a workload "must never leave the customer's contracted region." Name the two-word decision it's testing and the wrong answer it's ruling out.
+5. Give one concrete symptom an on-call engineer would see in monitoring when an `error` event arrives mid-stream after the initial 200 — and explain why a status-code-only alert misses it.

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "new-debugging-and-error-handling-01",
+    "d": 4,
+    "s": "Debugging and Error Handling",
+    "q": "A structured-extraction pipeline sends Claude's JSON output to a downstream parser, and one response stops with stop_reason max_tokens while the JSON object is still open. An on-call engineer patches this by sending the same partial JSON back to Claude and asking it to fill in the closing braces and any remaining fields, then ships the fix. Bad records keep appearing in production afterward. What is the most likely explanation?",
+    "o": [
+      "The completion request should have used a lower temperature to reduce variance in the filled-in fields",
+      "The missing fields were never generated the first time, so asking Claude to supply them produces fabricated values rather than recovered ones",
+      "The original request needed a stop sequence so the JSON object would close cleanly before the token limit",
+      "The parser should retry the original request from scratch using the same max_tokens value"
+    ],
+    "a": 1,
+    "e": "Truncation means the trailing content was never produced, so a repair pass isn't recovering anything — it's asking the model to invent plausible-looking values for fields it never actually generated, which is why bad records persist. Temperature doesn't address a missing generation. A stop sequence controls where a response stops on purpose, not truncation caused by hitting max_tokens. Retrying with the same max_tokens reproduces the identical truncation instead of fixing it; the fix is to raise the budget or decompose the task and regenerate from scratch.",
+    "pattern": "buried-constraint"
+  }
+]

@@ -1,0 +1,338 @@
+[
+  {
+    "id": "legacy-001",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "A team must extract invoice fields, validate them against a schema, then write to a database. The steps are identical for every invoice. Which approach fits best?",
+    "o": [
+      "A prompt-chaining workflow with fixed steps in code",
+      "An autonomous agent that decides its own steps each run",
+      "A manager agent delegating to three specialist subagents",
+      "An evaluator-optimizer loop that refines until validation passes"
+    ],
+    "a": 0,
+    "e": "The steps are known in advance and identical every run, which is the definition of a workflow. Agent and hierarchy options add cost, latency, and variability for nothing. Evaluator-optimizer applies where iteration improves quality, not where the path is fixed.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-002",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "A research agent runs searches returning 40,000 tokens of raw results. After several searches its answers degrade. What is the primary architectural reason to move searching into a subagent?",
+    "o": [
+      "Subagents run faster because they execute in parallel",
+      "Each subagent has its own context window, so raw results never enter the parent's context",
+      "Subagents can use models the parent cannot access",
+      "Subagents bypass rate limits with a separate connection pool"
+    ],
+    "a": 1,
+    "e": "Context isolation is the primary reason; the parent receives only the distilled summary. Parallelism is a secondary benefit, and the other two describe capabilities subagents don't have.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-003",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "A compliance requirement states customer data must never leave the company's network. Which agent deployment model is required?",
+    "o": [
+      "Anthropic-hosted managed agents, since Anthropic is compliant by default",
+      "Self-hosted, so the harness and data flow remain inside the company's infrastructure",
+      "Either model, since data is encrypted in transit regardless",
+      "Managed agents with an added output filter"
+    ],
+    "a": 1,
+    "e": "Network isolation requires running the harness yourself. Encryption in transit doesn't satisfy a requirement that data not leave the network, and an output filter doesn't change where execution happens.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-004",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "Every agent run must redact PII from tool output before it enters context, with no exceptions. Where does this belong?",
+    "o": [
+      "An instruction in the system prompt telling Claude to redact PII",
+      "A hook that fires after tool execution and redacts deterministically",
+      "A few-shot example demonstrating redacted output",
+      "A note in CLAUDE.md describing the redaction policy"
+    ],
+    "a": 1,
+    "e": "A prompt instruction is a request the model may not honor; a hook is code that always executes. Any requirement phrased with 'no exceptions' points to a hook rather than any form of instruction.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-005",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "A team connects an MCP server to an agent built with the Claude Agent SDK, but the agent never calls any of its tools. What is the most likely cause?",
+    "o": [
+      "MCP servers require the Anthropic-hosted deployment model",
+      "The server's tools were not added to the agent's allowed tools list",
+      "MCP tools only work in Claude Code, not the Agent SDK",
+      "The server must be restarted after each agent session"
+    ],
+    "a": 1,
+    "e": "Connecting an MCP server does not by itself grant permission to call its tools. The SDK enforces an explicit allow-list, which is the least-privilege default. The other three options describe restrictions that do not exist.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-006",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "An agent occasionally runs for hours, repeating the same tool call. What is the correct primary control?",
+    "o": [
+      "Lower the temperature so its choices are more consistent",
+      "Bound the loop with maximum iterations, a wall-clock timeout, and a token budget",
+      "Switch to a more capable model that will not get stuck",
+      "Increase max_tokens so it can complete its reasoning"
+    ],
+    "a": 1,
+    "e": "Unbounded loops are a harness design failure fixed with explicit bounds. A more capable model reduces but does not eliminate loops, and neither temperature nor max_tokens addresses termination.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-007",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "An agent needs information from a session that ended two days ago. How is this achieved?",
+    "o": [
+      "The model retains prior sessions in its weights automatically",
+      "The application writes to and reads from an external store, since the API is stateless",
+      "Prompt caching persists the earlier session for later retrieval",
+      "Setting a longer context window carries state between sessions"
+    ],
+    "a": 1,
+    "e": "The API is stateless and the model has no memory between calls. Long-term memory is something the application designs and manages. Caching is a cost and latency optimization with a short TTL, not a persistence layer.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-008",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "Which consideration most favors starting with direct API calls rather than an agentic framework?",
+    "o": [
+      "Frameworks cannot support tool use",
+      "Direct calls keep the failure surface visible without an abstraction layer between the team and the model",
+      "Frameworks are only available for TypeScript",
+      "Direct calls are the only way to use streaming"
+    ],
+    "a": 1,
+    "e": "Frameworks buy scaffolding at the cost of an abstraction that can obscure failures. Start direct and adopt a framework when the scaffolding earns its keep. The other options are factually false.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "new-agent-construction-with-claude-01",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "An engineering team configures a Claude Agent SDK session with allowed_tools=[\"Read\"] and permission_mode=\"bypassPermissions\", intending to auto-approve only the Read tool while every other tool still prompts for confirmation. During a run, the agent executes a Bash command and a file Write with no prompt at all. What explains this?",
+    "o": [
+      "bypassPermissions only applies to tools that are absent from allowed_tools, so listing Read there was redundant and blocked nothing",
+      "The Read entry must be written in the scoped form Read(path) before bypassPermissions can be constrained by it",
+      "bypassPermissions approves nearly every tool that reaches the permission-mode step, and allowed_tools does not narrow that; blocking a tool under this mode requires disallowed_tools or a hook instead",
+      "The SDK ignores permission_mode entirely unless a canUseTool callback is also supplied in the session options"
+    ],
+    "a": 2,
+    "e": "bypassPermissions approves almost everything that reaches the mode-check step in the evaluation order, and allowed_tools only pre-approves the tools named in it earlier in the flow -- it never narrows what the mode itself later approves. To keep a tool blocked under bypassPermissions you need disallowed_tools or a hook, not the allow-list. Option A inverts what allowed_tools does. Option B invents a syntax requirement that has no bearing on why Bash and Write ran. Option D is false: permission_mode governs behavior whether or not a canUseTool callback exists.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agent-construction-with-claude-02",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "A financial-services agent built on the Claude Agent SDK must never let a Bash command containing an API key or database password reach execution, regardless of which permission mode the deploying team selects later. Security also wants this enforced identically for any command string that might contain a secret, not just a fixed list of banned commands known today. Which approach satisfies this?",
+    "o": [
+      "Add each currently known secret-leaking command pattern to disallowed_tools as a separate Bash(...) rule",
+      "Register a PreToolUse hook that inspects the Bash command text at call time and returns a deny decision whenever it matches a secret pattern",
+      "Instruct Claude in the system prompt to refuse any Bash command that appears to contain credentials",
+      "Set permission_mode to \"plan\" so no Bash command can execute automatically"
+    ],
+    "a": 1,
+    "e": "Only a PreToolUse hook runs custom code against the actual command text at call time, so it can deny dynamically for any pattern rather than a pre-enumerated list, and a hook deny holds even under bypassPermissions. Option A only covers commands someone thought to list in advance, not every possible command string. Option C is a prompt instruction the model can fail to follow -- not a guarantee. Option D blocks all Bash equally rather than performing content inspection, and plan mode just routes calls to a callback for approval -- it doesn't deny automatically by itself.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-agent-construction-with-claude-03",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "A developer wants to send messages directly to the Claude API and hand-write their own loop that reads tool_use blocks, executes the matching tools, and appends tool_result blocks -- without adopting the Agent SDK's built-in tool set, system prompt conventions, or session and hook framework. Which building block matches this requirement?",
+    "o": [
+      "The Messages API, implementing the tool-use loop directly in application code",
+      "The Claude Agent SDK's query() function with allowed_tools set to an empty list",
+      "Claude Managed Agents, configured with a custom environment",
+      "The Claude Code CLI run in headless mode with an output-format flag"
+    ],
+    "a": 0,
+    "e": "The Agent SDK exists specifically to run the tool loop, tool set, and session machinery for you; wanting to implement that loop by hand is exactly the case the Messages API is for. Option B still runs the Agent SDK's own loop and conventions -- an empty allow-list doesn't remove the SDK's harness behavior underneath it. Option C hands the loop and sandbox to Anthropic's managed infrastructure, the opposite of writing it yourself. Option D still drives Claude Code's own agent loop as a subprocess, not a hand-written one.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-agent-construction-with-claude-04",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "A team is building an internal support-ticket agent. They do not want to operate their own sandbox, session persistence, or tool-execution infrastructure, and they are willing to accept less direct control over the exact runtime in exchange for Anthropic operating it for them. Which option fits this requirement?",
+    "o": [
+      "The Claude Agent SDK, running self-hosted inside their own Kubernetes cluster",
+      "The raw Messages API with a hand-rolled polling loop for tool execution",
+      "An MCP server that exposes the ticket system's operations as tools",
+      "Claude Managed Agents, using an Anthropic-managed cloud sandbox environment"
+    ],
+    "a": 3,
+    "e": "Managed Agents is the product built specifically to remove sandbox and session-infrastructure ownership from the team, at the cost of direct control over the runtime -- exactly the tradeoff named in the stem. Option A is the self-hosted path, which keeps that operational burden, the opposite of what's being asked for. Option B still requires the team to own execution infrastructure themselves. Option C is a tool source, not a place for an agent loop to run at all -- it doesn't answer where the agent executes.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agent-construction-with-claude-05",
+    "d": 1,
+    "s": "Agent Construction with Claude",
+    "q": "A team connects an MCP server to a Claude Agent SDK session and wants to understand exactly how permission to call that server's tools is decided. Select the two statements that are accurate.",
+    "o": [
+      "Once the MCP server is connected, all of its tools become callable without needing any allow-list entry",
+      "Calling one of the server's tools requires an explicit allow rule, such as naming the tool directly or using a wildcard anchored to that server's literal name",
+      "Writing allowed_tools=[\"mcp__*\"] auto-approves every tool from every connected MCP server",
+      "A PreToolUse hook can still deny a call to one of the server's tools even when an allow rule matches that call"
+    ],
+    "a": [
+      1,
+      3
+    ],
+    "e": "Connecting a server only makes its tools visible; calling one still needs an explicit allow rule scoped to that server, such as mcp__ops__lookup_order or mcp__ops__*, which makes the second option correct. A PreToolUse hook runs before allow rules in the evaluation order, so a hook deny overrides a matching allow rule, which makes the fourth option correct. The first option is the classic trap -- connection is not permission. The third option is wrong because an unanchored wildcard like mcp__* in allowed_tools is ignored with a startup warning; the server segment must be a literal, glob-free name.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-agent-architecture-01",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "A support-ticket pipeline classifies each incoming ticket into billing, technical, or account-access, then hands it to a category-specific prompt tuned for that ticket type. Every ticket follows this same two-step flow, though the specialized prompt used in step two differs meaningfully depending on the category. Which architecture fits this pipeline?",
+    "o": [
+      "A single fixed prompt chain that runs the same two prompts on every ticket regardless of category",
+      "Routing: classify the ticket, then dispatch it to the prompt built for that category",
+      "An autonomous agent that decides at runtime how many classification passes to run",
+      "An orchestrator-workers design where a central call invents ticket categories on the fly"
+    ],
+    "a": 1,
+    "e": "Routing fits because the categories are fixed but genuinely need different downstream handling -- that's the definition of routing, not plain chaining. Option A ignores the stated per-category difference in step two, collapsing routing into a single fixed chain. Option C adds agent-level runtime flexibility a fixed two-step flow never needs. Option D misapplies orchestrator-workers, which decides subtasks at runtime -- here the three categories are already known in advance.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agent-architecture-02",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "An engineering-metrics agent must read a 200,000-line CI log to isolate the root cause of a flaky test, then hand a two-paragraph summary back to the parent conversation. The team wants to guarantee the parent's context never fills up with raw log lines, no matter how long the log-scanning takes. Which choice best satisfies that guarantee?",
+    "o": [
+      "Increase the parent's context window so it can hold the entire log alongside the rest of the conversation",
+      "Enable prompt caching on the log content so repeated reads are cheaper",
+      "Run the log-scanning in a subagent with its own context window and return only the distilled summary",
+      "Run the log-scanning in a subagent so it can execute in parallel with the rest of the pipeline"
+    ],
+    "a": 2,
+    "e": "A subagent with its own window keeps the raw log isolated; only the condensed summary re-enters the parent's context, which is the guarantee the team wants. A bigger window still fills up with raw lines eventually and doesn't prevent pollution. Prompt caching is a cost/latency optimization -- cached content still occupies context, it doesn't isolate it. Framing the subagent's value as parallel execution names the secondary benefit, not the primary reason, and there's nothing else described running concurrently for it to parallelize against.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agent-architecture-03",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "A team is weighing whether to add a manager agent that delegates a task to three specialist subagents, when a single call already handles that task adequately today. Select the two costs this hierarchy specifically introduces that the single-call design does not have.",
+    "o": [
+      "Additional token cost and latency at every manager-to-worker hop",
+      "Errors a worker makes can propagate upward and compound through the manager's synthesis step",
+      "The system permanently loses the ability to call external tools",
+      "The model's underlying context-window limit becomes smaller than before"
+    ],
+    "a": [
+      0,
+      1
+    ],
+    "e": "Hop cost/latency and compounding worker error are the two costs a manager/subagent hierarchy actually adds over a single call. Losing tool-calling ability is false -- hierarchy depth doesn't affect tool access. A shrinking context-window limit is also false -- that's a fixed model property, untouched by how many subagents sit underneath a manager. Both wrong options borrow real-sounding constraints from elsewhere that don't actually apply here.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-agent-architecture-04",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "A code-review pipeline must run three checks in the exact same order on every single pull request with no exceptions: lint, then type-check, then test. Which implementation actually guarantees that ordering holds every time?",
+    "o": [
+      "A system prompt instructing an agent to always run lint, type-check, then test in that order",
+      "An evaluator-optimizer loop that keeps retrying the three checks until all of them pass",
+      "A manager agent that decides at runtime which of the three checks are relevant to run",
+      "Fixed code that calls lint, then type-check, then test, with no model in the decision path"
+    ],
+    "a": 3,
+    "e": "Only code with no model in the decision path guarantees the order, which is what 'must ... with no exceptions' demands. A system-prompt instruction is a request the model can fail to follow, not a guarantee. An evaluator-optimizer loop assumes criteria to iteratively refine against, which doesn't apply to a fixed three-step checklist, and retries don't guarantee ordering either. A manager deciding which checks are relevant introduces exactly the runtime variability the requirement rules out.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-agent-architecture-05",
+    "d": 1,
+    "s": "Agent Architecture",
+    "q": "A document-tagging task applies the exact same three tags via the same three tools to every document, with no variation across runs. A colleague argues for building this as an autonomous agent instead of a fixed workflow because, in their words, agents are 'more flexible and more modern.' What is the strongest architectural counterargument?",
+    "o": [
+      "Flexibility has no payoff when the steps and tools are already fully known and identical every run; a fixed workflow gets the same result with less cost and less unpredictable behavior",
+      "Agents are structurally incapable of reliable tool use, so a workflow is the only option that works at all",
+      "Only a workflow can use the Claude API's tool-use feature; agents cannot register tools",
+      "An agent architecture always requires a manager delegating to a subagent hierarchy, which this simple task doesn't justify"
+    ],
+    "a": 0,
+    "e": "The correct counterargument is a cost/complexity one: identical, fully-known steps get no benefit from agent flexibility, so the workflow wins on cost and predictability. The other three options invent false technical limitations -- agents can call tools reliably, both workflows and agents use the same tool-use feature, and a single agent never requires a manager/subagent hierarchy. Each sounds like a plausible technical fact but fails on that basis alone.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-01",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "A deployment agent must never make more than fifty tool calls in a single run, regardless of how capable the underlying model is or how the prompt is worded, because a runaway run has already caused a production incident. Which control actually guarantees that ceiling holds?",
+    "o": [
+      "A harness-level counter that stops the loop once fifty tool calls have been made, independent of the model's own judgment",
+      "Switching to a more capable model that is less likely to get stuck in a loop",
+      "Lowering the sampling temperature so the model's tool choices are more consistent",
+      "Adding a system-prompt instruction telling the model to stop after fifty tool calls"
+    ],
+    "a": 0,
+    "e": "Only a harness-level counter enforced in code guarantees the ceiling, because it doesn't depend on the model choosing to comply. A more capable model reduces how often loops happen but never guarantees a hard limit. Lowering temperature changes variability, not termination. A system-prompt instruction is a request the model can fail to follow, not a guarantee -- the same distinction that makes unbounded loops a harness failure rather than a model failure.",
+    "pattern": "must-means-deterministic"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-02",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "A long-running research agent writes short notes to a local file as it works through a forty-step investigation, and reads those notes back on later steps, even though this costs it extra tool calls it wouldn't otherwise need. What best explains why this design choice is worth that overhead?",
+    "o": [
+      "It permanently increases the size of the agent's underlying context window",
+      "It gives the agent persistent memory outside the context window, preserving progress and dependencies without keeping the full history in-context",
+      "It replaces the harness's responsibility to bound the loop with a timeout or iteration limit",
+      "It lets the underlying API retain state between two otherwise unrelated conversations"
+    ],
+    "a": 1,
+    "e": "Structured note-taking is a memory pattern: it persists progress and dependencies outside the context window at low overhead, so the agent doesn't need to keep everything in-context. It does not change context-window size, does not substitute for loop-termination bounds, and does not make the API stateful -- each wrong option borrows a real mechanism from an adjacent concern that note-taking doesn't actually touch.",
+    "pattern": "scope-boundary"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-03",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "An agent's conversation has grown large enough that old tool outputs are consuming most of the available context, even though the agent no longer needs to re-inspect any of them. The team wants the lightest-touch fix available and specifically wants to avoid summarizing anything. Which lever fits?",
+    "o": [
+      "Compaction: summarize the whole conversation and reinitiate a new context window",
+      "Switch to a model with a larger context window so the old outputs simply fit",
+      "Tool-result clearing: drop the stale raw tool outputs from the message history",
+      "Rewrite the system prompt to be shorter"
+    ],
+    "a": 2,
+    "e": "Tool-result clearing is the lightest-touch lever and involves no summarization -- it just drops stale raw outputs the agent no longer needs. Compaction is exactly the summarization the team said to avoid. A larger context window doesn't manage anything, it just delays the same growth problem. The system prompt isn't what's consuming context in this scenario, so shortening it doesn't address the stated cause.",
+    "pattern": "buried-constraint"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-04",
+    "d": 1,
+    "s": "Agent Patterns and Frameworks",
+    "q": "A Python team wants every tool call and model response validated against typed schemas at development time, with as little custom parsing code as possible, and they explicitly do not need a general-purpose graph engine for branching, cyclical control flow. Which framework fits best?",
+    "o": [
+      "LangGraph, for its explicit graph of nodes and edges",
+      "Strands Agents, for its minimal-scaffolding model-driven loop",
+      "A hand-rolled loop with no framework at all",
+      "PydanticAI, for its typed, validated structured output built on Pydantic models"
+    ],
+    "a": 3,
+    "e": "PydanticAI's core value is typed, validated structured output via Pydantic models, which is exactly the team's stated requirement. LangGraph is built around explicit graph orchestration for branching, stateful control flow -- the team explicitly said they don't need that. Strands centers on a thin, model-driven loop, not on schema validation. A hand-rolled loop maximizes the custom parsing and validation code the team wants to minimize, the opposite of what they asked for.",
+    "pattern": "buried-constraint"
+  }
+]

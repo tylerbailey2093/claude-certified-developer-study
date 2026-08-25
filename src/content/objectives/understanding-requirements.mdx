@@ -1,0 +1,185 @@
+---
+id: "understanding-requirements"
+domain: 2
+domainName: "Applications and Integration"
+name: "Understanding Requirements"
+weight: 3.4
+tier: 2
+hot: false
+scope:
+  - "functional requirements"
+  - "infrastructure requirements"
+  - "solution architecture"
+traps:
+  - "one buried constraint in the stem decides the answer"
+sources:
+  - label: "Choosing a model"
+    url: "https://platform.claude.com/docs/en/about-claude/models/choosing-a-model"
+  - label: "Pricing"
+    url: "https://platform.claude.com/docs/en/about-claude/pricing"
+authored: true
+---
+
+## What this objective actually tests
+
+This objective tests whether you can take a business-level ask — often written by
+someone who has never touched an API — and split it cleanly into **functional**
+requirements (what the system must do), **infrastructure** requirements (the
+non-functional envelope it must do it within: latency, throughput, availability,
+residency, retention, cost), and a **solution architecture** that satisfies both.
+The exam does not ask you to write requirements documents; it gives you a stem
+already containing the requirement and asks you to name the architectural
+consequence. The skill being tested is *requirement-to-decision translation*, not
+requirements-gathering ceremony.
+
+## Mechanism
+
+**Functional vs. infrastructure is a categorization exercise, and the exam relies
+on you doing it fast.** A functional requirement describes a capability: "draft a
+reply," "classify a ticket," "summarize a call." An infrastructure requirement
+describes a constraint the capability must operate inside: a latency budget, a
+concurrency ceiling, a residency boundary, a retention window, an availability
+target, or a cost ceiling. The two are graded by different failure modes — a
+functional gap means the feature doesn't exist; an infrastructure gap means the
+feature exists but violates a promise made to the business (SLA breach, compliance
+violation, budget overrun). Stems test this distinction by pairing one of each in
+the same sentence and asking you to identify which is which, or by burying an
+infrastructure constraint inside what reads like a feature description.
+
+**Solution architecture is the bridge artifact.** Given a functional requirement
+and its infrastructure envelope, solution architecture answers: what components
+exist, and how do they connect? For a Claude-based system that means naming, at
+minimum: which model tier serves the request (cost/latency/capability tradeoff),
+whether the call pattern is realtime or batched, where tool calls and MCP servers
+sit relative to the model, where untrusted or user-supplied content enters the
+pipeline, where a human review gate sits if one is required, and which datastore
+holds session or long-lived memory state. A stem that asks "which component" or
+"where should this live" is a solution-architecture question dressed as a trivia
+question — it is really asking whether you can place a box on a diagram correctly.
+
+**The exam's dominant mechanism: one buried constraint decides the answer.**
+Stems are two to four sentences of scenario texture wrapping a single deciding
+detail — a deadline, a location, a party who is or isn't waiting, a downstream
+consumer. Everything else in the stem is plausible-sounding noise. The practiced
+move is to read the stem once for the scenario, then again hunting specifically
+for the clause that would change the answer if it were altered. If you can flip
+one detail (deadline moves from "next quarter" to "the user is on the line") and
+the correct option changes, you've found the constraint the question is actually
+testing.
+
+**Common infrastructure dimensions and their default architectural answer:**
+
+- **Latency budget** — is a human waiting synchronously, or can this run
+  unattended? Decides sync Messages API + streaming vs. the async Batch API.
+- **Throughput / concurrency** — how many requests arrive at once, and does the
+  workload need to fan out? Decides whether the architecture needs client-side
+  concurrency control, queuing, or straightforward batch submission.
+- **Availability / SLA** — what happens if one region is down? Decides whether the
+  architecture needs multi-region failover or a single regional pin is acceptable.
+- **Data residency / sovereignty** — must data stay inside a jurisdiction, even in
+  transit? Decides regional API endpoints (or a vendor with in-region hosting)
+  over a global, dynamically-routed endpoint. [Verified: platform.claude.com/docs/en/about-claude/pricing describes regional vs. global endpoint tradeoffs at a pricing/availability level; residency guarantees are the correct answer for any stem naming a jurisdiction.]
+- **Retention** — how long must inputs, outputs, or session state be kept (or how
+  fast must they be deleted)? Decides logging/storage configuration independent of
+  the model call itself.
+- **Cost ceiling** — is there a hard budget, and is the workload deferrable?
+  Decides batch discount, model-tier downgrade, or prompt-length reduction, in
+  that order of likely intent.
+- **Compliance / stakes** — is the domain regulated, or are the consequences of an
+  error high (medical, legal, financial)? Decides a human-in-the-loop review gate
+  and audit logging as first-class architecture components, not afterthoughts.
+
+A requirement rarely states the architectural answer directly. It states the
+constraint, and the constraint has exactly one architecturally correct response
+among the options — which is why distractors in this objective are built to be
+*plausible engineering practice in general* while being wrong for *this specific
+constraint*.
+
+## Decision table
+
+| When the stem says… | The answer is… |
+|---|---|
+| "not needed until tomorrow" / no one is waiting on the result | Batch API |
+| "the user is waiting" / interactive session | Streaming, synchronous call, latency-optimized model tier |
+| "must stay in region X" / "must not leave the country" | Regional endpoints (or a vendor offering in-region hosting) |
+| "feeds another system" / "another service consumes this automatically" | Structured output + schema validation, not free-text |
+| "regulated" / "high-stakes" / "irreversible if wrong" | Human review gate + audit logging as architecture components |
+| "deterministic rule" / "always computed the same way from the same inputs" | Don't use an LLM at all — plain code |
+| "reusable across applications" / "maintained independently of any one app" | A separate service exposed through a defined tool interface (an MCP server), not logic embedded in one app |
+| "must happen every time, no exceptions" | A hook or a deterministic gate, not a prompt instruction |
+| A sentence mixes "what it does" and "how fast/where/how long" in the same breath | Split it — the "what" is functional, the "how fast/where/how long" is infrastructure |
+| "which component should own this" / "where should this live" | A solution-architecture question — place the box, don't debug the code |
+
+## Code examples
+
+Requirements decomposition itself isn't code, but it becomes code the moment a
+functional requirement turns into an output contract and an infrastructure
+requirement turns into client configuration. A functional requirement ("classify
+the ticket and extract the account ID") becomes a schema; an infrastructure
+requirement ("must not hang the UI past 3 seconds, must not silently drop a
+degraded response") becomes explicit timeout and error handling — not something
+left to a system-prompt instruction.
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic(timeout=3.0)  # infra requirement: latency budget, enforced by the client
+
+tool = {
+    "name": "classify_ticket",
+    "description": "Classify a support ticket and extract the account id.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "category": {"type": "string", "enum": ["billing", "bug", "access", "other"]},
+            "account_id": {"type": ["string", "null"]},  # functional req: don't fabricate one
+        },
+        "required": ["category", "account_id"],
+    },
+    "strict": True,  # functional req becomes a schema guarantee, not a hope
+}
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic({ timeout: 3000 }); // infra requirement enforced at the client
+
+const tool = {
+  name: "classify_ticket",
+  description: "Classify a support ticket and extract the account id.",
+  input_schema: {
+    type: "object",
+    properties: {
+      category: { type: "string", enum: ["billing", "bug", "access", "other"] },
+      account_id: { type: ["string", "null"] }, // nullable: let it decline, don't fabricate
+    },
+    required: ["category", "account_id"],
+  },
+  strict: true,
+};
+```
+
+## Named traps, expanded
+
+**One buried constraint in the stem decides the answer.** This is the whole
+objective's exam mechanic, not just a tip. Three of the four options in a typical
+item are defensible general engineering practice — they just don't answer the
+specific constraint the stem is testing. Treat every stem as containing exactly
+one load-bearing clause; find it before you evaluate options, because evaluating
+options first makes all four look plausible in isolation.
+
+## Recall checks
+
+1. A stem describes a feature and, in the same sentence, a numeric SLA. Without
+   solving the item, name which half is functional and which is infrastructure.
+2. Give the architectural answer for a workload that is deferrable, high-volume,
+   and cost-sensitive — and name the wrong answer it's most often confused with.
+3. A requirement says an extracted field must never be invented when it isn't
+   present in the source text. What schema-level decision satisfies that, and why
+   is a system-prompt instruction alone not sufficient?
+4. Explain, in one sentence, why "reusable across applications" points at a
+   separate service rather than a well-written function inside one app.
+5. Practice the two-pass read: pick any decision-table row above, write a two
+   sentence stem for it, then identify your own buried constraint before checking
+   it against the row.

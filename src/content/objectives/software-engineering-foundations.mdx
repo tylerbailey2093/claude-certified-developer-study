@@ -1,0 +1,205 @@
+---
+id: "software-engineering-foundations"
+domain: 2
+domainName: "Applications and Integration"
+name: "Software Engineering Foundations"
+weight: 7.4
+tier: 1
+hot: false
+scope:
+  - "REST APIs"
+  - "JSON"
+  - "asynchronous programming"
+  - "version control"
+  - "SDLC integration"
+  - "code review"
+  - "small- and large-scale refactoring"
+traps:
+  - "SDKs already retry twice with backoff honoring retry-after; a hand-rolled retry layer multiplies load during the incident"
+  - "review AI-generated code with the same rigor as human-written"
+sources:
+  - label: "Python SDK"
+    url: "https://platform.claude.com/docs/en/api/sdks/python"
+  - label: "Errors"
+    url: "https://platform.claude.com/docs/en/api/errors"
+  - label: "TypeScript SDK"
+    url: "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript"
+  - label: "API Versions"
+    url: "https://platform.claude.com/docs/en/api/versioning"
+  - label: "Structured Outputs"
+    url: "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+authored: true
+---
+
+## What this objective actually tests
+
+This objective is ordinary software-engineering practice, examined through the lens of a Claude-powered system rather than through LLM theory. The exam is not asking whether you know what a token is — it is asking whether you would ship the same disciplined REST client, async concurrency limits, JSON contracts, git hygiene, and review process you would ship for any production service, now that one of the calls in that service happens to hit `api.anthropic.com`. Distractors in this objective's items typically fail by reinventing something the platform, SDK, or a standard engineering practice already provides.
+
+## Mechanism
+
+### REST APIs
+
+The Messages API is a conventional REST API: `POST /v1/messages`, JSON in, JSON out, resource-oriented endpoints for batches and files, and standard HTTP semantics for the things that make REST APIs debuggable in production.
+
+- **Status codes carry meaning, and the SDKs act on it.** `400`/`401`/`403`/`404`/`413` are client errors that will not succeed on retry — the request itself is wrong (malformed body, bad key, wrong permissions, unknown resource, or a body over the size limit — 32 MB for Messages, 256 MB for Batches, 500 MB for Files). `408`, `409`, `429`, and `5xx` (`500`, `529`) are treated as transient and are retried automatically by the official SDKs. `504` signals the request timed out server-side and suggests streaming or batching the work instead of raising `max_tokens` further.
+- **Headers matter as much as the body.** Every response carries a `request-id` header (mirrored as `_request_id` on Python/TypeScript response objects) — this is what you hand to support when reporting an incident, not a stack trace. `anthropic-version` is a required request header; the SDKs set it for you (currently `2023-06-01`) and only override it if you have a specific compatibility reason to.
+- **Idempotency and retries are a REST concern, not an LLM concern.** A `409 Conflict` means the server-side resource state disagrees with the request (for example, a batch or file already in a terminal state) — the fix is to inspect current state, not to hammer the endpoint.
+- **Pagination is cursor-based**, not offset-based. List endpoints (`messages.batches.list`, `files.list`) return a page object with a `has_next_page()` / `get_next_page()` pair in Python and an async-iterable page object in TypeScript. Treat page size (`limit`) as a request hint, not a guarantee, and never assume total counts are cheap to compute up front.
+
+### JSON
+
+Two separate claims get conflated in weak answers: **valid JSON** and **semantically correct JSON**. They are not the same guarantee.
+
+- Asking the model to "output only JSON" in the prompt is a soft constraint — it can still emit prose before the brace, truncate mid-object, or put the right value in the wrong field.
+- `output_config.format` with a `json_schema` type uses grammar-constrained decoding: the token sampler is restricted so that every output token keeps the response inside the schema. This makes malformed JSON, missing required fields, and wrong types structurally impossible — not just unlikely.
+- What it still does **not** guarantee is meaning. A schema-valid object can put an email address in a `name` field and a name in an `email` field — the schema checks shape, not truth. Domain validation after parsing is still your job.
+- Design JSON contracts the way you would any service boundary: explicit required vs. optional fields, `additionalProperties: false` when you want to catch drift early, and versioned schemas when a field's meaning changes rather than silently repurposing it.
+
+### Asynchronous programming
+
+Claude API calls are slow I/O — hundreds of milliseconds to tens of seconds — which makes this a textbook case for async/concurrent design, with the usual failure modes.
+
+- **Unbounded fan-out is the recurring bug.** Firing hundreds of concurrent requests the instant a job starts produces `429`s, and a sharp traffic ramp can additionally trip acceleration limits that are separate from your steady-state rate limit. The fix is a bounded worker pool (a semaphore, a fixed-size queue, or a connection-limited async client) with a gradual ramp, not a bigger model or a faster retry loop.
+- **Sync and async clients are separate entry points.** Python: `Anthropic` vs. `AsyncAnthropic` (the latter usable with `asyncio`, and optionally the `aiohttp` backend for better concurrency than the default `httpx` transport). TypeScript: every SDK call is inherently a `Promise`; there is no separate async client class.
+- **Streaming is a different tool than raising `max_tokens`.** Non-streaming requests are validated client-side against a roughly 10-minute expected duration (Python raises `ValueError`; TypeScript scales the default timeout with `max_tokens` up to ~60 minutes before erroring) precisely because idle network connections get dropped by intermediate infrastructure on long-lived unary calls. If a task is long-running, stream it or batch it — don't just widen the timeout and hope the connection survives.
+- **Timeouts and retries interact.** A request that times out is, by default, retried up to the client's `max_retries` — so a timeout is not automatically a terminal failure from the caller's point of view; plan for the total worst-case latency (`timeout` × `retries`), not just one leg.
+
+### Version control
+
+Everything that shapes a Claude application's behavior is a versioned artifact, not folklore living in someone's head:
+
+- **Prompts and tool schemas** — diffed and reviewed exactly like code, because a wording change is a behavior change.
+- **`CLAUDE.md` and `settings.json`** — checked into the repo alongside the code they configure; a permission or hook change is a change to what the system is allowed to do, and belongs in the same review pipeline as any other config change.
+- **Model version pinning** — pin to a dated model ID for anything that must reproduce a specific behavior over time; a floating alias is a legitimate choice for a tool that wants automatic upgrades, but it is a choice, not a default you fall into.
+- **API version** — the `anthropic-version` header follows a preserve-compatibility policy: existing input/output parameters are not removed within a version, but optional inputs, output fields, and new enum-like values can be added. Anthropic recommends the latest version for new work; older versions are deprecated over time and may stop being available to new users.
+
+### SDLC integration
+
+This is generic delivery practice with one Claude-specific twist: the release gate has to test model behavior, not just code paths.
+
+- CI runs unit and integration tests as usual, but an application whose core logic is a prompt also needs an **eval run as a release gate** — a fixed test set scored against expected outcomes, run before merge or deploy, catching prompt regressions the same way a test suite catches code regressions.
+- Staged environments (dev → staging → prod) apply unchanged, with the same case for feature flags and canaries when rolling out a prompt or model change — a bad prompt version can degrade output quality in ways that don't throw exceptions and won't show up in an error-rate dashboard.
+
+### Code review
+
+Review AI-generated code with the same rigor as human-written code. The rigor requirement does not relax because the author was a model — if anything, patterns that look locally plausible but are subtly wrong (a retry loop stacked on top of SDK retries, a schema that's valid but semantically backwards) are exactly what a Claude-authored diff tends to produce, and exactly what fast, sympathetic review misses. The human who merges the change stays accountable for it either way.
+
+### Refactoring, small- and large-scale
+
+- **Small-scale**: rename, extract, simplify, tighten a type. Mechanical, reversible, usually safe to do in one pass.
+- **Large-scale**: module boundary changes, dependency inversion, framework migration, the strangler-fig pattern for replacing a legacy system incrementally behind a stable interface.
+- **The Claude-specific practice that makes automated refactoring trustworthy**: work in bounded increments with tests green between each step, and never refactor and add behavior in the same change. Tests are the safety net; without one, an agent (or a human) doing large-scale refactoring is gambling, not engineering.
+
+## Decision table
+
+| When the stem says... | ...the answer is |
+|---|---|
+| A team wraps SDK calls in their own retry/backoff decorator "to be safe" | Remove it — the SDK already retries connection errors, 408/409/429/5xx twice by default with backoff honoring `retry-after`; a second layer multiplies load during the incident |
+| Traffic ramps instantly and 429s spike at job start | Bound concurrency with a queue/semaphore and ramp gradually — this can also be an acceleration-limit issue, not just steady-state rate limits |
+| A response returns `400`, `401`, `403`, `404`, or `413` | Do not retry — the request itself is wrong; fix the request, don't resend it |
+| A response returns `408`, `409`, `429`, or `5xx` | Safe to retry (the SDK already does) — back off, don't hammer |
+| "Output must be valid JSON every time, structurally guaranteed" | `output_config.format` / JSON Schema-constrained output, not prompt instructions asking for JSON |
+| Schema-valid JSON came back with values in the wrong fields | Expected — schema validation guarantees shape, not meaning; add domain-level validation after parsing |
+| A non-streaming call is expected to run long (large `max_tokens`, slow task) | Stream the response or use the Batch API — do not just raise the timeout on a long unary call |
+| An AI-authored PR "already passed the eval suite so review can be light" | No — review AI-generated code with the same rigor as human-written code regardless of what generated it |
+| A large-scale refactor is underway with Claude Code doing the mechanical changes | Bounded increments, tests green between each, never mixed with new behavior in the same change |
+| `CLAUDE.md` or `settings.json` changed in a PR | Treat it like any other config change — review it, diff it, gate it in CI, same as source |
+
+## Code examples
+
+Both examples model the same production pattern: bounded async concurrency over a batch of independent Claude calls, with error handling that trusts the SDK's built-in retry behavior instead of duplicating it.
+
+```python
+import asyncio
+from anthropic import AsyncAnthropic, APIStatusError, APIConnectionError, RateLimitError
+
+# Concurrency is capped explicitly — the SDK's retry/backoff already handles
+# transient failures per-request; this semaphore prevents unbounded fan-out
+# from tripping rate limits or acceleration limits in the first place.
+SEM = asyncio.Semaphore(8)
+
+client = AsyncAnthropic(
+    max_retries=5,   # default is 2; raise it for a bulk job you can afford to wait on
+    timeout=120.0,   # seconds; default is 10 minutes
+)
+
+async def summarize(doc_id: str, text: str) -> dict:
+    async with SEM:
+        try:
+            msg = await client.messages.create(
+                model="claude-opus-5",
+                max_tokens=512,
+                messages=[{"role": "user", "content": f"Summarize:\n\n{text}"}],
+            )
+            return {"doc_id": doc_id, "ok": True, "text": msg.content[0].text}
+        except RateLimitError:
+            # 429 after the SDK's own retries were exhausted — surface it,
+            # don't spin a second retry loop on top.
+            return {"doc_id": doc_id, "ok": False, "reason": "rate_limited"}
+        except APIStatusError as e:
+            if e.status_code in (400, 401, 403, 404, 413):
+                raise  # request is wrong; retrying would never help
+            return {"doc_id": doc_id, "ok": False, "reason": f"status_{e.status_code}"}
+        except APIConnectionError as e:
+            return {"doc_id": doc_id, "ok": False, "reason": f"unreachable: {e.__cause__}"}
+
+async def run(docs: dict[str, str]) -> list[dict]:
+    return await asyncio.gather(*(summarize(i, t) for i, t in docs.items()))
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+// Same shape as the Python version: a bounded worker pool, not a per-call
+// retry wrapper. maxRetries/timeout are camelCase in TypeScript.
+const client = new Anthropic({
+  maxRetries: 5,     // default is 2
+  timeout: 120_000,  // ms; default is 10 minutes
+});
+
+const CONCURRENCY = 8;
+
+async function summarize(docId: string, text: string) {
+  try {
+    const msg = await client.messages.create({
+      model: "claude-opus-5",
+      max_tokens: 512,
+      messages: [{ role: "user", content: `Summarize:\n\n${text}` }],
+    });
+    const block = msg.content.find((b) => b.type === "text");
+    return { docId, ok: true, text: block?.type === "text" ? block.text : "" };
+  } catch (err) {
+    if (err instanceof Anthropic.APIError) {
+      if ([400, 401, 403, 404, 413].includes(err.status ?? 0)) {
+        throw err; // request is wrong; retrying would never help
+      }
+      return { docId, ok: false, reason: `status_${err.status}` };
+    }
+    throw err; // not an API error — connection-level failure
+  }
+}
+
+async function run(docs: Map<string, string>) {
+  const entries = [...docs.entries()];
+  const results: Awaited<ReturnType<typeof summarize>>[] = [];
+  for (let i = 0; i < entries.length; i += CONCURRENCY) {
+    const chunk = entries.slice(i, i + CONCURRENCY);
+    results.push(...(await Promise.all(chunk.map(([id, t]) => summarize(id, t)))));
+  }
+  return results;
+}
+```
+
+## Named traps, expanded
+
+**"SDKs already retry twice with backoff honoring retry-after; a hand-rolled retry layer multiplies load during the incident."** This is attractive because retry logic feels like defensive engineering — "what if the SDK's defaults aren't enough?" is a reasonable-sounding instinct. It is wrong in this specific case because the SDK's retry behavior is not a fallback you're topping up, it is the mechanism, and a second retry loop stacked on top compounds request volume at exactly the moment — a `429` storm or a `5xx` blip — when the system is least able to absorb more load. Recognize this trap whenever a stem describes someone adding retry, backoff, or "just in case" resilience code around an SDK call without first asking whether the SDK already does it. The tell is a decorator, wrapper, or loop around `messages.create` that duplicates a concern the client constructor already exposes (`max_retries`, `timeout`).
+
+**"Review AI-generated code with the same rigor as human-written."** This is attractive because it's tempting to treat a model-authored diff as lower-risk — it followed the existing patterns, it passed the linter, maybe it even passed an eval run, so a lighter review pass feels proportionate. It's wrong because provenance doesn't change risk; if anything, AI-generated code is more likely to contain a locally-plausible but structurally wrong pattern (duplicated retry logic, a schema that validates but is semantically inverted, a refactor that quietly changes behavior) precisely because it pattern-matches on "looks right" rather than reasoning about the specific system. Recognize this trap whenever a stem frames AI authorship as a reason to relax, skip, or abbreviate a normal engineering control — code review, test coverage, or a staged rollout. The correct answer always keeps the control in place.
+
+## Recall checks
+
+- Which HTTP status codes does the official SDK retry automatically, and which does it never retry?
+- What's the practical difference between asking Claude to "output JSON" in the prompt versus setting `output_config.format` to a JSON Schema — and what does neither of them guarantee?
+- A batch job fires 400 concurrent requests the instant it starts and gets flooded with 429s. Name two separate causes this could have, and the fix for each.
+- Why is "add a retry decorator around the SDK client" almost always the wrong answer on this exam?
+- What changes about how you review a pull request once you know the diff was written by Claude Code rather than a human?

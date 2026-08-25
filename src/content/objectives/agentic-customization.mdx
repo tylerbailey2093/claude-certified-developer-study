@@ -1,0 +1,101 @@
+---
+id: "agentic-customization"
+domain: 8
+domainName: "Tools and MCPs"
+name: "Agentic Customization"
+weight: 4.1
+tier: 2
+hot: false
+scope:
+  - "tradeoffs among built-in Tools, custom Tools, Skills, and MCPs"
+traps:
+  - "a Skill changes HOW Claude does something it can already do; a tool ADDS a capability"
+  - "reusable across applications AND independently maintained = MCP server"
+sources:
+  - label: "Agent Skills"
+    url: "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices"
+  - label: "Tool use"
+    url: "https://platform.claude.com/docs/en/agents-and-tools/tool-use"
+authored: true
+---
+
+## What this objective actually tests
+
+This objective has a narrow scope on paper — four options, one tradeoff — but it's a bigger share of Domain 8 than MCP server development itself, and it's tested as a judgment call, not a definitions quiz. The exam gives you a scenario with two or three deciding facts buried in it (does this already exist, is it reused, who maintains it) and expects you to pick the option those facts actually point to, not the most sophisticated-sounding one.
+
+## Mechanism: the decision framework
+
+Ask these questions, roughly in this order:
+
+1. **Does the capability already exist as an Anthropic-provided tool?** Web search, code execution, the Bash tool, computer use. If yes, use it — don't rebuild it as a custom tool.
+2. **Is the gap a missing capability, or is it purely about how Claude does something it can already do?** A capability gap (call this API, read this data source) needs a **tool**. A purely instructional gap (follow our checklist, use our tone, cite sources our way) needs a **Skill** — Claude can already perform the underlying action; it just needs to be told the house rules.
+3. **If it's a capability: is it reused across more than one application, and does it need its own maintenance lifecycle independent of any single app's release schedule?** Both true → **MCP server**. Neither, or tightly coupled to one app → **custom tool** defined directly in that app.
+4. **Does the task need its own context window or different tool permissions than the current conversation?** If yes, that's a **subagent**, not a Skill — a Skill loads into the current conversation and inherits its permissions; a subagent gets an isolated context and its own scoped access.
+
+| Approach | What it is | Choose when |
+|---|---|---|
+| Built-in tool | Anthropic-provided: web search, code execution, text editor, Bash | The capability already exists — don't rebuild it |
+| Custom tool | A function schema you define, executed by your own code | A specific action inside one app, tightly coupled to it |
+| Skill | Instructions and resources, loaded on demand into the conversation | Teaching *procedure and knowledge*, not adding a new capability |
+| MCP server | A standalone server exposing tools, resources, prompts | Reused across applications, maintained independently |
+| Subagent | A separate agent with its own context window and permissions | The task needs isolation the current conversation can't provide |
+
+## Decision table
+
+| Stem says... | The answer is... |
+|---|---|
+| Claude can already do the task, just needs to follow a house convention | Skill |
+| A capability doesn't exist yet at all — no way to call the thing | Tool (custom or MCP, per the reuse question) |
+| One app, one owning team, no separate release cycle | Custom tool |
+| Several apps call it, and it's versioned/patched on its own schedule | MCP server |
+| "Reusable" but never actually maintained apart from the one app | Custom tool shared as a library, not necessarily MCP — reuse alone isn't the trigger, *independent maintenance* is the other half |
+| The capability Anthropic already ships (search, code exec, bash) | Built-in tool — building a custom version is wasted effort |
+| Task needs a separate context window or narrower permissions than the main conversation | Subagent, not a Skill |
+| Team proposes an MCP server for a purely stylistic/procedural need | Wrong layer — that's a Skill; MCP adds infrastructure a Skill doesn't need |
+| Team proposes a Skill to grant an action Claude currently cannot perform at all | Wrong layer — a Skill can't manufacture a missing capability |
+| Two needs in one scenario: a formatting convention *and* a new external capability | Split them — Skill for the convention, tool/MCP for the capability, evaluated independently |
+
+## Code example: custom tool call vs. MCP tool call
+
+Structurally near-identical to the model — the difference is who defines and maintains the server behind it.
+
+```python
+# Custom tool: defined and executed inside this one application
+tools = [{
+    "name": "get_internal_metric",
+    "description": "Look up a single metric from this app's own reporting table.",
+    "input_schema": {"type": "object", "properties": {"metric": {"type": "string"}}},
+}]
+
+# MCP tool: declared via a connection to an independently maintained server;
+# the tool set itself is owned and versioned outside this application.
+mcp_servers = [{"type": "url", "url": "https://metrics.example.com/mcp", "name": "metrics-mcp"}]
+mcp_tools = [{"type": "mcp_toolset", "mcp_server_name": "metrics-mcp"}]
+```
+
+```typescript
+// Custom tool: defined and executed inside this one application
+const tools = [{
+  name: "get_internal_metric",
+  description: "Look up a single metric from this app's own reporting table.",
+  input_schema: { type: "object", properties: { metric: { type: "string" } } },
+}];
+
+// MCP tool: the server is owned and versioned outside this application
+const mcpServers = [{ type: "url", url: "https://metrics.example.com/mcp", name: "metrics-mcp" }];
+const mcpTools = [{ type: "mcp_toolset", mcp_server_name: "metrics-mcp" }];
+```
+
+## Named traps, expanded
+
+**A Skill changes HOW Claude does something it can already do; a tool ADDS a capability.** This is the single most common wrong turn on this objective: seeing "consistency" or "follow our process" in a stem and reaching for a tool or an MCP server anyway. If Claude could already perform the underlying action before the request — read code, write a summary, format a report — and the ask is about *how* to do it, that's a Skill. Building a tool around a purely procedural need adds an execution surface, an approval question, and integration overhead for something that was never a missing capability in the first place.
+
+**Reusable across applications AND independently maintained = MCP server.** Both conditions have to hold, not just one. Something reused by several apps but still edited in lockstep with a single app's codebase isn't really independent yet — it's a shared library dressed up as infrastructure. Something with its own release cycle but only one caller doesn't need the operational overhead of a standalone server. The MCP answer is correct only when a stem hands you both facts, not one.
+
+## Recall checks
+
+1. A team wants Claude to follow their brand voice guidelines when writing customer emails — Claude can already write emails. Which approach fits, and why is a custom tool the wrong layer?
+2. State the two conditions that both have to be true before "MCP server" is the right answer, and give a scenario where only one holds.
+3. Why is "build a custom sandbox to execute Python" usually the wrong first move, before you even get to tool-vs-Skill reasoning?
+4. When does a task need a subagent instead of a Skill, even though both can encode "how to do the task"?
+5. A stem describes both a formatting convention and a missing external capability in the same scenario. What's the trap in picking just one approach for both?

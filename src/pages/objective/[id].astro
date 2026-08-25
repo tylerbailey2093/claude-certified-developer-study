@@ -1,0 +1,56 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection, render } from 'astro:content';
+import legacyHtml from '../../data/legacy-objectives.json';
+import ConfidenceRating from '../../islands/ConfidenceRating.tsx';
+
+export async function getStaticPaths() {
+  const objectives = await getCollection('objectives');
+  return objectives.map(o => ({ params: { id: o.data.id }, props: { entry: o } }));
+}
+const { entry } = Astro.props;
+const { data } = entry;
+const { Content } = await render(entry);
+const fallback = (legacyHtml as Record<string,string>)[data.id];
+---
+<Base title={data.name}>
+  <p class="crumbs">
+    <a href={import.meta.env.BASE_URL}>Domains</a> /
+    <a href={`${import.meta.env.BASE_URL}domain/${data.domain}/`}>D{data.domain}</a> /
+    {data.name}
+  </p>
+  <h1>{data.name} <span style="opacity:.5;font-weight:400;font-size:.6em">{data.weight}%</span></h1>
+  {data.hot && <span class="tag r">heaviest single objective on the exam</span>}
+  {!data.authored && <p><span class="tag pending">ported from the legacy guide &mdash; not yet expanded to mastery depth</span></p>}
+
+  <h3 style="margin-top:28px">What this objective tests</h3>
+  <ul>
+    {data.scope.map((s: string) => <li>{s}</li>)}
+  </ul>
+
+  {data.authored ? (
+    <div class="legacy-body"><Content /></div>
+  ) : (
+    <div class="legacy-body" set:html={fallback} />
+  )}
+
+  {data.traps.length > 0 && (
+    <>
+      <h3>Named traps</h3>
+      <ul>{data.traps.map((t: string) => <li>{t}</li>)}</ul>
+    </>
+  )}
+
+  <ConfidenceRating client:load objective={data.name} />
+
+  {data.sources.length > 0 && (
+    <>
+      <h3>Sources</h3>
+      <ul class="src-list">
+        {data.sources.map((s: {label:string;url:string}) => (
+          <li><a href={s.url} target="_blank" rel="noopener">{s.label}</a></li>
+        ))}
+      </ul>
+    </>
+  )}
+</Base>

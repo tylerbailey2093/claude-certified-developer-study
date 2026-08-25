@@ -1,0 +1,62 @@
+[
+  {
+    "id": "legacy-035",
+    "d": 4,
+    "s": "Debugging and Error Handling",
+    "q": "An application receives correct raw model output but writes wrong values to its database. Where should debugging focus?",
+    "o": [
+      "The model layer: the prompt and model selection",
+      "The integration layer: parsing, block handling, and data joins",
+      "The context window, which is likely exhausted",
+      "The temperature setting, which is producing variable output"
+    ],
+    "a": 1,
+    "e": "If the raw response is correct and the stored result is wrong, the defect is in the code between the two. Always inspect the raw response before blaming the model; this isolation step is the core debugging discipline.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-036",
+    "d": 4,
+    "s": "Debugging and Error Handling",
+    "q": "A team uses an LLM-as-judge to score summary quality. Scores are stable and everyone trusts them, but production complaints keep rising. What is missing?",
+    "o": [
+      "A larger model for the judge",
+      "Validation of the judge against human labels, since a judge is a model and inherits model failure modes",
+      "More test cases in the eval set",
+      "A lower temperature on the judge"
+    ],
+    "a": 1,
+    "e": "A judge produces consistent scores whether or not it measures the thing you care about, so it must be calibrated against human expert judgment before its output is trusted. Consistency is not accuracy. Scaling the judge or the set just multiplies an unvalidated signal.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "legacy-037",
+    "d": 4,
+    "s": "Debugging and Error Handling",
+    "q": "Which signal in production monitoring most directly indicates a silent regression rather than an outright failure?",
+    "o": [
+      "A spike in 429 rate limit errors",
+      "A rising schema validation failure rate while HTTP requests still succeed",
+      "An increase in total monthly spend",
+      "A drop in overall request volume"
+    ],
+    "a": 1,
+    "e": "Requests returning 200 while output quality degrades is the failure mode no error dashboard catches, which is why quality signals like schema failure, truncation, and refusal rates need their own alerting. Rate limit errors are visible failures, and volume and spend move for many reasons.",
+    "pattern": "unclassified"
+  },
+  {
+    "id": "new-debugging-and-error-handling-01",
+    "d": 4,
+    "s": "Debugging and Error Handling",
+    "q": "A structured-extraction pipeline sends Claude's JSON output to a downstream parser, and one response stops with stop_reason max_tokens while the JSON object is still open. An on-call engineer patches this by sending the same partial JSON back to Claude and asking it to fill in the closing braces and any remaining fields, then ships the fix. Bad records keep appearing in production afterward. What is the most likely explanation?",
+    "o": [
+      "The completion request should have used a lower temperature to reduce variance in the filled-in fields",
+      "The missing fields were never generated the first time, so asking Claude to supply them produces fabricated values rather than recovered ones",
+      "The original request needed a stop sequence so the JSON object would close cleanly before the token limit",
+      "The parser should retry the original request from scratch using the same max_tokens value"
+    ],
+    "a": 1,
+    "e": "Truncation means the trailing content was never produced, so a repair pass isn't recovering anything — it's asking the model to invent plausible-looking values for fields it never actually generated, which is why bad records persist. Temperature doesn't address a missing generation. A stop sequence controls where a response stops on purpose, not truncation caused by hitting max_tokens. Retrying with the same max_tokens reproduces the identical truncation instead of fixing it; the fix is to raise the budget or decompose the task and regenerate from scratch.",
+    "pattern": "buried-constraint"
+  }
+]
