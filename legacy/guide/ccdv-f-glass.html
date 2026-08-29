@@ -2013,6 +2013,9 @@ function srcrow(t){
 
 /* ==================== RENDER ==================== */
 const dl=document.getElementById('domains'),nv=document.getElementById('navdom');
+/* Idempotent: a pre-rendered (no-JS) snapshot ships this content in the HTML,
+   so clear it before rebuilding or it would render twice. */
+nv.innerHTML='';dl.innerHTML='';
 D.forEach(d=>{
   const a=document.createElement('a');
   a.className='nl';a.href='#dom'+d.n;
