@@ -6,180 +6,327 @@ name: "Debugging and Error Handling"
 weight: 2.6
 tier: 2
 hot: false
+summary: "Classify a failure before fixing it: HTTP error, a 200 that stopped early or declined, or a 200 with wrong content. Then pick the matching recovery, read traces for the failure mode, and isolate the integration layer from model output."
+subskills: ["dbg.error-types", "dbg.recovery", "dbg.traces", "dbg.isolation"]
+related: ["technical-fundamentals", "claude-api-mechanics", "output-handling", "software-engineering-foundations", "tool-implementation"]
 scope:
+  - "trace analysis to identify failure modes"
   - "error type identification"
   - "recovery strategy selection"
   - "trace analysis"
   - "problem origin isolation between integration layer and model output"
 traps:
-  - "raw output correct but app wrong = integration layer; raw output wrong = model layer"
-  - "truncated output must NOT be sent for repair - the content was never generated"
-  - "an LLM judge must be calibrated against human labels; consistency is not accuracy"
+  - name: "Raw output correct, app wrong: it is the integration layer"
+    looksRight: "The symptom is wrong data from an AI feature, so tightening the prompt or upgrading the model feels like the active fix."
+    failsBecause: "If the logged raw response already contains the right answer, the defect is in parsing, block selection, mapping or persistence. No prompt change repairs a parser; only when the raw output is wrong is the model layer at fault."
+    cue: "Stem says the raw API response, inspected directly, contains the correct value, and options include prompt or model changes."
+  - name: "Repairing truncated output"
+    looksRight: "A cut-off JSON object looks like a syntax error, and asking Claude to 'fix the JSON' is cheap."
+    failsBecause: "With stop_reason max_tokens the missing content was never generated. A repair pass closes the brackets around invented or dropped fields. Raise max_tokens and regenerate (or explicitly continue the response); for a truncated tool_use block, retry with more headroom."
+    cue: "stop_reason is max_tokens or model_context_window_exceeded and an option says to send the fragment back for repair."
+  - name: "Consistency is not accuracy"
+    looksRight: "An LLM judge that gives the same score on every rerun looks trustworthy enough to gate releases."
+    failsBecause: "A judge can be stable and consistently wrong. Model-based graders require calibration against human graders; measure agreement on a human-labelled set before trusting the scores."
+    cue: "Stem cites repeatable or low-variance judge scores as the reason to trust it."
+  - name: "Retrying a request error"
+    looksRight: "Retries with backoff are the standard response to API failures."
+    failsBecause: "400, 401, 403, 404 and 413 describe the request, key or payload. The identical request fails identically, so the fix is to change it. The spend-cap 429 has no retry-after and also keeps failing."
+    cue: "A 4xx other than 408, 409 or 429 (or a 429 that says usage limits are reached) next to a 'retry with backoff' option."
+  - name: "Treating stop_reason as an exception"
+    looksRight: "A refusal or a truncation is a failure, so the error handler should catch it."
+    failsBecause: "Every stop_reason, including refusal and max_tokens, arrives on an HTTP 200 and raises nothing. Code that only catches exceptions silently ships truncated or empty results."
+    cue: "Logs show only 200s, yet users see cut-off or empty answers."
+  - name: "Retrying a refusal on the same model"
+    looksRight: "The refusal might be a fluke, so resend it."
+    failsBecause: "A classifier refusal is a policy decision on that model. The documented route is a fallback model (or rewording when the category has no fallback), and partial output before a mid-stream refusal must be discarded."
+    cue: "stop_reason refusal with stop_details.category, and an option to resend unchanged."
 sources:
-  - label: "Errors"
-    url: "https://platform.claude.com/docs/en/api/errors"
-  - label: "Demystifying evals"
-    url: "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents"
+  - { label: "Errors", url: "https://platform.claude.com/docs/en/api/errors", kind: "docs", verified: "2026-10-06" }
+  - { label: "Stop reasons and fallback", url: "https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons", kind: "docs", verified: "2026-10-06" }
+  - { label: "Refusals and fallback", url: "https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback", kind: "docs", verified: "2026-10-06" }
+  - { label: "Rate limits", url: "https://platform.claude.com/docs/en/api/rate-limits", kind: "docs", verified: "2026-10-06" }
+  - { label: "Streaming Messages (error events, error recovery)", url: "https://platform.claude.com/docs/en/build-with-claude/streaming", kind: "docs", verified: "2026-10-06" }
+  - { label: "Define success criteria and build evaluations", url: "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests", kind: "docs", verified: "2026-10-06" }
+  - { label: "Demystifying evals for AI agents", url: "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents", kind: "engineering", verified: "2026-10-06" }
+lastReviewed: "2026-10-06"
 authored: true
 ---
 
-## What this objective actually tests
+## Concept
 
-The smallest domain on the exam (1 item), but it's testing a specific discipline: given a Claude application that misbehaves, can you say *where* in the stack the defect lives before you start changing things. That means reading the raw API response before touching the prompt, knowing which failures are HTTP errors versus which arrive disguised as a normal 200, and picking a recovery strategy that matches the actual failure instead of a generic "retry it" or "ask the model to fix its own output." This objective is specifically about debugging and error handling — not general eval methodology, which has no separate objective on this exam.
+The smallest objective on the exam (about one item) tests one discipline: say *where* a defect lives before changing anything. Every Claude failure falls into one of three classes, and each class has fixes the others cannot use.
+
+1. **HTTP error.** A 4xx or 5xx: no generation happened (or, in a stream, an `error` event after the 200).
+2. **A 200 that stopped early or declined.** `stop_reason` is `max_tokens`, `model_context_window_exceeded`, `refusal` or `pause_turn`.
+3. **A 200 with `end_turn` and the wrong result.** Either the model produced the wrong content, or your code mishandled correct content.
+
+**Scope boundary.** What the SDK retries by default is <ObjLink id="technical-fundamentals" />. Stream event grammar is <ObjLink id="claude-api-mechanics" />. Schema validation and defensive parsing as design patterns are <ObjLink id="output-handling" />. Returning tool errors to the model is <ObjLink id="tool-implementation" />. This is the only objective in the "Eval, Testing, and Debugging" domain, so eval grading and production monitoring are covered briefly below.
+
+Not this: prompt-writing technique, rate-limit tiers, cost tuning.
+
+<Callout type="key">
+Look at the raw response before touching the prompt. No response: read the status and error type. A 200: read `stop_reason`. `end_turn`: compare the raw content to what your app stored. Raw correct but app wrong means integration; raw wrong means model.
+</Callout>
 
 ## Mechanism
 
-### The core diagnostic question: where does the defect live?
-
-Every debugging item on this objective reduces to one move: **inspect the raw model response before blaming anything else.**
-
-- **Raw output is correct, but the application does the wrong thing** → the defect is in the **integration layer**: response parsing, content-block indexing, JSON path extraction, database writes, message-history joins. Fix the code between the API call and the outcome.
-- **Raw output itself is wrong** (hallucinated fact, wrong format, incomplete reasoning) → the defect is in the **model layer**: prompt, context, schema constraints, or model choice.
-- **No model output exists at all** (an HTTP 4xx/5xx came back before generation happened) → the defect is in the **infrastructure/API layer**: auth, rate limits, timeouts, malformed request.
-
 ### Error type identification
 
-| Code | Type | Meaning | Retry? |
+<SubskillAnchor id="dbg.error-types" />
+
+Errors come back as JSON with `error.type`, `error.message` and a `request_id` [Certain]:
+
+| Status | `error.type` | Meaning | Retry? |
 |---|---|---|---|
-| 400 | `invalid_request_error` | Malformed request, unsupported param for that model, or an org spend limit | No — fix the request |
-| 401 | `authentication_error` | Bad, expired, or revoked API key | No — fix credentials |
-| 403 | `permission_error` | Key lacks access to the resource | No — fix permissions |
-| 404 | `not_found_error` | Bad endpoint or resource ID — often a retired model ID | No — check the deprecation list |
-| 409 | `conflict_error` | Request conflicts with current resource state (e.g. already-terminal batch) | No — inspect state first |
-| 413 | `request_too_large` | Over the endpoint's byte limit (32MB Messages, 256MB Batches, 500MB Files) | No — use the Files API or split the request |
-| 429 | `rate_limit_error` | RPM/TPM limit, spend cap, or acceleration limit | Yes — backoff, honor `retry-after`, shape concurrency |
-| 500 | `api_error` | Anthropic-side fault | Yes — exponential backoff |
-| 504 | `timeout_error` | Request timed out server-side | Consider streaming instead of retrying as-is |
-| 529 | `overloaded_error` | API temporarily overloaded | Yes — backoff and retry |
+| 400 | `invalid_request_error` | Malformed request, unsupported parameter for the model, or a spend limit you set | No: fix the request |
+| 401 | `authentication_error` | Key malformed, revoked or expired | No |
+| 402 | `billing_error` | Billing or payment problem | No |
+| 403 | `permission_error` | Key lacks access to the resource | No |
+| 404 | `not_found_error` | Bad path or ID (often a retired model ID) | No |
+| 409 | `conflict_error` | Conflicts with current resource state | SDK retries; then resolve the state |
+| 413 | `request_too_large` | Over the byte limit (32 MB Messages, 256 MB Batch, 500 MB Files); rejected before reaching the API servers | No: shrink, split or use the Files API |
+| 429 | `rate_limit_error` | RPM, input or output TPM, acceleration limit, or tier spend cap | Yes with `retry-after`; **not** the spend cap |
+| 500 | `api_error` | Internal error | Yes, backoff |
+| 504 | `timeout_error` | Timed out while processing | Prefer streaming or batch for long work |
+| 529 | `overloaded_error` | API overloaded across all users | Yes, backoff |
 
-The official SDKs already retry connection errors, rate limits, and 5xx server errors automatically — **twice by default**, with exponential backoff, honoring `retry-after` when present. A hand-rolled retry wrapper on top of this doesn't add safety; it multiplies request volume during the exact incident (a 429 storm, a 5xx blip) when the system can least absorb more load.
+Two 429s look alike. A rate limit carries `retry-after`. The tier spend cap carries **no** `retry-after`, has `error.details.error_code` of `enforced_spend_limit_reached`, and keeps failing until access resumes [Certain, drift-prone]. A 529 is load across everyone; a 429 is your organization's limit.
 
-### Not errors: stop_reason on a 200
+**Not errors.** These arrive on HTTP 200 and raise nothing: `end_turn`, `max_tokens`, `stop_sequence`, `tool_use`, `pause_turn` (server-tool loop hit its iteration limit), `model_context_window_exceeded` (treat as truncated) and `refusal` (with `stop_details.category`; `stop_details` is null for every other reason). A refusal can arrive before any output or mid-stream; either way discard partial output. In a stream, a mid-response failure arrives as an `error` event after the 200.
 
-A response can return successfully (HTTP 200) and still not contain what you wanted. `stop_reason` is where that shows up, and it is **not** an exception in any SDK — check it explicitly:
+**400s that are really integration bugs.** A 400 after a code or model change is usually your request builder, not the API. Common causes: a `tool_use` block with no matching `tool_result` in the next user turn; thinking blocks edited, filtered or reordered before being sent back (they must be returned exactly as received); a parameter the new model does not accept after a migration, such as an assistant prefill on 4.6 and later models. The error message names the offending position (for example `messages.1.content.0`), so read it before guessing.
 
-| `stop_reason` | Meaning | Recovery |
+**Exam angle:** cues are a status code, an `error.type`, or a `stop_reason` named in the stem. The distractor treats a `stop_reason` as an HTTP error, or a 529 as your rate limit.
+
+### Recovery strategy selection
+
+<SubskillAnchor id="dbg.recovery" />
+
+Match the recovery to the class. Each row below is a different fix, and swapping them is the usual wrong answer.
+
+| Observed | Recovery | Not this |
 |---|---|---|
-| `end_turn` | Finished normally | Use as-is |
-| `max_tokens` | Hit the `max_tokens` cap mid-generation | **Raise the budget or decompose the task and retry from scratch — never send the truncated output back asking the model to "finish" or "repair" it.** The missing content was never generated; a repair pass asks the model to invent, not recall, the rest. |
-| `refusal` | Model declined on policy grounds | Read `stop_details` for the category; consider a fallback model |
-| `pause_turn` | Server-tool loop hit its iteration cap | Send the assistant's response back as-is (not as a `tool_result`) to continue the loop |
-| `tool_use` | Model is calling a tool | Execute the tool, return a `tool_result` |
-| `model_context_window_exceeded` | Filled the context window before `max_tokens` | Treat as truncated — same rule as `max_tokens`: don't repair, raise capacity or decompose |
+| 429 with `retry-after`, 500, 529, connection error | Let the SDK retry; then shape concurrency, ramp gradually, degrade gracefully | A second retry layer around the SDK |
+| 400, 401, 403, 404 | Fix the request, key, permission or model ID | Any retry |
+| 413 or context overflow | Reduce input: trim history, chunk, upload once via the Files API | A bigger model |
+| `max_tokens` | Raise `max_tokens` and regenerate, or explicitly continue; incomplete `tool_use` means retry with more headroom | Ask Claude to repair the fragment |
+| `refusal` | Fallback model, or reword when the category has no fallback | Resend unchanged to the same model |
+| `pause_turn` | Send the assistant content back to continue the server-tool loop | Treat as finished |
+| Stream dropped mid-response | Capture partial text, send a continuation request (a user message on 4.6+ models) | Restart silently and bill twice |
 
-### Trace analysis and origin isolation in practice
+The truncation rule needs precision. The stop-reasons page says to raise `max_tokens` or continue the response. What fails is *repair*: handing a cut-off object to a model and asking it to make it valid, which produces syntactically valid JSON around fields that were never generated.
 
-Instrument every request with enough to isolate the layer *after the fact*, without reproducing live: model, full token accounting (including cache and thinking tokens), latency, `stop_reason`, the tool-call sequence, and `request_id` (the identifier to hand to support — not a local stack trace, which only describes your own process). The failure mode that evades a plain error dashboard is the request that returns 200 while quality quietly degrades — schema-validation failures, rising refusal rate, rising truncation rate, and rising retry rate are the signals that catch it; a status-code dashboard alone won't.
+<PostGuide since="2026-07">
+Server-side fallback (`fallbacks: "default"` with the `server-side-fallback-2026-07-01` beta header) retries a refused request on a recommended model inside one API call. Treat "use a fallback model" as the exam-level answer; the parameter is engineering detail.
+</PostGuide>
 
-### Calibrating an LLM judge
+**Exam angle:** cues are the observed signal plus a constraint ("without changing the prompt", "same request"). The distractor is a generic "retry with backoff" applied to a non-retryable class.
 
-When debugging relies on an LLM-as-judge to grade output at scale, the judge is itself a model and inherits model failure modes. A judge that returns highly consistent scores run after run has proven nothing about whether those scores track ground truth — **consistency is not accuracy**. Validate a judge against a human-labeled golden set and measure agreement (Cohen's Kappa, precision/recall) before trusting its verdicts to gate a release or diagnose a regression.
+### Trace analysis to identify failure modes
+
+<SubskillAnchor id="dbg.traces" />
+
+A trace is the per-call record plus the sequence of calls in an agent loop. Log `request_id`, model, `stop_reason`, usage (`input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`), latency, error type and the tool-call sequence. Patterns worth recognising:
+
+- **`output_tokens` equal to `max_tokens`** on failures: truncation, not model quality.
+- **`input_tokens` growing every turn** until 413 or overflow: unbounded history.
+- **`cache_read_input_tokens` dropping to zero** after a deploy: something changed the cached prefix.
+- **The same tool called repeatedly with the same input:** the tool result is not telling the model what went wrong, or an error is being swallowed.
+- **A `tool_use` with no matching `tool_result` next turn:** an integration bug, which the API rejects with a 400.
+
+For support, the `request_id` is the only identifier Anthropic can trace. Anthropic's eval guidance adds that you will not know whether graders work unless you read transcripts from many trials: aggregate scores hide failure modes that a few transcripts expose.
+
+**Production monitoring.** Requests that return 200 while quality drops never reach a status-code dashboard. Track rates of schema-validation failure, refusal, truncation, retries, tool errors and user corrections, alert on drift rather than only on errors, and feed sampled production failures back into the eval set.
+
+**Exam angle:** cues are "logs show", "usage", "trace", "every request returns 200 but". The distractor is a status-code dashboard or a local stack trace.
+
+### Isolating integration-layer versus model-output problems
+
+<SubskillAnchor id="dbg.isolation" />
+
+<Flow title="Isolation procedure" steps={[{label: "HTTP status?", kind: "decision", note: "4xx/5xx: request or infra"}, {label: "stop_reason?", kind: "decision", note: "not end_turn: budget, refusal, loop"}, {label: "Raw content correct?", kind: "decision", note: "yes: integration layer"}, {label: "Replay exact request", kind: "api", note: "reproduces: model layer"}, {label: "Fix + eval", kind: "guard", note: "prove it on a test set"}]} />
+
+1. **Status.** Error class means request or infrastructure; the model never answered.
+2. **`stop_reason`.** Anything but `end_turn` explains most "the model gave up" reports.
+3. **Raw versus stored.** If the logged raw content has the right answer, the bug is between the API and the outcome: reading `content[0]` when a thinking block comes first, dropping deltas while accumulating a stream, a wrong JSON path, a type coercion, a history join.
+4. **Replay.** Re-send the exact logged request (same model ID, system prompt, tools, messages). If it reproduces, the model layer (prompt, context, schema, model choice) owns it. If not, compare what your app *actually* sent with what you assumed.
+
+**When the replay does not reproduce.** Output is non-deterministic, so one clean replay proves little. Replay the same request several times; a defect that appears on 5% of calls needs dozens of samples to see. If the logged request and the replay genuinely match and the failure still will not reproduce, look at what differs in production: concurrent requests sharing mutable state, a different model alias resolving to a newer snapshot, or context assembled from data that has since changed.
+
+**Proving the fix with evals.** Anthropic's guidance is to choose the fastest, most reliable, most scalable grader that works: code-based checks (exact match, string match, schema) first, LLM-based grading for nuance after testing its reliability, and human grading for calibration because it is slow and expensive. Model-based graders require calibration against human graders: score a human-labelled set, measure agreement, give the judge an "Unknown" option, and grade each dimension with its own judge. Use a different model to grade than the one that generated the output.
+
+**Exam angle:** cues are "the raw response shows", "only in production", "after the deploy". The distractor changes the prompt for an integration bug, or the parser for a model bug.
 
 ## Decision table
 
-| When the stem says... | ...the answer is |
-|---|---|
-| Database/downstream value is wrong but the raw API response, inspected directly, is correct | Integration layer — parsing, block indexing, or a join, not the model |
-| The raw response itself contains a wrong or hallucinated fact | Model layer — prompt, context, schema, or model choice |
-| A request never reached generation; the app got a 4xx/5xx immediately | Infrastructure/API layer — check the status code first |
-| `stop_reason` is `max_tokens` and the JSON is cut off mid-field | Raise `max_tokens` (or decompose) and regenerate — do not send the fragment back for "repair" |
-| Response is a 429 or 5xx | Safe to retry — the SDK already does, with backoff honoring `retry-after` |
-| Response is a 400, 401, 403, 404, or 413 | Do not retry — fix the request, credentials, or payload; resending changes nothing |
-| A 404 appears on a request that worked last month | Check the model deprecation list before assuming a code bug |
-| An LLM judge gives stable, repeatable scores and the team trusts it on that basis | Missing: validation against human labels — stable scores are not the same as accurate ones |
-| Requests all return 200 but downstream quality is silently dropping | Track quality signals (schema failure, refusal, truncation rate) — status-code monitoring alone won't catch this |
-| `stop_reason` is `pause_turn` | Continue the loop by resending the assistant's response as-is, not as a `tool_result` |
+| If the stem says... | Choose | Why the runner-up loses |
+|---|---|---|
+| Raw response, inspected directly, holds the right value; the stored value is wrong | Integration fix (parsing, block selection, mapping) | A prompt change cannot fix code that discards a correct answer |
+| Raw response itself is wrong and replays the same way | Model layer: prompt, context, schema or model | Parser changes cannot fix content the model never produced correctly |
+| `stop_reason: max_tokens`, JSON cut off | Raise `max_tokens` and regenerate | A repair pass fabricates the missing fields |
+| 404 on a call that worked last quarter | Check the model ID against deprecations | Retrying a 404 changes nothing |
+| 429 without `retry-after`, "usage limits reached" | Raise the tier or limit | `max_retries` repeats a guaranteed failure |
+| `stop_reason: refusal`, category present | Fallback model | Resending to the same model gets the same decision |
+| All 200s, users report cut-off answers | Alert on `stop_reason` and truncation rate | Status dashboards only see HTTP failures |
+| Judge scores are identical across reruns | Calibrate against human labels first | Repeatability measures stability, not correctness |
 
-## Code examples
+## Worked walkthrough
 
-Both examples classify a failure at the boundary — retryable infrastructure error, non-retryable request error, or a successful-but-incomplete response — instead of retrying blindly or asking the model to fix its own truncated output.
+<Walkthrough title="Scenario: null totals in an expense pipeline after a model upgrade">
+
+<Step title="Read the scenario">
+An expense pipeline sends receipt text to Claude and writes `total_amount` into a warehouse table. After the team moved to a newer model, about 8% of rows have a null total. For those rows the logged raw responses show `stop_reason: end_turn`, a thinking block first and then a text block containing the correct total. What should the team do? (A) Add "always include the total" to the system prompt. (B) Switch to a larger model. (C) Fix the parser to select the text block instead of reading the first content block. (D) Raise `max_tokens`.
+</Step>
+
+<Step title="Find the constraint">
+"The raw responses show ... a text block containing the correct total." The model produced the right answer. The defect is downstream of the API.
+</Step>
+
+<Step title="Eliminate the distractors">
+(A) and (B) are model-layer fixes for output that is already correct. (D) addresses truncation, but `stop_reason` is `end_turn`, so nothing was cut off.
+</Step>
+
+<Step title="Choose">
+(C). Newer models can return a thinking block before text, so code that reads the first block finds no text on some responses. Select blocks by `type == "text"`.
+</Step>
+
+<Step title="The deciding cue">
+"Raw responses show the correct total" plus "`end_turn`". Correct raw output means integration layer; `end_turn` rules out the budget.
+</Step>
+
+</Walkthrough>
+
+## Code
+
+**Classify, then recover.** One function turns an exception or a 200 into a failure class and a recovery, so recovery is never a blanket retry.
 
 ```python
-from anthropic import (
-    Anthropic, APIStatusError, APIConnectionError, RateLimitError,
-)
+import anthropic
 
-client = Anthropic(max_retries=2)  # SDK default; raise for a bulk job
+client = anthropic.Anthropic()  # SDK already retried 408/409/429/5xx twice
 
-NON_RETRYABLE = {400, 401, 403, 404, 409, 413}
+def text_of(msg) -> str:
+    return "".join(b.text for b in msg.content if b.type == "text")
 
-def call_and_classify(prompt: str, max_tokens: int = 1024) -> dict:
+def call(messages: list, max_tokens: int = 1024) -> dict:
     try:
-        msg = client.messages.create(
-            model="claude-sonnet-5",
-            max_tokens=max_tokens,
-            messages=[{"role": "user", "content": prompt}],
-        )
-    except RateLimitError:
-        # SDK's own retries were already exhausted at this point.
-        return {"layer": "infrastructure", "retryable": True, "reason": "rate_limited"}
-    except APIStatusError as e:
-        if e.status_code in NON_RETRYABLE:
-            # Fix the request — resending it is guaranteed to fail the same way.
-            return {"layer": "infrastructure", "retryable": False, "status": e.status_code}
-        return {"layer": "infrastructure", "retryable": True, "status": e.status_code}
-    except APIConnectionError as e:
-        return {"layer": "infrastructure", "retryable": True, "reason": str(e.__cause__)}
+        msg = client.messages.create(model="claude-sonnet-5-5", max_tokens=max_tokens, messages=messages)
+    except anthropic.RateLimitError as e:
+        if e.response.headers.get("retry-after") is None:
+            return {"class": "http", "action": "spend cap: raise limit, do not retry"}
+        return {"class": "http", "action": "shape concurrency; SDK retries exhausted"}
+    except anthropic.APIStatusError as e:
+        rid = e.response.headers.get("request-id")
+        if e.status_code >= 500:
+            return {"class": "http", "action": "degrade or fall back", "request_id": rid}
+        return {"class": "http", "action": f"fix request ({e.status_code})", "request_id": rid}
+    except anthropic.APIConnectionError:
+        return {"class": "http", "action": "network: degrade or queue"}
 
-    if msg.stop_reason == "max_tokens":
-        # Never repair a truncated response — the missing tail was never generated.
-        return {"layer": "model", "retryable": True, "action": "raise_max_tokens_and_regenerate"}
+    if msg.stop_reason in ("max_tokens", "model_context_window_exceeded"):
+        return {"class": "stopped", "action": "raise max_tokens and regenerate; never repair"}
     if msg.stop_reason == "refusal":
-        return {"layer": "model", "retryable": True, "action": "try_fallback_model"}
-
-    return {"layer": "none", "ok": True, "text": msg.content[0].text}
+        return {"class": "stopped", "action": "fallback model", "category": msg.stop_details.category}
+    if msg.stop_reason == "pause_turn":
+        return {"class": "stopped", "action": "send assistant content back to continue"}
+    return {"class": "ok", "text": text_of(msg), "request_id": msg._request_id}
 ```
 
 ```typescript
 import Anthropic from "@anthropic-ai/sdk";
 
-const client = new Anthropic({ maxRetries: 2 }); // SDK default
+const client = new Anthropic(); // SDK already retried 408/409/429/5xx twice
 
-const NON_RETRYABLE = new Set([400, 401, 403, 404, 409, 413]);
+const textOf = (msg: Anthropic.Message) =>
+  msg.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
 
-async function callAndClassify(prompt: string, maxTokens = 1024) {
-  let msg;
+async function call(messages: Anthropic.MessageParam[], maxTokens = 1024) {
+  let msg: Anthropic.Message;
   try {
-    msg = await client.messages.create({
-      model: "claude-sonnet-5",
-      max_tokens: maxTokens,
-      messages: [{ role: "user", content: prompt }],
-    });
+    msg = await client.messages.create({ model: "claude-sonnet-5-5", max_tokens: maxTokens, messages });
   } catch (err) {
+    if (err instanceof Anthropic.RateLimitError) {
+      const ra = (err.headers as Headers | undefined)?.get("retry-after");
+      return { class: "http", action: ra ? "shape concurrency" : "spend cap: raise limit, do not retry" };
+    }
+    if (err instanceof Anthropic.APIConnectionError) return { class: "http", action: "network: degrade or queue" };
     if (err instanceof Anthropic.APIError) {
       const status = err.status ?? 0;
-      const retryable = !NON_RETRYABLE.has(status);
-      // Non-retryable: fix the request. Retryable: SDK already backed off once.
-      return { layer: "infrastructure", retryable, status };
+      return { class: "http", action: status >= 500 ? "degrade or fall back" : `fix request (${status})` };
     }
-    return { layer: "infrastructure", retryable: true, reason: String(err) };
+    throw err;
   }
-
-  if (msg.stop_reason === "max_tokens") {
-    // Do not send this back for "repair" — the tail was never generated.
-    return { layer: "model", retryable: true, action: "raise_max_tokens_and_regenerate" };
-  }
-  if (msg.stop_reason === "refusal") {
-    return { layer: "model", retryable: true, action: "try_fallback_model" };
-  }
-
-  const block = msg.content.find((b) => b.type === "text");
-  return { layer: "none", ok: true, text: block?.type === "text" ? block.text : "" };
+  const reason = msg.stop_reason as string;
+  if (reason === "max_tokens" || reason === "model_context_window_exceeded")
+    return { class: "stopped", action: "raise max_tokens and regenerate; never repair" };
+  if (reason === "refusal") return { class: "stopped", action: "fallback model" };
+  if (reason === "pause_turn") return { class: "stopped", action: "send assistant content back to continue" };
+  return { class: "ok", text: textOf(msg), request_id: msg._request_id };
 }
 ```
 
-## Named traps, expanded
+**Is the judge accurate, or just consistent?** Agreement with human labels, corrected for chance (Cohen's kappa). No API call needed.
 
-**"Raw output correct but app wrong = integration layer; raw output wrong = model layer."** This is the objective's central discriminator, and it's attractive to skip because re-prompting or swapping models *feels* like the active, technical move, while checking the raw response feels like a passive first step. It's wrong to skip because the two failure modes have disjoint fixes: no amount of prompt tuning repairs a parsing bug, and no amount of code review repairs a hallucination. Recognize this trap whenever a stem describes a downstream symptom (wrong database value, malformed UI) without stating whether the raw API response was inspected — the correct answer is always "inspect the raw response first," and if the stem already tells you the raw response was correct, the layer is integration by elimination.
+```python
+from collections import Counter
 
-**"Truncated output must NOT be sent for repair — the content was never generated."** This is attractive to get wrong because a truncated JSON object *looks* like something an LLM could plausibly "complete" — it's tempting to treat it like a syntax error a linter would fix. It's wrong because the model has no memory of what it "meant" to generate past the cutoff; asking it to complete a truncated response is asking it to fabricate a continuation, not recall one. Recognize this trap whenever a stem shows `stop_reason: max_tokens` (or `model_context_window_exceeded`) alongside an option that says "send it back to the model to finish" or "ask Claude to fix the JSON" — that option is always wrong; the fix is always to raise the token budget or decompose the task and regenerate from scratch.
+def cohen_kappa(human: list[str], judge: list[str]) -> float:
+    n = len(human)
+    observed = sum(h == j for h, j in zip(human, judge)) / n
+    ph, pj = Counter(human), Counter(judge)
+    expected = sum(ph[k] * pj[k] for k in set(ph) | set(pj)) / (n * n)
+    return (observed - expected) / (1 - expected) if expected < 1 else 1.0
 
-**"An LLM judge must be calibrated against human labels; consistency is not accuracy."** This is attractive to miss because a judge that scores the same input the same way every time *looks* trustworthy — reproducibility is a real and desirable property, just not the one that matters here. It's wrong because a judge can be perfectly self-consistent while being consistently wrong about what "good" means for the task — consistency measures the judge's stability, not its correctness. Recognize this trap whenever a stem cites stable or repeatable judge scores as the reason to trust the judge; the missing step is always validation against a human-labeled sample.
+human = ["pass", "fail", "pass", "pass", "fail", "pass"]
+judge = ["pass", "pass", "pass", "pass", "pass", "pass"]   # perfectly consistent
+print(round(cohen_kappa(human, judge), 2))                  # 0.0: no better than chance
+```
+
+```typescript
+function cohenKappa(human: string[], judge: string[]): number {
+  const n = human.length;
+  const observed = human.filter((h, i) => h === judge[i]).length / n;
+  const count = (xs: string[]) => xs.reduce((m, x) => m.set(x, (m.get(x) ?? 0) + 1), new Map<string, number>());
+  const ph = count(human), pj = count(judge);
+  const keys = new Set([...ph.keys(), ...pj.keys()]);
+  let expected = 0;
+  for (const k of keys) expected += ((ph.get(k) ?? 0) * (pj.get(k) ?? 0)) / (n * n);
+  return expected < 1 ? (observed - expected) / (1 - expected) : 1;
+}
+
+const human = ["pass", "fail", "pass", "pass", "fail", "pass"];
+const judge = ["pass", "pass", "pass", "pass", "pass", "pass"]; // perfectly consistent
+console.log(cohenKappa(human, judge).toFixed(2));              // 0.00: no better than chance
+```
+
+<Output kind="illustrative">
+```text
+0.0
+```
+</Output>
 
 ## Recall checks
 
-- A production incident report says "the model returned the wrong data." What's the first thing you check before deciding whether that's true?
-- Why is retrying a 400 pointless, while retrying a 429 is the SDK's default behavior?
-- A response comes back with `stop_reason: max_tokens` and a JSON object missing its closing brace. Name the wrong fix and the right one.
-- What single monitoring gap lets a quality regression ship silently even though every request returns 200?
-- Your LLM judge gives the same score on five re-runs of the same input. Does that mean you can trust it to gate a release? Why or why not?
+<Recall q="An incident report says 'the model returned the wrong data'. What do you check first, and what does each answer mean?">
+The logged raw response. If it holds the right data, the defect is in your integration code; if it is wrong, replay the exact request to confirm a model-layer problem.
+</Recall>
+
+<Recall q="Name three outcomes that are not HTTP errors but still need handling.">
+Any three of `max_tokens`, `model_context_window_exceeded`, `refusal`, `pause_turn` (all `stop_reason` values on a 200), or an `error` event arriving mid-stream after the 200. None raises an exception in the SDK.
+</Recall>
+
+<Recall q="How do you tell a rate-limit 429 from a spend-cap 429, and why does it change the recovery?">
+The rate limit carries `retry-after`; the spend cap has none and reports `enforced_spend_limit_reached`. Retries recover the first and never the second, which needs a higher limit.
+</Recall>
+
+<Recall q="Why is 'ask Claude to fix the truncated JSON' wrong when stop_reason is max_tokens?">
+The missing content was never generated, so a repair pass invents or drops fields to make the object valid. Raise `max_tokens` and regenerate, or explicitly continue the response.
+</Recall>
+
+<Recall q="Which trace signal points to unbounded conversation history, and which to a changed cache prefix?">
+`input_tokens` rising every turn toward a 413 or context overflow means unbounded history. `cache_read_input_tokens` falling to zero after a deploy means something changed the cached prefix.
+</Recall>
+
+<Recall q="Your LLM judge returns the same score on every rerun. Can it gate a release?">
+Not yet. Consistency is not accuracy: model-based graders need calibration against human graders, so measure agreement (for example Cohen's kappa) on a human-labelled set first.
+</Recall>

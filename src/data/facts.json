@@ -158,7 +158,10 @@
     "maxRetries": 2,
     "retried": "408, 409, 429, 5xx and connection errors, with exponential backoff",
     "timeout": "10 minutes (Python seconds, TypeScript milliseconds); TS scales up for large non-streaming max_tokens",
-    "source": "Anthropic SDK client configuration"
+    "source": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/python",
+    "honoursRetryAfter": true,
+    "timeoutsRetried": true,
+    "note": "Worst-case wall clock is about timeout x (max_retries + 1). The spend-cap 429 has no retry-after and is not recoverable by retrying."
   },
   "restrictions": [
     {
@@ -233,5 +236,15 @@
       "note": "retirement not sooner than 2026-10-15; watch for a replacement cheap model",
       "source": "https://platform.claude.com/docs/en/about-claude/model-deprecations"
     }
-  ]
+  ],
+  "fastMode": {
+    "models": "Opus 5.5 ($8/$40), Opus 5 and Opus 4.8 ($10/$50)",
+    "what": "same model, up to 2.5x output tokens per second (not time to first token), separate rate limit, cache not shared across speeds, not on Batch",
+    "asOfGuide": "unknown",
+    "source": "https://platform.claude.com/docs/en/build-with-claude/fast-mode"
+  },
+  "tokenizer": {
+    "note": "Claude 4.7 and later use a tokenizer that produces about 30% more tokens for the same text; recount with count_tokens when migrating",
+    "source": "https://platform.claude.com/docs/en/build-with-claude/token-counting"
+  }
 }
