@@ -75,7 +75,9 @@ function calls(code: string, re: RegExp): string[] {
 
 for (const b of blocks) {
   const demo400 = /\b400\b|BadRequest|invalid_request_error/.test(b.code);
-  for (const m of b.code.match(/\bclaude-[a-z]+(?:-[0-9a-z.]+)+\b/g) ?? []) {
+  // Package names such as @anthropic-ai/claude-agent-sdk are not model IDs.
+  const codeNoPkgs = b.code.replace(/@anthropic-ai\/[\w-]+|\bclaude[-_]agent[-_]sdk\b|\bclaude-code-action\b/g, '');
+  for (const m of codeNoPkgs.match(/\bclaude-[a-z]+(?:-[0-9a-z.]+)+\b/g) ?? []) {
     if (!allowed.has(m)) add(b, 'model-id', `model id "${m}" is not in facts.json`);
   }
   for (const c of calls(b.code, /messages\.(?:create|stream|parse)\s*\(/g)) {
