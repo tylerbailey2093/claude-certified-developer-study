@@ -36,6 +36,13 @@ const src = (c: Cell) => (Array.isArray(c.source) ? c.source.join('') : c.source
 
 /** Escape MDX-significant characters outside inline code spans. */
 function mdxSafe(md: string): string {
+  // Fenced code blocks pass through untouched; only prose is escaped.
+  return md
+    .split(/(```[\s\S]*?```)/g)
+    .map((block, j) => (j % 2 ? block : escapeProse(block)))
+    .join('');
+}
+function escapeProse(md: string): string {
   return md
     .split(/(`[^`\n]*`)/g)
     .map((part, i) => (i % 2 ? part : part.replace(/\{/g, '&#123;').replace(/\}/g, '&#125;').replace(/<(?=[A-Za-z/!])/g, '&lt;')))

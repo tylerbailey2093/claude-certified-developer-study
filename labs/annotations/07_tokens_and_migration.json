@@ -1,0 +1,65 @@
+{
+  "cells": {
+    "c01": {
+      "output": "sdk 1.11.0",
+      "kind": "executed",
+      "executedAt": "2026-10-06",
+      "notice": [
+        "MODEL and CHEAP come from src/data/facts.json: Sonnet 5.5 for the work, Haiku 4.5 where volume matters. Model IDs drift, so lab 00 prints the live list.",
+        "text_of joins every text block. On current models the first content block is often a thinking block, so `content[0].text` is a latent bug."
+      ],
+      "explain": "Executed for real on 2026-10-06: this cell makes no API call. Python 3.11.15, anthropic 1.11.0, Linux. Constructing the client succeeds without a key; with no credential configured, the first request raises TypeError (\"Could not resolve authentication method\") before anything is sent."
+    },
+    "c03": {
+      "output": "claude-haiku-4-5           64 tokens    1.00x\nclaude-sonnet-4-6          65 tokens    1.02x\nclaude-sonnet-5-5          84 tokens    1.31x\nclaude-opus-5-5            84 tokens    1.31x",
+      "kind": "illustrative",
+      "notice": [
+        "Identical text, different counts. Opus 4.7 and later, and Sonnet 5 and 5.5, use a newer tokenizer; the docs put the increase at roughly 30% over Sonnet 4.6 and Haiku 4.5, varying with content.",
+        "A migration changes cost, context fit and the max_tokens you need even when the per-token price is unchanged. Recount with the target model's ID; never reuse counts measured on the old one."
+      ],
+      "explain": "Illustrative, not measured: the build environment has no API key, so this cell was not run against the API. The shape matches what the code prints; the values are placeholders. Run it and trust your own output. The ratios mirror the roughly 30% figure in the token-counting and Sonnet 5.5 migration docs; your exact counts will differ."
+    },
+    "c05": {
+      "output": "message only         84\n+ system             173\n+ system + tools     668",
+      "kind": "illustrative",
+      "notice": [
+        "The system prompt and tool definitions are input tokens on every request. A single small tool adds hundreds of tokens because tool use brings its own system-prompt overhead; the docs' one-tool example counts 403.",
+        "count_tokens accepts the same system, tools and messages as messages.create. Count the whole request, because that is what you are billed for."
+      ],
+      "explain": "Illustrative, not measured: the build environment has no API key, so this cell was not run against the API. The shape matches what the code prints; the values are placeholders. Run it and trust your own output."
+    },
+    "c07": {
+      "output": "claude-sonnet-5-5        context=1000000    max_output=128000\nclaude-opus-5-5          context=1000000    max_output=128000\nclaude-fable-5-1         context=1000000    max_output=128000\n...\nclaude-haiku-4-5         context=200000     max_output=64000",
+      "kind": "illustrative",
+      "notice": [
+        "Two ceilings: `max_input_tokens` is the context window (input plus output must fit), `max_tokens` is the largest value you may request for output. They differ by roughly an order of magnitude.",
+        "Read limits from the Models API rather than hardcoding them; the fields exist so code can discover them."
+      ],
+      "explain": "Illustrative, not measured: the build environment has no API key, so this cell was not run against the API. The shape matches what the code prints; the values are placeholders. Run it and trust your own output. Limits shown match src/data/facts.json; the list your key sees may differ."
+    },
+    "c09": {
+      "output": "effort=low (control)     OK   out=<n>   '391'\nthinking between_tools   OK   out=<n>   '391'\ntemperature kwarg        SDK rejected before sending: Messages.create() got an unexpected keyword argument 'temperature'\ntemperature extra_body   400  <invalid_request_error; message not captured>\nbudget_tokens=2000       400  <invalid_request_error; message not captured>\nthinking disabled        400  <invalid_request_error; message not captured>\ntool_choice any          400  tool_choice: type \"tool\" and \"any\" are not supported for this model.\nassistant prefill        400  This model does not support assistant message prefill. The conversation must end with a user messag",
+      "kind": "illustrative",
+      "notice": [
+        "Engineering knowledge, not exam content: these restrictions landed after Exam Guide v1.0, so do not build exam answers on them. Know them so your code runs.",
+        "Two layers reject. The Python SDK 1.x has no `temperature` keyword, so it fails with TypeError before a request exists; through `extra_body` the server returns the 400.",
+        "Effort is the replacement control, and it is a behavioral signal, not a cap. `max_tokens` is still the only hard ceiling, and on Sonnet 5.5 thinking counts toward it."
+      ],
+      "explain": "Illustrative, not measured: the build environment has no API key, so this cell was not run against the API. The shape matches what the code prints; the values are placeholders. Run it and trust your own output. Two lines are real: the TypeError text was reproduced locally with anthropic 1.11.0 (no request sent), and the tool_choice and prefill messages are quoted from the Sonnet 5.5 migration guide. The other 400 messages were not captured. The cell's control flow was dry-run against a local stub server."
+    }
+  },
+  "checkpoint": [
+    {
+      "q": "Why must you re-run token counting after a migration?",
+      "a": "Token counts are produced by the model's tokenizer, and tokenizers change between generations: Opus 4.7 and later and Sonnet 5 and 5.5 count roughly 30% more tokens than Sonnet 4.6 or Haiku 4.5 for the same text. Cost estimates, context-window fit and max_tokens budgets all move with it. Recount with the target model ID instead of reusing old numbers."
+    },
+    {
+      "q": "Context window vs max output tokens?",
+      "a": "The context window (`max_input_tokens`) bounds everything the model reads plus what it writes in one request. Max output (`max_tokens` on the model) bounds only what it can generate, and it is far smaller, for example 128K against a 1M window. A question about fitting a large document is about the window; a question about a truncated answer is about max_tokens."
+    },
+    {
+      "q": "What replaced temperature as the control surface, and is it a token cap?",
+      "a": "`output_config.effort` (low through max), which steers how much the model thinks and writes. It is not a cap: the docs call it a behavioral signal, and the model can still think hard on a hard problem at low effort. `max_tokens` remains the only hard limit. This is post-guide engineering knowledge, so treat it as low-confidence exam material."
+    }
+  ]
+}

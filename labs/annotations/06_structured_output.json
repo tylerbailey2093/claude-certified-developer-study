@@ -1,0 +1,72 @@
+{
+  "cells": {
+    "c01": {
+      "output": "sdk 1.11.0",
+      "kind": "executed",
+      "executedAt": "2026-10-06",
+      "notice": [
+        "MODEL and CHEAP come from src/data/facts.json: Sonnet 5.5 for the work, Haiku 4.5 where volume matters. Model IDs drift, so lab 00 prints the live list.",
+        "text_of joins every text block. On current models the first content block is often a thinking block, so `content[0].text` is a latent bug."
+      ],
+      "explain": "Executed for real on 2026-10-06: this cell makes no API call. Python 3.11.15, anthropic 1.11.0, Linux. Constructing the client succeeds without a key; with no credential configured, the first request raises TypeError (\"Could not resolve authentication method\") before anything is sent."
+    },
+    "c03": {
+      "notice": [
+        "`output_config.format` with a JSON schema is the canonical structured-outputs parameter; the older `output_format` is deprecated. The shape is now enforced by the API, not requested in a prompt.",
+        "max_tokens is 4096 for a two-field answer because thinking on Sonnet 5.5 counts toward max_tokens. A budget sized for the visible JSON alone can truncate it."
+      ]
+    },
+    "c05": {
+      "output": "A (not nullable)   stop_reason=end_turn\n    {\"vendor\":\"Northwind Logistics Ltd.\",\"contract_end_date\":\"<a string: an invented ISO date, or a placeholder such as N/A>\"}",
+      "kind": "illustrative",
+      "notice": [
+        "The structural guarantee held: valid JSON, both keys present. What it guaranteed was shape, and this shape has no slot for absence, so the value is either made up or a sentinel string your date parser will reject.",
+        "Exam pattern: a stem where the model invents values for missing data is answered in the schema (nullable field, explicit not-found path), not with a sterner instruction. A prompt is a request; the schema is the control."
+      ],
+      "explain": "Illustrative, not measured: the build environment has no API key, so this cell was not run against the API. The shape matches what the code prints; the values are placeholders. Run it and trust your own output. The placeholder stands in for whichever string the model chooses; the point is that it cannot choose null."
+    },
+    "c07": {
+      "output": "B (nullable)       stop_reason=end_turn\n    {\"vendor\":\"Northwind Logistics Ltd.\",\"contract_end_date\":null}",
+      "kind": "illustrative",
+      "notice": [
+        "One change, `[\"string\", \"null\"]`, makes declining representable, and null is the expected answer. The field is still required: the model must address it, but now it can say \"none\".",
+        "The description tells the model when null is correct. Field descriptions are instructions the model reads, which is why schema design sits inside Claude Application Design (8.6%).",
+        "Nullable fields are cheap but not free: the structured-outputs docs cap union types (anyOf or type arrays) at 16 parameters per request."
+      ],
+      "explain": "Illustrative, not measured: the build environment has no API key, so this cell was not run against the API. The shape matches what the code prints; the values are placeholders. Run it and trust your own output. This is the expected result, not a captured one."
+    },
+    "c09": {
+      "output": "passes both: {'vendor': 'Northwind Logistics Ltd.', 'contract_end_date': None}\nSEMANTIC FAIL: end date is not a date\npasses both: {'vendor': 'Northwind Logistics Ltd.', 'contract_end_date': '2031-03-03'}\n   ^ schema-valid and completely fabricated. Validation cannot catch this.",
+      "kind": "executed",
+      "executedAt": "2026-10-06",
+      "notice": [
+        "A semantic check catches the sentinel string (\"until terminated\") because it is malformed. It cannot catch the invented date, because the invented date is well-formed.",
+        "Schema-valid means parses and matches types. Correct means true to the source. Only the second matters to the business, and no validator can see it."
+      ],
+      "explain": "Executed for real on 2026-10-06 (pure Python, no API call; Python 3.11.15)."
+    },
+    "c11": {
+      "output": "stop_reason: max_tokens\npayload: '{\"vendor\":\"Northwind Logistics Ltd.\",\"effective_date\":\"2026-03-03\",\"renewal\":\"Automatic; continues until terminated by eith'\n\nDetect this BEFORE json.loads. Raise the budget or decompose the task.\nA repair loop asks the model to invent data that was never generated.",
+      "kind": "illustrative",
+      "notice": [
+        "Structured outputs guarantee the schema only for a complete response. The docs say plainly that a `max_tokens` stop may be incomplete and not match the schema, and a `refusal` stop may not match it either.",
+        "Branch on stop_reason before parsing. max_tokens means raise the budget or split the task; asking the model to finish the fragment invents the nine fields it never wrote."
+      ],
+      "explain": "Illustrative, not measured: the build environment has no API key, so this cell was not run against the API. The shape matches what the code prints; the values are placeholders. Run it and trust your own output. Where the cut lands depends on the tokenizer and the model's wording."
+    }
+  },
+  "checkpoint": [
+    {
+      "q": "Why does a required non-nullable field increase fabrication?",
+      "a": "Required says a value must be present and non-nullable says it must be a real value of that type, so when the source has no answer the only legal output is an invented one. With structured outputs that constraint is enforced during decoding, so the model cannot even decline. Making the field nullable, and saying in its description when null is correct, gives the honest answer a legal path."
+    },
+    {
+      "q": "Difference between schema-valid and semantically correct?",
+      "a": "Schema-valid means the JSON parses and matches the declared types and required keys, which code can check mechanically. Semantically correct means the values are true to the source, and a well-formed fabricated date passes every structural check. That gap is closed by schema design (nullable fields), grounding checks against the source, and evals, not by stricter validation."
+    },
+    {
+      "q": "What do you check before json.loads, even with structured outputs on?",
+      "a": "`stop_reason`. Only a complete response is guaranteed to match the schema: on `max_tokens` the JSON may be truncated, and on `refusal` the refusal takes precedence over the schema. Check it first, then read the text from the text blocks (not `content[0]`) and parse."
+    }
+  ]
+}

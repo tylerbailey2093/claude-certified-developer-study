@@ -5,7 +5,7 @@ Section 7 of the exam guide, which puts *"build and operate at least one Claude
 application"* in its own bullet — not read about, not watch.
 
 ```
-pip install anthropic jupyter
+pip install anthropic jupyter "mcp[cli]>=2.3,<3"   # mcp only for lab 08
 export ANTHROPIC_API_KEY=sk-ant-...
 jupyter notebook
 ```

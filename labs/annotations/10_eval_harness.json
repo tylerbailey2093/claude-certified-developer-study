@@ -1,0 +1,78 @@
+{
+  "cells": {
+    "c01": {
+      "output": "sdk 1.11.0",
+      "kind": "executed",
+      "executedAt": "2026-10-06",
+      "notice": [
+        "MODEL and CHEAP come from src/data/facts.json: Sonnet 5.5 for the work, Haiku 4.5 where volume matters. Model IDs drift, so lab 00 prints the live list.",
+        "text_of joins every text block. On current models the first content block is often a thinking block, so `content[0].text` is a latent bug."
+      ],
+      "explain": "Executed for real on 2026-10-06: this cell makes no API call. Python 3.11.15, anthropic 1.11.0, Linux. Constructing the client succeeds without a key; with no credential configured, the first request raises TypeError (\"Could not resolve authentication method\") before anything is sent."
+    },
+    "c03": {
+      "output": "10 cases",
+      "kind": "executed",
+      "executedAt": "2026-10-06",
+      "notice": [
+        "The last two cases are deliberately ambiguous. A golden set of only easy cases scores well and tells you nothing; the boundary cases are where prompts regress.",
+        "Ten cases is a teaching size. Real eval sets need enough cases per category that one flip does not swing the score by 10 points."
+      ],
+      "explain": "Executed for real on 2026-10-06 (pure Python, no API call; Python 3.11.15)."
+    },
+    "c05": {
+      "notice": [
+        "Exact match is the right grader when there is one right answer: fastest, most reliable, no drift. The docs order the choice as code-based first, then LLM-based, with human grading as the slow, expensive fallback.",
+        "The classifier runs on CHEAP (Haiku 4.5) with max_tokens 256: one word out, high volume. Model choice follows the task, and the eval is what proves the cheap model is good enough."
+      ]
+    },
+    "c07": {
+      "output": "v1           8/10  (80%)\n   MISS I was billed after cancelling.                  expected=billing    got=account\n   MISS Reset link expired before I clicked it.         expected=technical  got=account",
+      "kind": "illustrative",
+      "notice": [
+        "The misses cluster on the boundary cases. That is typical, and it is why the golden set includes them on purpose."
+      ],
+      "explain": "Illustrative, not measured: the build environment has no API key, so this cell was not run against the API. The shape matches what the code prints; the values are placeholders. Run it and trust your own output. Which cases miss on your run is the point of running it."
+    },
+    "c09": {
+      "output": "v2           8/10  (80%)",
+      "kind": "illustrative",
+      "notice": [
+        "The headline score can stay flat while the composition changes underneath it. An unchanged number is not evidence that nothing broke."
+      ],
+      "explain": "Illustrative, not measured: the build environment has no API key, so this cell was not run against the API. The shape matches what the code prints; the values are placeholders. Run it and trust your own output."
+    },
+    "c11": {
+      "output": "score 8 -> 8\n\nFIXED:\n   + I was billed after cancelling.\n\nREGRESSED:\n   - <a case v1 got right; on some runs, none>\n\nWithout the golden set you would only have seen the case you were looking at.\nThat blindness is the entire argument for building the eval set FIRST.",
+      "kind": "illustrative",
+      "notice": [
+        "Per-case diffing is what turns an eval into a regression test. Compare which cases flipped, not just the total.",
+        "Exam pattern: \"a prompt change fixed the reported issue but users report new problems\" points to running the full eval set before shipping, not to more targeted patches."
+      ],
+      "explain": "Illustrative, not measured: the build environment has no API key, so this cell was not run against the API. The shape matches what the code prints; the values are placeholders. Run it and trust your own output. Whether a regression appears depends on the model and the run; the harness exists to show you either way."
+    },
+    "c13": {
+      "output": "4 - The answer gives a concrete timeframe (3-5 days) and implies the next step is to wait, though it does not say what to do if the refund does not appear.\n\nGrade ONE dimension per judge. Give it an UNKNOWN escape hatch.\nThen validate it: run it over human-labelled cases and measure agreement.",
+      "kind": "illustrative",
+      "notice": [
+        "One criterion per judge, a fixed scale, and an UNKNOWN option keep the judge from guessing. max_tokens is 2048 because the judge thinks first, which the docs recommend for grading quality, and thinking counts toward the cap.",
+        "A judge is a model, so it needs its own eval: score human-labelled cases and measure agreement before trusting it. Consistent scores prove nothing about accuracy."
+      ],
+      "explain": "Illustrative, not measured: the build environment has no API key, so this cell was not run against the API. The shape matches what the code prints; the values are placeholders. Run it and trust your own output."
+    }
+  },
+  "checkpoint": [
+    {
+      "q": "Rank the grading methods from cheapest to most expensive",
+      "a": "Code-based grading (exact or string match) is cheapest, fastest and most reliable. LLM-based grading is next: scalable and flexible but it costs tokens and must be validated. Human grading is the most flexible and the most expensive and slowest, so the docs say to avoid it where possible and use it to calibrate the others."
+    },
+    {
+      "q": "Why must an LLM judge be validated, and against what?",
+      "a": "A judge is itself a model whose scores can be consistent and still wrong, rewarding length, tone or its own biases instead of the criterion. Validate it against human-labelled examples of the same task and measure agreement before relying on it. Only then is the judge's score evidence about quality."
+    },
+    {
+      "q": "Which production signal reveals a silent regression that no error dashboard catches?",
+      "a": "Quality signals on real traffic: online eval scores, user feedback such as thumbs-down or escalations, and shifts in output distributions such as category mix. A regression in answer quality returns HTTP 200, so error rates and latency stay green. Sampling production outputs back into the eval set closes the loop."
+    }
+  ]
+}
