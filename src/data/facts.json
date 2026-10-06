@@ -1,5 +1,5 @@
 {
-  "_comment": "Single source of truth for drifting facts (model IDs, prices, defaults). Lints read allowedModelIds. Every entry carries where it came from. asOfGuide: whether it existed when Exam Guide v1.0 (July 2026) was written; 'unknown' means do not build exam items on it.",
+  "_comment": "Single source of truth for drifting facts (model IDs, prices, defaults). Lints read allowedModelIds. Every entry carries where it came from. asOfGuide: whether it existed when Exam Guide v1.0 (July 2026) was written; 'unknown' means do not build exam items on it; 'likely' means the beta predates the guide, so concept items are fine but not parameter names.",
   "verified": "2026-10-06",
   "verifiedFrom": "Anthropic claude-api reference (model table cached 2026-09-25) and platform.claude.com/docs/en/about-claude/models/overview",
   "models": [
@@ -278,15 +278,17 @@
         "clear_thinking_20251015"
       ],
       "beta": "context-management-2025-06-27",
-      "asOfGuide": "unknown",
-      "source": "https://platform.claude.com/docs/en/build-with-claude/context-editing"
+      "asOfGuide": "likely",
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-editing",
+      "asOfGuideNote": "beta header date predates the July 2026 guide; parameter-level detail is still drifting, so items may test the concept but not parameter names"
     },
     {
       "name": "server-side compaction (threshold)",
       "type": "compact_20260112",
       "beta": "compact-2026-01-12",
-      "asOfGuide": "unknown",
-      "source": "https://platform.claude.com/docs/en/build-with-claude/compaction-threshold"
+      "asOfGuide": "likely",
+      "source": "https://platform.claude.com/docs/en/build-with-claude/compaction-threshold",
+      "asOfGuideNote": "beta header date predates the July 2026 guide; parameter-level detail is still drifting, so items may test the concept but not parameter names"
     },
     {
       "name": "memory tool",
@@ -294,6 +296,14 @@
       "beta": null,
       "asOfGuide": true,
       "source": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool"
+    },
+    {
+      "name": "task budgets",
+      "param": "output_config.task_budget",
+      "beta": "task-budgets-2026-03-13",
+      "asOfGuide": "likely",
+      "asOfGuideNote": "beta header predates the guide; unsupported on Haiku 4.5 and Sonnet 4.6; teach as low exam weight",
+      "source": "https://platform.claude.com/docs/en/build-with-claude/task-budgets"
     }
   ]
 }
