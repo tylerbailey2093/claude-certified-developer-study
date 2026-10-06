@@ -1,13 +1,176 @@
 {
-  "00_setup": { "n": 0, "title": "Setup and model inventory", "minutes": 5, "cost": "free", "proves": "Live model IDs and limits from the Models API, so every other lab uses real strings.", "domains": [5], "objectives": ["model-selection-and-tradeoffs", "technical-fundamentals"], "apiKeyNeeded": true },
-  "01_response_anatomy": { "n": 1, "title": "Response anatomy", "minutes": 20, "cost": "< $0.01", "proves": "stop_reason arrives on a 200, content is a list of blocks, and system is a parameter, not a role.", "domains": [2, 6], "objectives": ["claude-api-mechanics", "prompt-engineering"], "apiKeyNeeded": true },
-  "02_caching": { "n": 2, "title": "Prompt caching, and how to destroy it", "minutes": 25, "cost": "about $0.05", "proves": "Your own cache hit rate collapsing because one timestamp entered the prefix.", "domains": [2, 5], "objectives": ["claude-api-mechanics", "cost-and-token-management"], "apiKeyNeeded": true, "top3": true },
-  "03_tools": { "n": 3, "title": "A tool loop with failures", "minutes": 30, "cost": "< $0.02", "proves": "The model self-correcting from is_error, and tool selection degrading as the toolset grows.", "domains": [8, 1], "objectives": ["tool-implementation", "agent-patterns-and-frameworks"], "apiKeyNeeded": true },
-  "04_batch": { "n": 4, "title": "Batch and the custom_id join", "minutes": 15, "cost": "< $0.01", "proves": "Batch results arrive unordered; a positional join silently mislabels rows.", "domains": [2], "objectives": ["claude-api-mechanics"], "apiKeyNeeded": true },
-  "05_streaming": { "n": 5, "title": "Streaming events", "minutes": 20, "cost": "< $0.01", "proves": "Final usage lives in message_delta, and an error can arrive after the 200.", "domains": [2, 5], "objectives": ["claude-api-mechanics", "technical-fundamentals"], "apiKeyNeeded": true },
-  "06_structured_output": { "n": 6, "title": "Structured output: fabrication versus null", "minutes": 25, "cost": "< $0.02", "proves": "One schema change (nullable fields) stops the model inventing values.", "domains": [2, 6], "objectives": ["claude-application-design", "output-handling"], "apiKeyNeeded": true, "top3": true },
-  "07_tokens_and_migration": { "n": 7, "title": "Tokens and model migration", "minutes": 20, "cost": "< $0.01", "proves": "Token counts differ per model, and which parameters now return 400.", "domains": [5], "objectives": ["llm-fundamentals", "model-selection-and-tradeoffs"], "apiKeyNeeded": true },
-  "08_mcp_server": { "n": 8, "title": "An MCP server over stdio", "minutes": 30, "cost": "free", "proves": "All three MCP primitives (tools, resources, prompts) over stdio, with no API cost.", "domains": [8], "objectives": ["mcp-server-development", "agentic-customization"], "apiKeyNeeded": false },
-  "09_hooks": { "n": 9, "title": "A hook that blocks", "minutes": 20, "cost": "free", "proves": "Exit 2 blocks the action; exit 1 fails open. Request versus control, made concrete.", "domains": [7, 3], "objectives": ["claude-hooks", "claude-code-operation"], "apiKeyNeeded": false, "top3": true },
-  "10_eval_harness": { "n": 10, "title": "An eval harness", "minutes": 30, "cost": "< $0.03", "proves": "A prompt fix that repairs one case and breaks two others, caught by an eval set.", "domains": [4, 6], "objectives": ["debugging-and-error-handling", "prompt-engineering"], "apiKeyNeeded": true }
+  "00_setup": {
+    "n": 0,
+    "title": "Setup and model inventory",
+    "minutes": 5,
+    "cost": "free",
+    "proves": "Live model IDs and limits from the Models API, so every other lab uses real strings.",
+    "domains": [
+      5
+    ],
+    "objectives": [
+      "model-selection-and-tradeoffs",
+      "technical-fundamentals"
+    ],
+    "apiKeyNeeded": true
+  },
+  "01_response_anatomy": {
+    "n": 1,
+    "title": "Response anatomy",
+    "minutes": 20,
+    "cost": "< $0.01",
+    "proves": "stop_reason arrives on a 200, content is a list of blocks, and the system prompt is a top-level parameter rather than the first message.",
+    "domains": [
+      2,
+      6
+    ],
+    "objectives": [
+      "claude-api-mechanics",
+      "prompt-engineering"
+    ],
+    "apiKeyNeeded": true
+  },
+  "02_caching": {
+    "n": 2,
+    "title": "Prompt caching, and how to destroy it",
+    "minutes": 25,
+    "cost": "about $0.05",
+    "proves": "Your own cache hit rate collapsing because one timestamp entered the prefix.",
+    "domains": [
+      2,
+      5
+    ],
+    "objectives": [
+      "claude-api-mechanics",
+      "cost-and-token-management"
+    ],
+    "apiKeyNeeded": true,
+    "top3": true
+  },
+  "03_tools": {
+    "n": 3,
+    "title": "A tool loop with failures",
+    "minutes": 30,
+    "cost": "< $0.02",
+    "proves": "The model self-correcting from is_error, and tool selection degrading as the toolset grows.",
+    "domains": [
+      8,
+      1
+    ],
+    "objectives": [
+      "tool-implementation",
+      "agent-patterns-and-frameworks"
+    ],
+    "apiKeyNeeded": true
+  },
+  "04_batch": {
+    "n": 4,
+    "title": "Batch and the custom_id join",
+    "minutes": 15,
+    "cost": "< $0.01",
+    "proves": "Batch results arrive unordered; a positional join silently mislabels rows.",
+    "domains": [
+      2
+    ],
+    "objectives": [
+      "claude-api-mechanics"
+    ],
+    "apiKeyNeeded": true
+  },
+  "05_streaming": {
+    "n": 5,
+    "title": "Streaming events",
+    "minutes": 20,
+    "cost": "< $0.01",
+    "proves": "Final usage lives in message_delta, and an error can arrive after the 200.",
+    "domains": [
+      2,
+      5
+    ],
+    "objectives": [
+      "claude-api-mechanics",
+      "technical-fundamentals"
+    ],
+    "apiKeyNeeded": true
+  },
+  "06_structured_output": {
+    "n": 6,
+    "title": "Structured output: fabrication versus null",
+    "minutes": 25,
+    "cost": "< $0.02",
+    "proves": "One schema change (nullable fields) stops the model inventing values.",
+    "domains": [
+      2,
+      6
+    ],
+    "objectives": [
+      "claude-application-design",
+      "output-handling"
+    ],
+    "apiKeyNeeded": true,
+    "top3": true
+  },
+  "07_tokens_and_migration": {
+    "n": 7,
+    "title": "Tokens and model migration",
+    "minutes": 20,
+    "cost": "< $0.01",
+    "proves": "Token counts differ per model, and which parameters now return 400.",
+    "domains": [
+      5
+    ],
+    "objectives": [
+      "llm-fundamentals",
+      "model-selection-and-tradeoffs"
+    ],
+    "apiKeyNeeded": true
+  },
+  "08_mcp_server": {
+    "n": 8,
+    "title": "An MCP server over stdio",
+    "minutes": 30,
+    "cost": "free",
+    "proves": "All three MCP primitives (tools, resources, prompts) over stdio, with no API cost.",
+    "domains": [
+      8
+    ],
+    "objectives": [
+      "mcp-server-development",
+      "agentic-customization"
+    ],
+    "apiKeyNeeded": false
+  },
+  "09_hooks": {
+    "n": 9,
+    "title": "A hook that blocks",
+    "minutes": 20,
+    "cost": "free",
+    "proves": "Exit 2 blocks the action; exit 1 fails open. Request versus control, made concrete.",
+    "domains": [
+      7,
+      3
+    ],
+    "objectives": [
+      "claude-hooks",
+      "claude-code-operation"
+    ],
+    "apiKeyNeeded": false,
+    "top3": true
+  },
+  "10_eval_harness": {
+    "n": 10,
+    "title": "An eval harness",
+    "minutes": 30,
+    "cost": "< $0.03",
+    "proves": "A prompt fix that repairs one case and breaks two others, caught by an eval set.",
+    "domains": [
+      4,
+      6
+    ],
+    "objectives": [
+      "debugging-and-error-handling",
+      "prompt-engineering"
+    ],
+    "apiKeyNeeded": true
+  }
 }

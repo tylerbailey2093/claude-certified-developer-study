@@ -1,0 +1,51 @@
+{
+  "cells": {
+    "c01": {
+      "output": "sdk 0.xx.x",
+      "kind": "illustrative",
+      "notice": [
+        "MODEL and CHEAP come from src/data/facts.json. Model IDs drift, so lab 00 prints the live list for you to check against.",
+        "text_of joins every text block. Every lab uses it instead of content[0].text, because on current models the first block is often a thinking block."
+      ]
+    },
+    "c03": {
+      "output": "batch: msgbatch_01HkcTjaV5uDC8jWR4ZsDV8d | in_progress",
+      "kind": "illustrative",
+      "notice": [
+        "Creation returns immediately with a batch ID and in_progress. No results exist yet; batch is asynchronous by design.",
+        "Each request carries its own params, including max_tokens, exactly as a normal Messages call would. Batch changes price and timing, not the request shape."
+      ]
+    },
+    "c05": {
+      "output": "in_progress MessageBatchRequestCounts(canceled=0, errored=0, expired=0, processing=5, succeeded=0)\nin_progress MessageBatchRequestCounts(canceled=0, errored=0, expired=0, processing=5, succeeded=0)\nended MessageBatchRequestCounts(canceled=0, errored=0, expired=0, processing=0, succeeded=5)",
+      "kind": "illustrative",
+      "notice": [
+        "How long this takes is not under your control: most batches finish within an hour, and anything unfinished after 24 hours expires.",
+        "ended means processing stopped, not that everything succeeded. Check request_counts and each result's type (succeeded, errored, canceled, expired)."
+      ]
+    },
+    "c07": {
+      "output": "returned order: ['review-1', 'review-0', 'review-2', 'review-4', 'review-3']\n\nArrived broken and support never replied.      positional=Positive   custom_id=Negative  <-- MISMATCH\nExactly what I needed, shipped fast.           positional=Negative   custom_id=Positive  <-- MISMATCH\nFine, nothing special.                         positional=Negative   custom_id=Negative\nSecond time this has failed. Done with this    positional=Positive   custom_id=Negative  <-- MISMATCH\nBetter than the previous model by a mile.      positional=Negative   custom_id=Positive  <-- MISMATCH",
+      "kind": "illustrative",
+      "notice": [
+        "The returned order shown is illustrative. On your run it may match the input order by luck, and that is the danger: the positional join passes every test until it silently mislabels production data.",
+        "The custom_id join is correct regardless of order. It is the only safe key, which is why each request needs a unique, meaningful custom_id.",
+        "Every row succeeded and nothing errored. Corruption here is a join bug in your code, not an API failure."
+      ]
+    }
+  },
+  "checkpoint": [
+    {
+      "q": "Four properties of the Batch API",
+      "a": "It costs 50% of standard prices on input and output. It is asynchronous: most batches finish within an hour, and requests still unprocessed after 24 hours expire. It does not stream (stream: true is rejected), and results come back in any order, available for 29 days."
+    },
+    {
+      "q": "What is the only safe join key?",
+      "a": "custom_id. The docs state that results can be returned in any order, so joining by position can attach answers to the wrong inputs without any error. Give every request a unique custom_id that maps back to your source record."
+    },
+    {
+      "q": "Does batch stack with caching? At what discount?",
+      "a": "Yes. The pricing page says caching multipliers stack with the Batch API discount, so a cache read inside a batch costs 0.1 x 0.5 = 0.05x the standard input price, and a 5-minute cache write costs 1.25 x 0.5 = 0.625x. Because a batch can take longer than five minutes, the docs suggest the 1-hour cache TTL for shared context in batches."
+    }
+  ]
+}

@@ -11,8 +11,8 @@ jupyter notebook
 ```
 
 **Total cost across all eleven: under $0.20.** Most use Haiku with small payloads.
-Lab 02 is the priciest at roughly $0.05 because caching needs a prefix over ~1,024
-tokens to engage at all.
+Lab 02 is the priciest at roughly $0.05 because caching only engages above a
+model-dependent minimum prefix (512 to 4,096 tokens; see the lab).
 
 ---
 

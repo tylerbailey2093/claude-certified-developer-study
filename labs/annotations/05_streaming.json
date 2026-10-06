@@ -1,0 +1,52 @@
+{
+  "cells": {
+    "c01": {
+      "output": "sdk 0.xx.x",
+      "kind": "illustrative",
+      "notice": [
+        "MODEL and CHEAP come from src/data/facts.json. Model IDs drift, so lab 00 prints the live list for you to check against.",
+        "text_of joins every text block. Every lab uses it instead of content[0].text, because on current models the first block is often a thinking block."
+      ]
+    },
+    "c03": {
+      "output": "message_start\ncontent_block_start -> thinking\ncontent_block_stop\ncontent_block_start -> text\ncontent_block_stop\nmessage_delta\n   stop_reason: end_turn\n   usage: MessageDeltaUsage(cache_creation_input_tokens=0, cache_read_input_tokens=0, input_tokens=17, output_tokens=164, server_tool_use=None)\nmessage_stop\n\n{'message_start': 1, 'content_block_start': 2, 'content_block_delta': 31, 'signature': 1, 'content_block_stop': 2, 'text': 30, 'message_delta': 1, 'message_stop': 1}",
+      "kind": "illustrative",
+      "notice": [
+        "The order is fixed: message_start, then each block as start, deltas, stop, then message_delta, then message_stop. stop_reason first appears in message_delta.",
+        "Block 0 is a thinking block whose only delta is a signature, because thinking display defaults to omitted. Streaming UIs see a pause before text starts.",
+        "text and signature are SDK convenience events, not wire events, and the SDK drops ping events. Counts are illustrative."
+      ]
+    },
+    "c05": {
+      "output": "at message_start : Usage(cache_creation_input_tokens=0, cache_read_input_tokens=0, input_tokens=15, output_tokens=2, service_tier='standard', ...)\nat message_delta : MessageDeltaUsage(cache_creation_input_tokens=0, cache_read_input_tokens=0, input_tokens=15, output_tokens=142, server_tool_use=None)\nfinal object     : Usage(cache_creation_input_tokens=0, cache_read_input_tokens=0, input_tokens=15, output_tokens=142, service_tier='standard', ...) | stop: end_turn",
+      "kind": "illustrative",
+      "notice": [
+        "output_tokens at message_start is a placeholder (single digits). The real figure arrives in message_delta, and those counts are cumulative, so do not add them up.",
+        "get_final_message() returns the same totals as the last message_delta. Use it when you only need the finished response but still want streaming's timeout protection."
+      ]
+    },
+    "c07": {
+      "output": "ok, chars: 3184",
+      "kind": "illustrative",
+      "notice": [
+        "Most runs print only the success line. The except branch is there for the run where an overloaded_error or a dropped connection arrives after the 200, with partial text already shown.",
+        "A mid-stream error cannot change the HTTP status, which was sent before generation began. Error handling that only checks the status code misses it.",
+        "Deciding what to do with partial output (keep and flag, retract, or retry) is a product decision you make in code ahead of time."
+      ]
+    }
+  },
+  "checkpoint": [
+    {
+      "q": "Name the six event types in order",
+      "a": "message_start, content_block_start, content_block_delta, content_block_stop, message_delta, message_stop. The middle three repeat once per content block, and ping events can appear anywhere. An error event can also arrive mid-stream, after the HTTP 200."
+    },
+    {
+      "q": "Where does final usage arrive?",
+      "a": "In message_delta, whose usage counts are cumulative. message_start carries input tokens and only a placeholder output count, so code that logs usage there under-reports cost. The SDK's get_final_message() exposes the same final totals."
+    },
+    {
+      "q": "What transport does Claude streaming use? (Not WebSocket.)",
+      "a": "Server-sent events: a one-way text/event-stream over an ordinary HTTP response, where each event has a name and a JSON payload. A WebSocket is a persistent, bidirectional connection, which the Messages API does not need because the client sends one request and only reads the stream back."
+    }
+  ]
+}
