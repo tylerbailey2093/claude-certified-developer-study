@@ -20,7 +20,7 @@
       },
       {
         "id": "c",
-        "text": "Embed the routing rules in each application's system prompt so no integration is needed",
+        "text": "Paste the routing rules into every application's prompt text and skip the shared service",
         "why": ""
       },
       {

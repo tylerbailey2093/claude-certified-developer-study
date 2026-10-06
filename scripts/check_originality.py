@@ -111,7 +111,7 @@ def main() -> int:
                     sc = scores(opt, r)
                     peak = max(sc["ratio"], sc["shingle"])
                     worst = max(worst, peak)
-                    if peak >= max(thr, 0.7) and len(opt) > 40:
+                    if peak >= thr and len(opt) > 40:
                         fails.append(({**it, "stem": "[option] " + opt}, i, sc, peak))
 
     print(f"checked {len(items)} items against {len(refs)} published samples")

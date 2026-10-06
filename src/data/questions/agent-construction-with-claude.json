@@ -272,7 +272,7 @@
       },
       {
         "id": "c",
-        "text": "An MCP server that exposes the ticket system's operations as tools",
+        "text": "Publish the ticket API to the agent through a Model Context Protocol server",
         "why": ""
       },
       {
