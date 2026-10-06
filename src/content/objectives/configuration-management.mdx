@@ -6,6 +6,9 @@ name: "Configuration Management"
 weight: 4.1
 tier: 2
 hot: false
+summary: "Treat every Claude configuration surface as a versioned artifact: what goes in CLAUDE.md versus settings.json, which file the team shares, how model IDs and prompts are pinned and eval-gated, and how plugin versions and dependencies resolve."
+subskills: ["cfg.claude-md", "cfg.settings-json", "cfg.model-pinning", "cfg.prompt-versioning", "cfg.plugin-deps"]
+related: ["claude-code-operation", "claude-hooks", "identity-secrets-and-key-management", "model-selection-and-tradeoffs", "claude-application-design", "systems-life-cycle"]
 scope:
   - "CLAUDE.md files"
   - "settings.json"
@@ -13,216 +16,490 @@ scope:
   - "prompt versioning"
   - "plugin dependencies"
 traps:
-  - "quality shifting on a day nothing shipped = an unpinned alias"
-  - "secrets management is Domain 7, not here"
+  - name: "Quality shifted on a day nothing shipped"
+    looksRight: "Something in the prompt or code must have changed, so the fix is to diff recent commits and revert."
+    failsBecause: "Nothing was committed. The only surface that moves without a commit is a floating reference: a Claude Code alias such as sonnet, a pre-4.6 API alias, or an unconstrained plugin dependency resolving to something new."
+    cue: "Stem says 'no deploy', 'no prompt change' or 'nobody touched the repo' and behaviour still changed. Pick the option that pins the reference and gates the next bump on evals."
+  - name: "Relocating an alias is not pinning it"
+    looksRight: "Moving the model string out of code into an environment variable or settings.json makes it configurable and therefore controlled."
+    failsBecause: "The value is still an alias. It resolves to whatever the alias means today, so the drift moves with it. Pinning is about the value, not where it is read from."
+    cue: "An option that 'moves', 'externalises' or 'centralises' the model setting without changing it to a full model ID."
+  - name: "Guardrails in the personal file"
+    looksRight: "Adding the deny rule or hook to .claude/settings.local.json protects the project because it lives in the project folder."
+    failsBecause: "The local file is gitignored and per-developer. Teammates, CI and cloud sessions never receive it, so the guardrail silently exists on one machine."
+    cue: "Stem says 'every developer', 'the whole team' or 'every clone'. The shared, committed .claude/settings.json (or managed settings) is the answer."
+  - name: "CLAUDE.md as an enforcement layer"
+    looksRight: "A clear, capitalised NEVER in the team CLAUDE.md, reviewed and committed, is a team-wide rule."
+    failsBecause: "CLAUDE.md is context Claude reads and usually follows. Settings rules are enforced by the client regardless of what Claude decides. A 'must never' needs permissions.deny or a hook."
+    cue: "'Must', 'always', 'never', 'guarantee' or 'regardless of the prompt' in the stem."
+  - name: "Secrets are Domain 7"
+    looksRight: "API keys live in settings.json env blocks, so storing and rotating them is configuration management."
+    failsBecause: "The guide puts credentials, key storage, rotation and access monitoring in Identity, Secrets, and Key Management. This objective covers config as a versioned, reviewed artifact."
+    cue: "The stem's real question is how a credential is stored, injected, rotated or audited, even if settings.json is named."
+  - name: "Two version fields, one silent winner"
+    looksRight: "Bumping the version in the marketplace catalog entry ships the new plugin release."
+    failsBecause: "When plugin.json also sets version, plugin.json wins. Users compare computed versions, so a stale manifest version leaves them on the cached copy."
+    cue: "'We bumped the marketplace entry but users still get the old build.'"
 sources:
-  - label: "Claude Code settings"
-    url: "https://code.claude.com/docs/en/settings"
-  - label: "Model deprecations"
-    url: "https://platform.claude.com/docs/en/about-claude/model-deprecations"
+  - { label: "How Claude remembers your project (CLAUDE.md)", url: "https://code.claude.com/docs/en/memory", kind: "docs", verified: "2026-10-06" }
+  - { label: "Settings files and precedence", url: "https://code.claude.com/docs/en/settings", kind: "docs", verified: "2026-10-06" }
+  - { label: "Configure permissions", url: "https://code.claude.com/docs/en/permissions", kind: "docs", verified: "2026-10-06" }
+  - { label: "Hooks reference", url: "https://code.claude.com/docs/en/hooks", kind: "docs", verified: "2026-10-06" }
+  - { label: "Model configuration (Claude Code)", url: "https://code.claude.com/docs/en/model-config", kind: "docs", verified: "2026-10-06" }
+  - { label: "Model IDs and versioning", url: "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions", kind: "docs", verified: "2026-10-06" }
+  - { label: "Models overview", url: "https://platform.claude.com/docs/en/about-claude/models/overview", kind: "docs", verified: "2026-10-06" }
+  - { label: "Model deprecations", url: "https://platform.claude.com/docs/en/about-claude/model-deprecations", kind: "docs", verified: "2026-10-06" }
+  - { label: "Prompt caching", url: "https://platform.claude.com/docs/en/build-with-claude/prompt-caching", kind: "docs", verified: "2026-10-06" }
+  - { label: "Define success criteria and build evaluations", url: "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests", kind: "docs", verified: "2026-10-06" }
+  - { label: "Demystifying evals for AI agents", url: "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents", kind: "engineering", verified: "2026-10-06" }
+  - { label: "Plugin dependencies", url: "https://code.claude.com/docs/en/plugins/dependencies", kind: "docs", verified: "2026-10-06" }
+  - { label: "Host and maintain a marketplace", url: "https://code.claude.com/docs/en/plugins/host-marketplace", kind: "docs", verified: "2026-10-06" }
+  - { label: "Marketplace reference", url: "https://code.claude.com/docs/en/plugins/marketplace-reference", kind: "docs", verified: "2026-10-06" }
+lastReviewed: "2026-10-06"
 authored: true
 ---
 
-## What this objective actually tests
+## Concept
 
-This objective tests **configuration as artifact**: whether CLAUDE.md, settings.json,
-model identifiers, prompts, and plugin dependencies are treated with the same
-versioning, review, and pinning discipline as application code. The recurring exam
-mechanic is distinguishing configuration that is merely *contextual guidance* from
-configuration that is *deterministically enforced* — and catching the specific
-failure mode where an unpinned reference (a model alias, an unversioned plugin
-source) lets production behavior drift with no corresponding deploy. Secrets
-management is explicitly out of scope here — it's Domain 7 — so a stem about API
-key storage or rotation is testing a different objective even if it mentions
-`settings.json`.
+This objective tests whether you treat Claude configuration like a Databricks bundle or a Terraform module: an artifact that is **versioned, reviewed, pinned and shared on purpose**. For each of the five surfaces (CLAUDE.md, settings.json, model IDs, prompts, plugins) the exam asks *where does this belong* (shared or personal, advisory or enforced) and *what stops it changing underneath you*.
+
+Two failures recur: drift without a deploy (an alias or unconstrained dependency resolving to something new while the repository is unchanged), and a control on the wrong layer (a "never do X" in CLAUDE.md instead of settings.json, or a team guardrail in a personal file nobody else receives).
+
+**Scope boundary.** This page owns *what to put where* and *how config is versioned, pinned and shared across a team*. The mechanics of the tool itself (how the CLAUDE.md hierarchy loads, slash commands, headless and auto mode, skills and subagents) live in <ObjLink id="claude-code-operation" />. Writing hook scripts that block destructive actions is <ObjLink id="claude-hooks" />. Choosing *which* model to pin is <ObjLink id="model-selection-and-tradeoffs" />.
+
+Not this:
+- Storing, injecting or rotating API keys and credentials: <ObjLink id="identity-secrets-and-key-management" /> (Domain 7), even when the key sits in a settings file.
+- How Claude interprets instructions across claude.ai, Desktop, the API and Claude Code: <ObjLink id="claude-application-design" />.
+- Generic release processes (Agile, ITIL change management): <ObjLink id="systems-life-cycle" />.
+
+<Callout type="key" title="The single idea that wins the most points">
+Two axes decide every item. **Advisory vs enforced**: CLAUDE.md and prompts are requests; permissions, hooks and schemas are code. **Floating vs pinned**: an alias, a branch ref or an unconstrained dependency can move without a commit; a full model ID, a commit SHA or a version range you tested cannot. When a stem says behaviour changed with no deploy, look for the floating reference. When it says something must always hold, look for the enforced layer.
+</Callout>
 
 ## Mechanism
 
-**CLAUDE.md hierarchy and how it actually loads.** CLAUDE.md files exist at four
-scopes: **managed/enterprise policy** (an OS-level file such as
-`/etc/claude-code/CLAUDE.md`, or a `claudeMd` key inside `managed-settings.json`,
-deployed by IT/DevOps and un-excludable by any user), **user** (`~/.claude/CLAUDE.md`,
-personal, applies across all of one person's projects), **project**
-(`./CLAUDE.md` or `./.claude/CLAUDE.md`, committed and shared with the team), and
-**local** (`./CLAUDE.local.md`, personal-to-one-project, gitignored). The important
-mechanical detail — and a real exam trap — is that these levels are **concatenated
-into context, not overridden**: all discovered files are loaded together, ordered
-from broadest scope to most specific, so a project instruction appears *after* a
-user instruction in context (more specific content is read last, which affects
-recency, not precedence). [Verified: code.claude.com/docs/en/memory] Subdirectory
-CLAUDE.md files are the one exception to "load everything at launch" — they load
-on demand, only when Claude reads a file in that subdirectory.
+### CLAUDE.md files
 
-**CLAUDE.md is guidance, not enforcement — this is the load-bearing fact for the
-whole objective.** CLAUDE.md content is delivered as a user message after the
-system prompt; Claude tries to follow it, but nothing guarantees compliance,
-especially for vague or conflicting instructions. Anything that must hold
-*regardless of what the model decides* — blocking a command outright, forcing a
-script to run after every edit — belongs in `settings.json` (a `permissions.deny`
-rule, a hook), which the client enforces mechanically, not in CLAUDE.md, which the
-model merely reads. [Verified: code.claude.com/docs/en/memory — "Settings rules
-are enforced by the client regardless of what Claude decides to do."]
+<SubskillAnchor id="cfg.claude-md" />
 
-**settings.json scopes and what belongs where.** Four scopes, same shape as
-CLAUDE.md: **managed** (organization-deployed, highest precedence for policy),
-**user** (`~/.claude/settings.json`), **project** (`.claude/settings.json`,
-committed, shared with the team), and **local** (`.claude/settings.local.json`,
-gitignored, personal overrides). [Verified: code.claude.com/docs/en/settings-reference]
-Anything protecting production — a permission rule, a hook that blocks a
-dangerous command — belongs in the **shared, committed** project settings.json.
-Putting it in `.local.json` means a teammate's machine silently doesn't have the
-guardrail, since that file is never shared.
+CLAUDE.md is the memory file Claude reads at session start. For configuration management the question is *which file a given line belongs in* and *who receives it*.
 
-**Model version pinning.** Claude Code's `model` field (and `ANTHROPIC_MODEL` /
-`ANTHROPIC_DEFAULT_MODEL`) accepts either a full model name or an **alias**
-(`sonnet`, `opus`, `haiku`, `best`, `fable`, `opusplan`, and `[1m]` variants). The
-exam-relevant fact: **aliases point to "the recommended version for your
-provider" and are explicitly documented to update over time** — the same alias
-string can resolve to a different underlying model after Anthropic ships a
-change, with no deploy on your side. [Verified: code.claude.com/docs/en/model-config
-— "Aliases point to the recommended version for your provider and update over
-time. To pin to a specific version, use the full model name... or set the
-corresponding environment variable."] Pinning means using an explicit, versioned
-model identifier (or the matching `ANTHROPIC_DEFAULT_*_MODEL` override) in
-production, and gating any pin change on a fresh eval-suite run before promoting
-it — the same discipline as any other pinned dependency bump. Model lifecycle has
-four named states — **Active, Legacy, Deprecated, Retired** — a deprecated model
-ships a named replacement and a retirement date with at least 60 days' notice;
-requests to a retired model fail outright. [Verified: platform.claude.com/docs/en/about-claude/model-deprecations]
+| File | Who receives it | Put here |
+|---|---|---|
+| Managed policy CLAUDE.md (OS path, or the `claudeMd` key in managed settings) | Every user on machines IT deploys it to; cannot be excluded | Company coding standards, compliance and data-handling reminders |
+| `./CLAUDE.md` or `./.claude/CLAUDE.md` | The team, via source control | Build and test commands, architecture, naming conventions, workflow rules |
+| `./CLAUDE.local.md` | Only you, this project (add it to `.gitignore`) | Your sandbox URLs, preferred test data |
+| `~/.claude/CLAUDE.md` | Only you, every project | Personal style and tooling preferences |
 
-**Prompt versioning.** Prompts are code: they belong in source control, go
-through review, take semantic version tags, and have eval results tied to each
-version so a regression can be attributed to a specific prompt change and rolled
-back exactly as fast as a code rollback. Editing a production prompt directly
-(in a database, in a live console) without that trail is the anti-pattern this
-objective is built to catch.
+What belongs in the project file: facts Claude should hold in *every* session, concrete enough to verify ("Run `npm test` before committing", not "test your changes"). Add a line when Claude makes the same mistake twice. A multi-step procedure belongs in a skill and guidance for one part of the tree in a path-scoped rule, because both load only when needed. Target under 200 lines per file: longer files cost context on every request and reduce adherence. **[Certain]**
 
-**Plugin dependencies.** A plugin's version resolves from, in order: the
-`version` field in its own `plugin.json`, then the marketplace catalog entry's
-`version` field, then (for git sources without an explicit version) the resolved
-commit SHA, then an archive's SHA-256, then a command source's output hash.
-**If both `plugin.json` and the marketplace entry declare a version, `plugin.json`
-wins silently** — a stale manifest version can mask a version bump made in the
-marketplace catalog with no warning. [Verified: code.claude.com/docs/en/plugin-marketplaces]
-Git-based plugin sources support both `ref` (a branch or tag) and `sha` (an exact
-commit); when both are set, **`sha` is the effective pin** and Claude Code checks
-out that exact commit. Omitting `version` on a git source tracks the latest
-resolved commit automatically — convenient for active internal development, risky
-for anything needing reproducible production installs, where an explicit version
-or `sha` pin is the correct choice. Users receive updates via `/plugin update` (one
-plugin) or `/plugin update` with no argument (all plugins); a marketplace itself is
-refreshed separately with `/plugin marketplace update`.
+**Imports.** `@path/to/file` in a CLAUDE.md expands that file into context at launch. Relative paths resolve from the importing file, and imports nest up to four hops. Imports organise a long file but **do not reduce its context cost**, because imported files also load at launch. An import resolving outside the project (for example `@~/.claude/my-notes.md`) triggers a one-time approval dialog, so a committed CLAUDE.md cannot silently pull in arbitrary files. **[Certain]**
+
+**Team versus personal is a git question.** The project CLAUDE.md is reviewed in pull requests like code; a personal preference committed there becomes everyone's instruction, and a team convention kept in `CLAUDE.local.md` never reaches CI. In a monorepo, `claudeMdExcludes` skips an irrelevant ancestor CLAUDE.md (set it in your local settings). Managed CLAUDE.md cannot be excluded.
+
+**Advisory, not enforced.** Per the docs, settings rules are enforced by the client regardless of what Claude decides; CLAUDE.md shapes behaviour but is not a hard enforcement layer. Block tools or paths with `permissions.deny`; put style and compliance reminders in CLAUDE.md.
+
+**Exam angle:** cues are "conventions every teammate's session should know", "personal sandbox", "organisation-wide reminder". The distractor is CLAUDE.md offered for something that must be guaranteed, or a team rule placed in a personal file.
+
+### settings.json
+
+<SubskillAnchor id="cfg.settings-json" />
+
+settings.json is configuration the harness enforces: permissions, hooks, environment variables, model, plugins. Five levels, highest precedence first: **[Certain]**
+
+| Level | File | Use it for |
+|---|---|---|
+| 1. Managed | `managed-settings.json`, MDM, or server-managed from the console | Security policy nobody can override |
+| 2. Command line | `claude --settings <file-or-json>`, flags | One session |
+| 3. Project local | `.claude/settings.local.json` (kept out of git) | Your overrides for this repo |
+| 4. Shared project | `.claude/settings.json` (committed) | Team permissions, hooks, plugins, project env |
+| 5. User | `~/.claude/settings.json` | Your defaults across all projects |
+
+Three behaviours matter more than the order itself:
+
+- **Scalar keys override; list keys merge.** A `model` set in project local beats the shared file. But `permissions.allow` arrays from every level are combined, so each file adds rules without deleting another's.
+- **Deny beats allow across every scope.** Rules are evaluated deny, then ask, then allow, first match wins, and specificity does not reorder them. A user-level deny blocks a project-level allow and vice versa. No level can allow what a managed deny blocks. **[Certain]**
+- **Restrictive rules apply immediately; permissive ones wait for trust.** In a committed `.claude/settings.json`, `permissions.allow` rules (and most `env` values) apply only after a developer accepts the workspace trust dialog, while `deny` and `ask` apply at once. A cloned repository cannot quietly grant itself capability. **[Likely]** (detail verified today; exact gating has shifted across releases)
+
+**Hooks registration** lives in the same files. A hook is registered under `hooks`, keyed by event name, with a `matcher` and a list of handlers; a hook in `.claude/settings.json` is shared with the team, one in `~/.claude/settings.json` or the local file is not. A blocking `PreToolUse` hook (exit code 2) stops the call before permission rules are evaluated, so it holds even against an allow rule. Script design is <ObjLink id="claude-hooks" />.
+
+**`env`** sets variables for every session and its subprocesses: the standard way to roll a project's variables (or a model pin) out to the team. A shell-exported `ANTHROPIC_MODEL` still beats a file's `model` key, so per-machine model drift is often a stray export.
+
+Commit to the shared file: team permission rules, hooks, `enabledPlugins`, project env. Keep in the local file: personal approvals (Claude Code saves "Yes, don't ask again" answers there), personal model choice, `claudeMdExcludes`. Credentials are a Domain 7 question.
+
+**Exam angle:** cues are "every developer", "every clone", "cannot be overridden", "for this session only". The distractor is the right rule in the wrong file (local instead of shared, user instead of managed).
+
+### Model version pinning
+
+<SubskillAnchor id="cfg.model-pinning" />
+
+A pin is a model reference that cannot change meaning without a commit. Whether a string is a pin depends on the surface:
+
+| Reference | Floats? | Notes |
+|---|---|---|
+| Claude API ID, 4.6 generation and later (`claude-sonnet-5-5`) | No | The dateless ID *is* the snapshot. Anthropic ships updates under a new ID. **[Certain]** |
+| Claude API dated ID, pre-4.6 (`claude-haiku-4-5-20251001`) | No | Pinned snapshot |
+| Claude API alias, pre-4.6 (`claude-sonnet-4-5`) | Yes | Convenience pointer to the most recent dated snapshot of that minor version |
+| Claude Code alias (`sonnet`, `opus`, `haiku`, `fable`, `best`, `opusplan`) | Yes | Points to the recommended version *for your provider* and updates over time |
+
+The common misconception the docs call out: dateless IDs from 4.6 onward are **not** evergreen pointers. A Claude Code alias is. On the Anthropic API today `sonnet` resolves to Sonnet 5.5, while on Bedrock and Google Cloud it resolves to an older Sonnet, so the same alias means different models on different providers and different Claude Code versions. **[Likely]** (the resolution table drifts with every release)
+
+**How to pin.** In application code, send a full model ID. In Claude Code, set the full model name in `model` or `--model`, or set `ANTHROPIC_DEFAULT_SONNET_MODEL` / `_OPUS_` / `_HAIKU_` / `_FABLE_` so an alias resolves to the version you chose. For third-party deployments the docs say to pin before rolling out: unpinned aliases resolve to a built-in default that can lag the newest release or be unavailable in the account. **[Certain]**
+
+**Cloud vendors pin differently.** The ID string changes per platform, so a pin is per platform too:
+
+- **Amazon Bedrock**: `anthropic.` prefix (`anthropic.claude-sonnet-5-5`); pre-4.6 IDs add a date and `-v1:0`; inference profile IDs can add a geography prefix such as `us.` **[Likely]**. Bedrock sets its own retirement dates.
+- **Google Cloud**: same as the API for 4.6 and later; pre-4.6 separates the date with `@` (`claude-haiku-4-5@20251001`). Google sets its own retirement dates.
+- **Microsoft Foundry**: you send a deployment name you defined; Foundry follows Anthropic's lifecycle.
+- **Claude Code `modelOverrides`** maps an Anthropic model ID to a provider string (for example a Bedrock inference profile ARN) for governance or regional routing.
+
+**Why production pins.** Reproducibility (an eval result describes one model), attribution (a regression maps to your change) and controlled upgrades. The cost: pinned models move through **Active, Legacy, Deprecated, Retired**. Deprecated models get a named replacement and a retirement date with at least 60 days' notice for publicly released models; requests to a retired model fail. A pin is therefore a scheduled migration, run through the eval suite before the date. **[Certain]**
+
+Caveat from the versioning page: weights are fixed per ID, but serving infrastructure (routing, safety classifiers, sampling logic) can change and occasionally shifts behaviour slightly on a pinned ID. Pinning removes model drift, not the need for monitoring.
+
+**Exam angle:** cues are "changed with no deploy", "different results on Bedrock than in dev", "control when users move". The distractor relocates an alias (env var, settings file) instead of replacing it with a full ID.
+
+### Prompt versioning
+
+<SubskillAnchor id="cfg.prompt-versioning" />
+
+Prompts are code. The production unit you evaluated is not "the prompt"; it is the tuple **(prompt version, pinned model ID, tool definitions, output schema, effort)**. Change any element and the eval result no longer describes production.
+
+The discipline, in order:
+
+1. **Source control.** System prompts, few-shot sets and tool descriptions live in the repository as files, reviewed in pull requests. Editing a production prompt in a database row or a live console without a trail is the anti-pattern.
+2. **Identify every call.** Log `prompt_id@version` (or a content hash) and the model ID on every request, so an output can be traced to the exact release that produced it.
+3. **Eval-gate the change.** A prompt edit that fixes one reported case commonly regresses others. Run the regression suite on every prompt change and every model upgrade before promotion. Anthropic's guidance on agent evals describes exactly this: capability evals that graduate into a regression suite run continuously in CI/CD "on each agent change and model upgrade". **[Certain]**
+4. **Promote and roll back by version.** Rollback is redeploying the previous tagged prompt, as fast as a code rollback, because it *is* a code rollback.
+
+Side effect: a new prompt version is a prompt-cache miss. The cache prefix runs `tools`, then `system`, then `messages`, and a change at one level invalidates it and everything after, so expect a cost bump right after a deploy. **[Certain]**
+
+<Flow title="A prompt or model change, as a release" steps={[{label: "PR edits prompt file or model pin", kind: "client"}, {label: "Regression evals on candidate", kind: "guard", note: "same cases, pinned model"}, {label: "Pass rate vs baseline", kind: "decision"}, {label: "Tag prompt@version, deploy", kind: "store"}, {label: "Log prompt@version + model per call", kind: "api", note: "rollback = redeploy prior tag"}]} />
+
+**Exam angle:** cues are "a prompt tweak broke other cases", "cannot tell which prompt produced this output", "roll back quickly". The distractor is "test the new prompt manually on the failing example" or "store prompts in a database so they can be edited without a deploy".
+
+### Plugin dependencies
+
+<SubskillAnchor id="cfg.plugin-deps" />
+
+A Claude Code plugin packages skills, subagents, hooks and MCP servers as one unit, described by `.claude-plugin/plugin.json` and listed in a marketplace catalog (`marketplace.json`). The questions here: which version a user actually gets, what a plugin pulls in, and how a team receives it.
+
+**Version resolution.** The plugin's computed version comes from `plugin.json` first, then the marketplace entry. Do not set it in both: `plugin.json` wins, and only `claude plugin validate` reports the mismatch. Users get a new copy only when the computed version changes, so either bump `version` every release or omit it everywhere and let users track commits. Pushing commits under an unchanged `"version": "1.0.0"` ships nothing. **[Certain]**
+
+**Source pinning.** Git-based sources take `ref` (a branch or tag) and `sha` (a full 40-character commit). When both are set, Claude Code checks out the `sha`. A `ref` to a moving branch is a floating reference; a `sha` is a pin.
+
+**Declared dependencies.** A plugin lists the plugins it relies on in a `dependencies` array in `plugin.json`. A bare name tracks whatever its marketplace publishes, so an upstream rename of an MCP tool breaks every user on their next update. An object entry takes a semver range (`~2.1.0`, `^2.0`) resolved against git tags named `<plugin-name>--v<version>`. Dependencies from a *different* marketplace are refused unless the root marketplace allowlists it, so one catalog cannot silently install code from a source the user never reviewed. **[Likely]**
+
+**Team distribution.** Install scope maps to the settings files: user scope, project scope (written to the shared settings so every collaborator gets it) or local scope. An organisation can require plugins through `enabledPlugins` in managed settings, and a platform team can publish a "bundle" plugin whose only content is a `dependencies` list.
+
+<Callout type="note" title="Exam confidence">
+The guide names plugin dependencies but no mechanics, and the plugin system changes often. Expect items on the principle (pin versions, treat an update like any dependency bump, prefer an exact commit for reproducible installs) rather than on field names such as `dependencies` or tag formats.
+</Callout>
+
+**Exam angle:** cues are "reproducible installs", "users still get the old build", "an upstream update broke our plugin". The distractor pins a branch `ref` and calls it reproducible, or bumps the catalog version while `plugin.json` still declares the old one.
 
 ## Decision table
 
-| When the stem says… | The answer is… |
-|---|---|
-| "Output quality changed on a day with no deploy and no prompt change" | An unpinned model alias drifted underneath the application — pin an explicit dated model ID and gate future bumps on an eval re-run |
-| "Move the model string into an environment variable to fix the drift" | Doesn't fix it — an env var holding an alias still resolves to whatever the alias currently points to; the fix is pinning the *value*, not relocating where it's read from |
-| "Every teammate must share the same permission rules and hooks" | Commit them to the shared, project-level `.claude/settings.json` — never `.local.json` |
-| "This must be true no matter what Claude decides to do" | `settings.json` (permission rule or hook) — CLAUDE.md is guidance the model reads, not an enforced control |
-| "A personal sandbox URL that shouldn't be shared with the team" | `.claude/settings.local.json` or `CLAUDE.local.md` — gitignored, personal |
-| "Org-wide instruction that no individual developer can turn off" | Managed/enterprise CLAUDE.md (or `claudeMd` in `managed-settings.json`) |
-| "The plugin marketplace entry version was bumped but users still got the old build" | `plugin.json`'s own `version` field silently wins over the marketplace entry — check the manifest, not just the catalog |
-| "Reproducible installs across the whole team, pinned to an exact commit" | A git-based plugin source with an explicit `sha`, not just a `ref` (branch/tag) |
-| "How should API keys or credentials be stored/rotated for this Claude app?" | Out of scope here — that's Domain 7 secrets management, not configuration management |
+| If the stem says... | Choose | Why the runner-up loses |
+|---|---|---|
+| Output changed on a day with no deploy, no prompt edit, no config commit | Replace the floating alias with a full model ID (or set `ANTHROPIC_DEFAULT_*_MODEL`) and gate the next bump on evals | "Move the model name into an env var" keeps the alias; the drift moves with it |
+| Every developer and every clone must get the same deny rule | `permissions.deny` in the committed `.claude/settings.json` (or managed settings if it must be unoverridable) | `.claude/settings.local.json` is personal and gitignored; teammates never receive it |
+| No individual developer may be able to switch a rule off | Managed settings (or managed CLAUDE.md for guidance) | Shared project settings can be overridden by a developer's local file for scalar keys |
+| Claude keeps forgetting the build command and test flags | Project CLAUDE.md, concrete and short | A hook enforces actions; it does not teach Claude facts |
+| Claude must never run a command, whatever the prompt says | Deny rule or `PreToolUse` hook in shared settings | A CLAUDE.md "NEVER" is a request the model usually follows |
+| A prompt fix for one ticket regressed other categories | Version the prompt, run the regression suite on each change, promote by tag | Hand-testing the failing example cannot reveal what else broke |
+| Same model alias, different behaviour on Bedrock versus the Anthropic API | Pin per-provider IDs (`ANTHROPIC_DEFAULT_*_MODEL`, `modelOverrides`) | Aliases resolve per provider and can lag; a shared alias is not a shared model |
+| Marketplace entry bumped, users still on the old plugin | Fix or remove the stale `version` in `plugin.json` | `plugin.json` silently wins over the catalog entry |
+| Plugin installs must be identical across the team | Git source with an explicit `sha` | A `ref` to a branch moves with every push |
+| How should the app's API key be stored and rotated | Out of scope here: Domain 7 secrets management | Naming settings.json does not make it a configuration-management item |
 
-## Code examples
+## Worked walkthrough
 
-**Pinning a model explicitly instead of relying on an alias, with a timeout as an
-explicit infrastructure setting rather than an implicit default:**
+<Walkthrough title="Scenario: a Claude Code rollout on Amazon Bedrock that changed on its own">
+
+<Step title="Read the scenario">
+A platform team rolls Claude Code out to 60 engineers through Amazon Bedrock, with `"model": "sonnet"` in the committed `.claude/settings.json`. Three weeks later engineers report that the same refactoring requests now produce noticeably different diffs, yet the repository, CLAUDE.md and settings files have no new commits since rollout. The lead wants every engineer to stay on the version the team evaluated until the team decides to move.
+
+Options: (A) add "Always use the Sonnet version we evaluated" to the project CLAUDE.md; (B) ask each engineer to run `/model sonnet` at the start of every session; (C) set `ANTHROPIC_DEFAULT_SONNET_MODEL` to the evaluated Bedrock model ID in the `env` block of the shared or managed settings, and change it only after an eval run; (D) move `"model": "sonnet"` from the project file into managed settings so nobody can override it.
+</Step>
+
+<Step title="Find the buried constraint">
+"No new commits" plus "behaviour changed" means something resolved differently on its own. The only floating reference is the alias `sonnet`, which tracks the provider's recommended version and changes over time (including when engineers update Claude Code). "Until the team decides to move" demands an explicit, reviewable value.
+</Step>
+
+<Step title="Eliminate A and B">
+**A** puts model selection into CLAUDE.md, but Claude does not choose which model serves the session, and CLAUDE.md is advisory anyway. **B** is manual, unenforced, and still selects the drifting alias.
+</Step>
+
+<Step title="Eliminate D, the strongest distractor">
+**D** looks rigorous because managed settings top the precedence stack. But the value is still `sonnet`, so it resolves to whatever Claude Code maps it to on Bedrock this week. Moving where a value is read from is not pinning.
+</Step>
+
+<Step title="Choose C">
+**C** binds the alias to a full, provider-specific model ID that changes only through a reviewed edit, as the model configuration docs recommend for third-party deployments. Gate future edits on an eval run.
+</Step>
+
+<Step title="The deciding cue">
+"**No new commits**" with changed behaviour points to a floating reference, and "**stay on the version the team evaluated**" demands a full model ID. Any option that keeps the word `sonnet` as the value, wherever it lives, fails.
+</Step>
+
+</Walkthrough>
+
+## Code
+
+**A release is a tuple: prompt version plus pinned model, logged on every call.** The allowlist makes "use an unevaluated model" a code-review event instead of a runtime surprise.
 
 ```python
-from anthropic import Anthropic
+import hashlib
+import anthropic
 
-# BAD in production: model="sonnet" resolves to "whatever sonnet currently means"
-# GOOD: an explicit, versioned identifier that only changes when you change it
-client = Anthropic()
-resp = client.messages.create(
-    model="claude-sonnet-4-5-20250929",  # pinned, dated model ID
-    max_tokens=1024,
-    messages=[{"role": "user", "content": "Summarize this ticket."}],
-)
+client = anthropic.Anthropic()
+
+# Model IDs that have passed the regression suite. Adding one is a reviewed PR.
+EVALUATED_MODELS = {"claude-sonnet-5-5", "claude-haiku-4-5-20251001"}
+
+RELEASE = {
+    "prompt_id": "ticket-triage",
+    "prompt_version": "3.2.0",
+    "model": "claude-haiku-4-5-20251001",  # dated pre-4.6 ID: a pinned snapshot
+    "system": (
+        "You label support tickets for a payments product. "
+        "Reply with exactly one word: billing, access, bug, or other."
+    ),
+}
+
+
+def text_of(resp) -> str:
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+
+def triage(ticket: str) -> dict:
+    if RELEASE["model"] not in EVALUATED_MODELS:
+        raise ValueError(f"{RELEASE['model']} has not passed evals")
+    resp = client.messages.create(
+        model=RELEASE["model"],
+        max_tokens=16,
+        system=RELEASE["system"],
+        messages=[{"role": "user", "content": ticket}],
+    )
+    return {
+        "label": text_of(resp).strip().lower(),
+        "prompt": f"{RELEASE['prompt_id']}@{RELEASE['prompt_version']}",
+        "prompt_sha": hashlib.sha256(RELEASE["system"].encode()).hexdigest()[:12],
+        "model": resp.model,  # what actually served the request
+    }
+
+
+print(triage("I was charged twice for my May invoice."))
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+import { createHash } from "node:crypto";
+
+const client = new Anthropic();
+
+// Model IDs that have passed the regression suite. Adding one is a reviewed PR.
+const EVALUATED_MODELS = new Set(["claude-sonnet-5-5", "claude-haiku-4-5-20251001"]);
+
+const RELEASE = {
+  promptId: "ticket-triage",
+  promptVersion: "3.2.0",
+  model: "claude-haiku-4-5-20251001", // dated pre-4.6 ID: a pinned snapshot
+  system:
+    "You label support tickets for a payments product. " +
+    "Reply with exactly one word: billing, access, bug, or other.",
+};
+
+function textOf(resp: Anthropic.Message): string {
+  return resp.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+}
+
+async function triage(ticket: string) {
+  if (!EVALUATED_MODELS.has(RELEASE.model)) {
+    throw new Error(`${RELEASE.model} has not passed evals`);
+  }
+  const resp = await client.messages.create({
+    model: RELEASE.model,
+    max_tokens: 16,
+    system: RELEASE.system,
+    messages: [{ role: "user", content: ticket }],
+  });
+  return {
+    label: textOf(resp).trim().toLowerCase(),
+    prompt: `${RELEASE.promptId}@${RELEASE.promptVersion}`,
+    promptSha: createHash("sha256").update(RELEASE.system).digest("hex").slice(0, 12),
+    model: resp.model, // what actually served the request
+  };
+}
+
+console.log(await triage("I was charged twice for my May invoice."));
+```
+
+<Output kind="illustrative">
+{`{'label': 'billing', 'prompt': 'ticket-triage@3.2.0', 'prompt_sha': '4f1c09a2b7de', 'model': 'claude-haiku-4-5-20251001'}`}
+</Output>
+
+**An eval gate: a candidate prompt version ships only if it does not regress the fixed case set.** Same pinned model on both sides, so the only variable is the prompt.
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+MODEL = "claude-haiku-4-5-20251001"
+
+CASES = [
+    ("I was charged twice for my May invoice.", "billing"),
+    ("SSO login loops back to the sign-in page.", "access"),
+    ("Export to CSV drops the last row.", "bug"),
+    ("Do you have an office in Lisbon?", "other"),
+]
+
+
+def text_of(resp) -> str:
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+
+def pass_rate(system: str) -> float:
+    hits = 0
+    for ticket, expected in CASES:
+        resp = client.messages.create(
+            model=MODEL,
+            max_tokens=16,
+            system=system,
+            messages=[{"role": "user", "content": ticket}],
+        )
+        hits += text_of(resp).strip().lower() == expected
+    return hits / len(CASES)
+
+
+def gate(baseline: str, candidate: str) -> bool:
+    base, cand = pass_rate(baseline), pass_rate(candidate)
+    print(f"baseline={base:.2f} candidate={cand:.2f}")
+    return cand >= base  # promote only on no regression
 ```
 
 ```typescript
 import Anthropic from "@anthropic-ai/sdk";
 
-// BAD in production: model: "sonnet" — an alias, not a pin
-// GOOD: pin the exact, dated model identifier
 const client = new Anthropic();
-const resp = await client.messages.create({
-  model: "claude-sonnet-4-5-20250929",
-  max_tokens: 1024,
-  messages: [{ role: "user", content: "Summarize this ticket." }],
-});
+const MODEL = "claude-haiku-4-5-20251001";
+
+const CASES: [string, string][] = [
+  ["I was charged twice for my May invoice.", "billing"],
+  ["SSO login loops back to the sign-in page.", "access"],
+  ["Export to CSV drops the last row.", "bug"],
+  ["Do you have an office in Lisbon?", "other"],
+];
+
+function textOf(resp: Anthropic.Message): string {
+  return resp.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("");
+}
+
+async function passRate(system: string): Promise<number> {
+  let hits = 0;
+  for (const [ticket, expected] of CASES) {
+    const resp = await client.messages.create({
+      model: MODEL,
+      max_tokens: 16,
+      system,
+      messages: [{ role: "user", content: ticket }],
+    });
+    if (textOf(resp).trim().toLowerCase() === expected) hits++;
+  }
+  return hits / CASES.length;
+}
+
+export async function gate(baseline: string, candidate: string): Promise<boolean> {
+  const [base, cand] = [await passRate(baseline), await passRate(candidate)];
+  console.log(`baseline=${base.toFixed(2)} candidate=${cand.toFixed(2)}`);
+  return cand >= base; // promote only on no regression
+}
 ```
 
-**A minimal shared `.claude/settings.json` that enforces a guardrail no CLAUDE.md
-instruction could guarantee — a deny rule and a formatting hook run regardless of
-what Claude decides:**
+**A shared `.claude/settings.json` that holds the team's enforced layer and the model pin.** Committed, so every clone gets it. Personal approvals and overrides go in `.claude/settings.local.json` instead.
 
 ```json
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5-5"
+  },
   "permissions": {
-    "deny": ["Bash(rm -rf *)"]
+    "allow": ["Bash(npm run test *)", "Bash(git diff *)"],
+    "ask": ["Bash(git push *)"],
+    "deny": ["Read(./.env)", "Bash(terraform apply *)"]
   },
   "hooks": {
-    "PostToolUse": [
-      { "matcher": "Edit", "hooks": [{ "type": "command", "command": "npx prettier --write \"$CLAUDE_FILE_PATH\"" }] }
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/guard.sh" }]
+      }
     ]
-  }
+  },
+  "enabledPlugins": { "deploy-kit@acme-tools": true }
 }
 ```
 
-**Pinning a plugin to an exact commit so an install is reproducible, instead of
-tracking a moving branch:**
+**A project CLAUDE.md that stays short by importing, and keeps facts rather than procedures.**
+
+```markdown
+# Payments service
+
+- Build: `make build`. Test: `make test` (needs local Postgres on 5433).
+- API handlers live in `src/api/handlers/`; one handler per file.
+- Money is integer minor units everywhere. Never use floats for amounts.
+- Release procedure: use the /release skill, not ad hoc commands.
+
+See @docs/architecture.md for service boundaries.
+```
+
+**A plugin manifest that pins what it depends on.** The unconstrained entry tracks its marketplace; the ranged entry stays on 2.1.x patches until you publish a wider range.
 
 ```json
 {
-  "name": "internal-review-plugin",
-  "source": {
-    "source": "github",
-    "repo": "acme-corp/review-plugin",
-    "ref": "main",
-    "sha": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
-  }
+  "name": "deploy-kit",
+  "version": "3.1.0",
+  "dependencies": [
+    "audit-logger",
+    { "name": "secrets-vault", "version": "~2.1.0" }
+  ]
 }
 ```
-
-## Named traps, expanded
-
-**Quality shifting on a day nothing shipped = an unpinned alias.** This is the
-signature failure pattern for the whole objective: no deploy, no prompt edit, no
-infrastructure change — yet behavior changed. The only configuration surface that
-can move without a corresponding commit is an alias resolving differently, because
-Anthropic (not you) controls what it points to and updates it over time. The
-distractor that looks like a fix but isn't is relocating the alias string into an
-environment variable or a settings file — the value is still an alias, so the
-drift risk moves with it rather than disappearing. The real fix is always an
-explicit, versioned model identifier plus an eval gate before any intentional
-version bump.
-
-**Secrets management is Domain 7, not here.** This objective covers configuration
-*as an artifact to version, pin, and review* — CLAUDE.md content, settings.json
-structure, model IDs, prompt versions, plugin sources. The moment a stem is about
-*how a credential is stored, injected, or rotated*, it has crossed into Domain 7
-security and safety, even though the credential might live inside the very same
-`settings.json` file this objective covers. Don't let the filename pull you into
-the wrong domain.
 
 ## Recall checks
 
-1. Explain, in one sentence, why moving a model alias into an environment variable
-   does not fix the "quality changed with no deploy" symptom.
-2. List the four CLAUDE.md scopes in load order from broadest to most specific,
-   and state whether a more specific file *overrides* or *is concatenated after*
-   a broader one.
-3. A teammate wants a rule enforced "no matter what Claude decides." Name the two
-   configuration surfaces that can actually guarantee that, and explain why
-   CLAUDE.md cannot.
-4. A plugin's marketplace entry says version 2.0.0; its own `plugin.json` still
-   says 1.4.0. Which version do users actually get, and why does this happen
-   silently?
-5. Give one concrete example of a configuration-management topic and the
-   look-alike Domain 7 topic it's easy to confuse it with.
+<Recall q="Why does moving `model: sonnet` from code into an environment variable or managed settings not fix 'quality changed with no deploy'?">
+Because the value is still an alias, and an alias resolves to the recommended version for the provider, which changes over time. Pinning means changing the value to a full model ID (or setting the `ANTHROPIC_DEFAULT_*_MODEL` variable to one), not relocating where the alias is read.
+</Recall>
+
+<Recall q="Is `claude-sonnet-5-5` a floating alias like `claude-sonnet-4-5`?">
+No. From the 4.6 generation on, the dateless ID is the canonical snapshot and Anthropic ships updates under a new ID. `claude-sonnet-4-5` is a pre-4.6 convenience alias that points to the latest dated snapshot of that minor version.
+</Recall>
+
+<Recall q="A guardrail deny rule was added to `.claude/settings.local.json`. Why do teammates not have it, and where should it go?">
+The local file is personal and kept out of git, so it never reaches other clones, CI or cloud sessions. Put it in the committed `.claude/settings.json`, or in managed settings if no developer may override it.
+</Recall>
+
+<Recall q="User settings allow `Bash(git push *)` and project settings deny it. What happens and why?">
+The push is blocked. Deny rules from every scope are evaluated before allow rules, first match wins, so no level can carve an allow out of another level's deny.
+</Recall>
+
+<Recall q="What does a CLAUDE.md `@import` do to context cost?">
+Nothing good: imported files expand into context at launch alongside the importing file, so imports organise a long CLAUDE.md without shrinking it. To cut cost, move part-of-tree guidance into path-scoped rules and procedures into skills.
+</Recall>
+
+<Recall q="What is the unit you version and eval for a production prompt, and why?">
+The tuple of prompt version, pinned model ID, tool definitions, output schema and effort, because changing any element invalidates the eval result. Log the prompt version and model on every call so a regression traces to one change and rollback is redeploying the previous tag.
+</Recall>
+
+<Recall q="A marketplace entry says 2.0.0, the plugin's `plugin.json` says 1.4.0, and users never receive the update. Why?">
+The computed version comes from `plugin.json` first, so users see 1.4.0, which matches their cached copy, and nothing updates. Set the version in one place only, and bump it every release (or omit it and track commits).
+</Recall>
