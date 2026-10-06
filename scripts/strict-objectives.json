@@ -1,1 +1,17 @@
-[]
+[
+  "agent-architecture",
+  "agent-patterns-and-frameworks",
+  "claude-api-mechanics",
+  "claude-application-design",
+  "claude-code-operation",
+  "configuration-management",
+  "context-engineering",
+  "cost-and-token-management",
+  "debugging-and-error-handling",
+  "llm-fundamentals",
+  "model-selection-and-tradeoffs",
+  "software-engineering-foundations",
+  "systems-life-cycle",
+  "technical-fundamentals",
+  "understanding-requirements"
+]

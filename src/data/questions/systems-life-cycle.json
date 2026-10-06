@@ -1,170 +1,724 @@
 [
   {
-    "id": "legacy-011",
-    "objective": "systems-life-cycle",
-    "domain": 2,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "An enterprise requires every production model version change to be recorded, reviewed, and approved before release. Which framework does this requirement come from?",
-    "options": [
-      {
-        "id": "a",
-        "text": "Agile, which mandates sprint review of all changes",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "ITIL-style service management, where change and release management govern production changes",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "Waterfall, which requires phase gate sign-off",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "DevOps, which automates approvals away",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "Change records, approval boards, and release management are service management concepts, and a model version change is a production change like any other. Agile and Waterfall describe how work is planned and delivered rather than how production change is governed.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "legacy-012",
-    "objective": "systems-life-cycle",
-    "domain": 2,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "Why can a Claude feature not rely solely on exact-match regression tests?",
-    "options": [
-      {
-        "id": "a",
-        "text": "The API response format changes frequently",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "Model output is non-deterministic, so correctness must be graded against criteria",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "Tests cannot make network calls",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "Token counts vary between runs",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "Non-determinism means the same prompt can produce different valid outputs, so evals grade against criteria rather than asserting string equality. Deterministic code around the model is still unit tested normally.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
-  },
-  {
     "id": "new-systems-life-cycle-01",
     "objective": "systems-life-cycle",
     "domain": 2,
-    "subskills": [],
+    "subskills": [
+      "slc.concepts",
+      "slc.frameworks"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A team wants a repeatable way to describe how they take a Claude-powered feature from initial concept through iterative development, release, and ongoing operation. A vendor pitches a proprietary 'AI Development Lifecycle' framework built specifically for LLM-based projects, arguing that generic IT frameworks predate large language models and can't account for non-deterministic behavior.",
+    "stem": "A team needs a repeatable way to take a Claude-powered feature from concept through development, release and ongoing operation. A vendor pitches a proprietary 'AI Development Lifecycle', arguing that generic IT frameworks predate language models and cannot handle non-deterministic output. What should the team do?",
     "options": [
       {
         "id": "a",
-        "text": "Adopt the vendor's proprietary AI Development Lifecycle, since generic IT frameworks predate LLM applications",
-        "why": ""
+        "text": "Adopt the vendor's AI Development Lifecycle, since it was designed around non-deterministic model output",
+        "why": "Non-determinism changes what the test step measures, not the life cycle; a bespoke process duplicates what standard ones cover."
       },
       {
         "id": "b",
-        "text": "Rely on prompt engineering best practices alone, since they govern how the feature behaves in production",
-        "why": ""
+        "text": "Treat prompt engineering best practice as the life cycle, since prompts drive the feature's production behaviour",
+        "why": "Prompt engineering is a build-phase technique; it says nothing about release, operation, change or retirement."
       },
       {
         "id": "c",
-        "text": "Apply the generic systems life cycle (plan, develop, test, implement, operate, maintain) using Agile or DevOps practices, adding evals as the test gate",
-        "why": ""
+        "text": "Apply a standard life cycle with Agile or DevOps practices, using an eval suite as the test-phase gate",
+        "why": "Correct. Prompts, model swaps and evals slot into ordinary build, test and change activities that existing frameworks govern."
       },
       {
         "id": "d",
-        "text": "Design a new lifecycle framework from scratch, since no existing framework accounts for non-deterministic model output",
-        "why": ""
+        "text": "Write a new in-house life cycle from scratch, because no existing framework accounts for model variance",
+        "why": "This overstates the gap; variance is handled by grading against criteria in the existing test gate, not by a new process."
       }
     ],
     "answer": [
       "c"
     ],
-    "explanation": "The objective is scoped as generic IT systems life cycle management; Claude-application work maps onto the same plan-develop-test-implement-operate-maintain arc as any other system, with Agile or DevOps supplying the iteration and release discipline and evals replacing exact-match tests as the quality gate. Adopting a proprietary 'AI-specific' framework is the trap this objective is built to catch — an engineered-to-sound-plausible distractor that ignores that the generic model already covers this arc. Prompt engineering is a technique applied during development, not a lifecycle framework in its own right. Building a new framework from scratch overstates the problem: non-determinism is handled by changing what the existing test gate checks, not by discarding the gate.",
-    "cue": "",
+    "explanation": "The objective is generic IT life cycle management, and a Claude feature walks the same plan, build, test, deploy, operate and maintain arc as any system. Evals replace exact-match tests as the quality gate, which is a change of instrument, not of process. The vendor framework is the planted trap: it sounds rigorous but invents what Agile and DevOps already provide.",
+    "cue": "from concept through development, release and ongoing operation",
     "pattern": "scope-boundary",
-    "difficulty": 2,
+    "difficulty": 1,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "GitHub: What is the SDLC?",
+        "url": "https://github.com/resources/articles/what-is-sdlc"
+      },
+      {
+        "label": "Demystifying evals for AI agents",
+        "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
   },
   {
     "id": "new-systems-life-cycle-02",
     "objective": "systems-life-cycle",
     "domain": 2,
-    "subskills": [],
+    "subskills": [
+      "slc.operate-maintain",
+      "slc.frameworks"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A Claude-powered pipeline is already live in production. An engineer wants to bump the pinned model version and adjust two prompts. Company policy requires a documented change record, a risk assessment, and sign-off from a change advisory board before any modification reaches production, regardless of how small the change is. Which management discipline governs this requirement?",
+    "stem": "A Claude-powered claims pipeline has been live for six months, and an engineer wants to bump the pinned model and adjust two prompts. Company policy requires a documented change record, a risk assessment and sign-off from a change advisory board before any modification reaches production. The team already plans its work in Scrum sprints and reviews every pull request. Which practice governs getting this change into production?",
     "options": [
       {
         "id": "a",
-        "text": "Scrum sprint planning, since the change can be scoped and sized as a backlog item",
-        "why": ""
+        "text": "Scrum sprint planning, since the change can be sized and prioritized as a backlog item",
+        "why": "Sprint planning schedules the work to build the change, not the authorization to put it into a live service."
       },
       {
         "id": "b",
-        "text": "Waterfall requirements sign-off, since the system's original scope must be honored",
-        "why": ""
+        "text": "Pull-request review, since a second engineer approves the prompt and model diff before merge",
+        "why": "Code review checks the diff's quality; it is not a risk-assessed, board-approved authorization into production."
       },
       {
         "id": "c",
-        "text": "DevOps continuous deployment, which is designed to automate this kind of approval away",
-        "why": ""
+        "text": "Waterfall phase sign-off, since the system's original scope was formally approved before it was built",
+        "why": "Phase gates sequence an initial build project; they do not govern changes to a service already in operation."
       },
       {
         "id": "d",
-        "text": "ITIL-style change and release management",
-        "why": ""
+        "text": "ITIL-style change management, with the change record assessed and approved before it is released",
+        "why": "Correct. Change records, risk assessment and advisory-board approval for a live service are service management practices."
       }
     ],
     "answer": [
       "d"
     ],
-    "explanation": "Documented change records, risk assessment, and change advisory board sign-off before any production modification, no matter how small, is the definition of ITIL-style service management governing a live system. Sprint planning organizes how development work gets scheduled and estimated, not how a change to a live production system gets approved. Waterfall governs how a project's own phases are sequenced during initial build, not ongoing change control after go-live. DevOps automates delivery pipelines, but 'automates approval away' directly contradicts the stem's explicit requirement for a human sign-off — a distractor that sounds efficient while ignoring the stated constraint.",
-    "cue": "",
+    "explanation": "The cue is the change advisory board sign-off before any production modification, which is service management governing a live system. A model bump and prompt edit are production configuration changes like any other. Pull-request review is the tempting answer because it is an approval, but building a change and authorizing it into production are different activities.",
+    "cue": "sign-off from a change advisory board before any modification reaches production",
     "pattern": "buried-constraint",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "GitHub: What is the SDLC?",
+        "url": "https://github.com/resources/articles/what-is-sdlc"
+      },
+      {
+        "label": "GitHub Actions: deployments and environments reference (docs source)",
+        "url": "https://github.com/github/docs/blob/main/content/actions/reference/workflows-and-actions/deployments-and-environments.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "legacy-012",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [
+      "slc.develop-implement"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team's CI pipeline gates prompt changes by asserting that Claude's output exactly matches a stored golden string for each test case. Since adoption, the gate fails intermittently on unchanged prompts even though reviewers judge the outputs correct. What should the test-phase exit criterion become?",
+    "options": [
+      {
+        "id": "a",
+        "text": "An eval suite that grades each output against criteria, gating on a pass-rate threshold for the regression set",
+        "why": "Correct. Grading against criteria tolerates valid variation, and a regression suite near 100% protects existing behaviour."
+      },
+      {
+        "id": "b",
+        "text": "The same exact-match assertions, rerun up to three times so the gate passes if any single attempt matches",
+        "why": "Retries hide the symptom; a correct but differently worded answer still fails, and a lucky match can mask a real regression."
+      },
+      {
+        "id": "c",
+        "text": "Exact-match assertions against a pinned model snapshot, so that outputs stop varying between separate runs",
+        "why": "Pinning fixes the model version, not the sampling, so the same snapshot can still phrase a correct answer differently."
+      },
+      {
+        "id": "d",
+        "text": "No pre-release gate at all, relying on production monitoring to catch regressions after each prompt ships",
+        "why": "Removing the gate moves detection to users; monitoring complements a release gate but does not replace one."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is failures on unchanged prompts while outputs are judged correct: the instrument is wrong, not the code. Model output varies between runs, so the test gate should grade against criteria with a threshold, and Anthropic recommends running such evals on every change. Pinning the snapshot is the tempting fix, but it controls which model runs, not how it samples.",
+    "cue": "fails intermittently on unchanged prompts even though reviewers judge the outputs correct",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Demystifying evals for AI agents",
+        "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents"
+      },
+      {
+        "label": "Models overview",
+        "url": "https://platform.claude.com/docs/en/models/overview"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "systems-life-cycle-001",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [
+      "slc.operate-maintain"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Thirty minutes after a prompt release, a document-extraction service starts failing on most claims and adjusters cannot process their queue. The previous prompt version is tagged as the baseline in configuration, and the on-call engineer wants to reproduce the failure locally to find the root cause before touching production. What should happen first?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Roll back to the baseline prompt to restore service, then investigate the root cause under problem management",
+        "why": "Correct. Incident management restores service first using the known-good baseline; root-cause work follows once users are unblocked."
+      },
+      {
+        "id": "b",
+        "text": "Reproduce the failure locally and identify the root cause so that one change can fix the real defect properly",
+        "why": "Thorough, but adjusters stay blocked for the whole investigation; root-cause work belongs after service is restored."
+      },
+      {
+        "id": "c",
+        "text": "Open a problem record and schedule a corrected prompt for the next sprint, leaving the release in place meanwhile",
+        "why": "This leaves a broken release serving users for days; problem management does not replace restoring service now."
+      },
+      {
+        "id": "d",
+        "text": "Raise the failing cases at the next retrospective so the team can tighten its prompt review process",
+        "why": "Process improvement is worth doing later, but it does nothing for the users who cannot work right now."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that adjusters cannot process their queue: users are down, so this is an incident and the goal is restoring service. A tagged baseline makes rollback quick and low risk, and root-cause analysis then runs as problem management. Investigating first is the tempting choice because it feels like better engineering, but it prolongs the outage.",
+    "cue": "adjusters cannot process their queue",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Incident management at Google",
+        "url": "https://cloud.google.com/blog/products/gcp/incident-management-at-google-adventures-in-sre-land/"
+      },
+      {
+        "label": "SRE keeps digging to prevent problems",
+        "url": "https://cloud.google.com/blog/products/management-tools/sre-keeps-digging-to-prevent-problems"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "systems-life-cycle-002",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [
+      "slc.operate-maintain"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "For the last five month-ends, Claude-based extraction on scanned purchase orders has failed for a few hours, and each time the service desk raises an incident and an engineer reruns the jobs by hand. The operations manager wants the failures to stop recurring rather than be handled faster. Which practice should take this on?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Problem management, to find the shared root cause and remove it through a change",
+        "why": "Correct. Recurring incidents with a common cause are a problem; the goal is removing the cause, not faster recovery."
+      },
+      {
+        "id": "b",
+        "text": "Incident management, raising the priority of month-end incidents so that reruns start sooner",
+        "why": "This shortens each outage but accepts that it will happen again, which the manager has ruled out."
+      },
+      {
+        "id": "c",
+        "text": "A standard change that pre-approves the manual rerun so engineers can apply it without waiting",
+        "why": "Pre-approving the workaround makes recovery faster, not rarer; the underlying defect is untouched."
+      },
+      {
+        "id": "d",
+        "text": "Service level management, relaxing the month-end target so the failures stop breaching it",
+        "why": "Moving the target hides the failures from reporting without preventing a single one of them."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is 'stop recurring rather than be handled faster'. Incident management restores service each time; problem management finds and removes the root cause behind repeated incidents. The standard-change option is tempting because it is a real ITIL mechanism, but it industrializes the workaround.",
+    "cue": "wants the failures to stop recurring rather than be handled faster",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "SRE keeps digging to prevent problems",
+        "url": "https://cloud.google.com/blog/products/management-tools/sre-keeps-digging-to-prevent-problems"
+      },
+      {
+        "label": "Incident management at Google",
+        "url": "https://cloud.google.com/blog/products/gcp/incident-management-at-google-adventures-in-sre-land/"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "systems-life-cycle-003",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [
+      "slc.operate-maintain",
+      "slc.develop-implement"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A deprecation notice says the model pinned by three internal services retires in nine weeks and names a replacement. The usage export shows one of those services belongs to a team that was disbanded, and the company runs normal change control for every production system. What should the platform team do next?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Assign an owner to each caller, run regression evals on the replacement, then raise normal changes with rollback plans",
+        "why": "Correct. A known retirement date makes this planned maintenance: find every caller, test the replacement, then change it under control."
+      },
+      {
+        "id": "b",
+        "text": "Raise an emergency change and swap all three services to the replacement today, since retirement is certain",
+        "why": "There are nine weeks of notice, so nothing justifies skipping regression testing; emergency changes are for restoring service."
+      },
+      {
+        "id": "c",
+        "text": "Point all three services at a model alias that tracks the newest release so future retirements need no change",
+        "why": "Current model IDs are pinned snapshots, and an auto-moving pointer would push untested model changes into production."
+      },
+      {
+        "id": "d",
+        "text": "Wait until the final two weeks so the migration can target any newer model that is released in the meantime",
+        "why": "Waiting compresses testing and risks the orphaned service being missed; requests to a retired model fail outright."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is a retirement date nine weeks out: a scheduled dependency end-of-life is adaptive maintenance, not an emergency. Anthropic gives at least 60 days' notice, offers a usage export by API key and model to find callers, and recommends testing replacements well before the date. The emergency change is tempting because the retirement is certain, but certainty with notice is exactly what planning is for.",
+    "cue": "retires in nine weeks",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Model deprecations",
+        "url": "https://platform.claude.com/docs/en/about-claude/model-deprecations"
+      },
+      {
+        "label": "Models overview",
+        "url": "https://platform.claude.com/docs/en/models/overview"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "systems-life-cycle-004",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [
+      "slc.frameworks"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A public agency contracts a vendor to build a Claude-based document classifier for a fixed price. The statement of work fixes the label set and accuracy threshold up front, and each phase needs the contracting officer's formal sign-off before the next one begins. Which delivery framework fits this engagement?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Waterfall, with sequential phases and a documented sign-off gate between each one",
+        "why": "Correct. Fixed scope set up front plus formal approval before each next phase is the Waterfall shape."
+      },
+      {
+        "id": "b",
+        "text": "Scrum, with two-week sprints and a backlog that the product owner can reprioritize",
+        "why": "Scrum assumes scope can change between sprints, which a fixed-scope, fixed-price contract rules out."
+      },
+      {
+        "id": "c",
+        "text": "Kanban, with continuous flow and work-in-progress limits instead of discrete phases",
+        "why": "Continuous flow has no phase boundaries, so there is nowhere to place the required sign-offs."
+      },
+      {
+        "id": "d",
+        "text": "SRE, with an error budget deciding when new work is allowed to ship to production",
+        "why": "SRE balances reliability and release velocity for a running service; it is not a delivery framework for a build."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is formal sign-off before each next phase on a scope fixed up front. Waterfall fits stable, well-defined requirements with sequential phases, while Agile fits requirements expected to change. Scrum is the tempting choice for an LLM feature, but the contract has already removed the flexibility Scrum depends on.",
+    "cue": "each phase needs the contracting officer's formal sign-off before the next one begins",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "GitHub: What is the SDLC?",
+        "url": "https://github.com/resources/articles/what-is-sdlc"
+      },
+      {
+        "label": "GitHub: What is agile methodology?",
+        "url": "https://github.com/resources/articles/what-is-agile-methodology"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "systems-life-cycle-005",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [
+      "slc.frameworks",
+      "slc.develop-implement"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A team is building an internal research assistant whose scope is expected to change once pilot users try it, and answer quality can only be judged by running evals. Leadership wants the team to adopt practices that fit this kind of work. Which two practices fit best? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Deliver in short iterations from a prioritized backlog, re-ranking it after each round of pilot feedback",
+        "why": "Correct. Iterative delivery lets scope follow what pilots reveal, which is the Agile fit for changing requirements."
+      },
+      {
+        "id": "b",
+        "text": "Make passing the regression eval suite part of the definition of done for every increment",
+        "why": "Correct. When quality is measured by evals, each increment needs them as its exit criterion."
+      },
+      {
+        "id": "c",
+        "text": "Freeze a complete requirements specification and get it signed before any design work starts",
+        "why": "Freezing scope before pilot feedback locks in requirements the team already expects to change."
+      },
+      {
+        "id": "d",
+        "text": "Route every prompt tweak in the development environment through the change advisory board",
+        "why": "Change control governs production changes; applying it to development iteration slows learning for no risk reduction."
+      },
+      {
+        "id": "e",
+        "text": "Hold all features for a single big-bang release once the full scope has been built and tested",
+        "why": "A single late release removes the feedback loop the pilot was meant to provide."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is scope expected to change after pilots, which points to an iterative framework, with evals as the quality gate on each increment. Agile and the eval gate together let requirements sharpen without losing confidence in what already works. Routing development tweaks through a change board is tempting because it sounds rigorous, but change control belongs at the production boundary.",
+    "cue": "scope is expected to change once pilot users try it",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "GitHub: What is agile methodology?",
+        "url": "https://github.com/resources/articles/what-is-agile-methodology"
+      },
+      {
+        "label": "Demystifying evals for AI agents",
+        "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "systems-life-cycle-006",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [
+      "slc.develop-implement"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A team deploys prompt and configuration changes to production through GitHub Actions. Policy says a change must not reach production unless the regression eval suite has passed and a named service owner has approved it. Which two controls enforce this policy? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "A production environment protection rule requiring the service owner as a reviewer before the deploy job runs",
+        "why": "Correct. Required reviewers on the environment block the deploy job until the named owner approves."
+      },
+      {
+        "id": "b",
+        "text": "Making the deploy job depend on the eval job, so that a failed eval run stops the workflow before deployment",
+        "why": "Correct. A job dependency means deployment never starts when the eval job fails, which enforces the eval gate."
+      },
+      {
+        "id": "c",
+        "text": "A pull-request template checklist asking authors to confirm they ran the evals and contacted the owner",
+        "why": "A checklist relies on authors being honest and diligent; nothing stops a deploy when a box is ticked falsely."
+      },
+      {
+        "id": "d",
+        "text": "A dashboard alert that notifies the service owner whenever a new prompt version appears in production",
+        "why": "An alert after the fact detects an unapproved change but does not stop it from reaching production."
+      },
+      {
+        "id": "e",
+        "text": "A CONTRIBUTING guide section explaining that unapproved changes to production are not allowed",
+        "why": "Documentation states the policy but enforces nothing, so a change can still deploy without approval."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is 'must not reach production unless': a release gate has to be enforced by the pipeline, not requested of people. GitHub environment protection rules must pass before a job targeting the environment proceeds, and a job dependency stops deployment when evals fail. The checklist is tempting because it names both requirements, but it verifies neither.",
+    "cue": "must not reach production unless the regression eval suite has passed and a named service owner has approved it",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "GitHub Actions: deployments and environments reference (docs source)",
+        "url": "https://github.com/github/docs/blob/main/content/actions/reference/workflows-and-actions/deployments-and-environments.md"
+      },
+      {
+        "label": "Demystifying evals for AI agents",
+        "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "systems-life-cycle-007",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [
+      "slc.develop-implement",
+      "slc.concepts"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A bank is replacing a rules-based ticket router with a Claude classifier. Risk management requires that for two weeks the new router's decisions be compared with the old router's on live traffic before any customer ticket is routed by the new one. Which implementation strategy meets this requirement?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A parallel run that sends live tickets to both routers, applies only the old decision and logs the differences",
+        "why": "Correct. Both systems see real traffic, only the old one affects customers, and the diff gives the required comparison."
+      },
+      {
+        "id": "b",
+        "text": "A canary release that routes 5% of live tickets through the new classifier and compares their error rates",
+        "why": "A canary lets the new router decide real tickets, which breaks the rule that none are routed by it yet."
+      },
+      {
+        "id": "c",
+        "text": "A pilot in which one support team's tickets are routed by the new classifier for the two-week period",
+        "why": "A pilot still applies the new router's decisions to real customer tickets, just for a subset of them."
+      },
+      {
+        "id": "d",
+        "text": "A big-bang cutover over a weekend, with a tested rollback plan ready if the new router misbehaves",
+        "why": "A rollback plan limits damage after the fact, but every ticket is routed by the new system from day one."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that no customer ticket may be routed by the new system during the comparison. A parallel run, or dark launch, copies live traffic to the new system and discards its result while logging differences. Canary and pilot are the tempting answers because they use live traffic, but both let the new router make real decisions.",
+    "cue": "before any customer ticket is routed by the new one",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Dark launches: what they are and how to do them",
+        "url": "https://cloud.google.com/blog/products/gcp/cre-life-lessons-what-is-a-dark-launch-and-what-does-it-do-for-me/"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "systems-life-cycle-008",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [
+      "slc.concepts"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team deploys a new summarization feature to production on Monday behind a disabled feature flag, then enables the flag for all users on Thursday. The operations policy requires a change record for any production change that alters what users experience. Which statement is accurate?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The feature was deployed Monday and released Thursday, so enabling the flag is a change needing its own record",
+        "why": "Correct. Deployment puts code in production; release exposes it to users, and here that happens only when the flag flips."
+      },
+      {
+        "id": "b",
+        "text": "The feature was released Monday when its code reached production, so Thursday's flag change needs no record",
+        "why": "This conflates deployment with release; on Monday the code was running but no user experienced anything new."
+      },
+      {
+        "id": "c",
+        "text": "Feature-flag changes are runtime configuration rather than code, so neither event falls under change control",
+        "why": "Configuration that changes user-visible behaviour in production is a production change, whatever mechanism applies it."
+      },
+      {
+        "id": "d",
+        "text": "The release happened when the code merged to main, so the merge commit itself serves as the required change record",
+        "why": "Merging is a build-phase event; a commit is not an assessed, approved record of a change to the live service."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is a policy keyed to changes that alter what users experience. Deployment means code is running somewhere; release means users get it, and a feature flag separates the two. The tempting error is treating flag flips as mere configuration, but a production configuration change that alters behaviour is still a change.",
+    "cue": "any production change that alters what users experience",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "GitHub: What is the SDLC?",
+        "url": "https://github.com/resources/articles/what-is-sdlc"
+      },
+      {
+        "label": "GitHub Actions: deployments and environments reference (docs source)",
+        "url": "https://github.com/github/docs/blob/main/content/actions/reference/workflows-and-actions/deployments-and-environments.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "systems-life-cycle-009",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [
+      "slc.operate-maintain",
+      "slc.frameworks"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A Claude-backed search service has an SLO of 99.5% successful responses over a rolling 28 days. By day 18 the error budget is already spent, mostly because of timeouts introduced by the last two releases, and the product manager wants to ship two new prompt features next week. What does an SRE approach call for?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Pause feature releases and put the effort into reliability fixes until the service is back within its SLO",
+        "why": "Correct. An exhausted error budget means users already see more failures than agreed, so reliability work takes priority."
+      },
+      {
+        "id": "b",
+        "text": "Lower the SLO to 99% for this window so that the two features can still ship without breaching the target",
+        "why": "Moving the target mid-window hides the user impact instead of fixing it, and defeats the purpose of the budget."
+      },
+      {
+        "id": "c",
+        "text": "Ship both features behind a canary, since a small rollout spends very little of the remaining error budget",
+        "why": "There is no remaining budget to spend, and recent releases are the cause of the failures in the first place."
+      },
+      {
+        "id": "d",
+        "text": "Loosen the external SLA terms with customers, which gives the team more room to keep releasing this month",
+        "why": "The SLA is a customer promise with penalties; renegotiating it does not change the internal SLO the team is missing."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is the error budget spent by day 18, with recent releases as the cause. The error budget is the gap between the SLO and 100%, and when it is gone the team shifts from feature work to reliability work. The canary is tempting because it is safe-release practice, but even a small rollout spends budget that no longer exists.",
+    "cue": "By day 18 the error budget is already spent",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "SRE error budgets and maintenance windows",
+        "url": "https://cloud.google.com/blog/products/management-tools/sre-error-budgets-and-maintenance-windows"
+      },
+      {
+        "label": "SRE fundamentals: SLIs, SLAs and SLOs",
+        "url": "https://cloud.google.com/blog/products/devops-sre/sre-fundamentals-slis-slas-and-slos"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "systems-life-cycle-010",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [
+      "slc.operate-maintain"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A support assistant's dashboard tracks only HTTP 5xx and 429 rates, and both have been green all month. Meanwhile, agents report that some answers stop mid-sentence and others are off-topic, even though every one of those calls returned HTTP 200. Which two service level indicators would expose these failures? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Share of responses whose stop_reason is max_tokens, tracked daily against a threshold",
+        "why": "Correct. Truncated answers arrive on a 200 with stop_reason max_tokens, so this ratio surfaces them directly."
+      },
+      {
+        "id": "b",
+        "text": "Pass rate on a sampled slice of live traffic graded by the release-gate eval suite",
+        "why": "Correct. Off-topic answers are a quality failure, and only grading real outputs against criteria detects them."
+      },
+      {
+        "id": "c",
+        "text": "Deployment frequency for the assistant's prompts and code, taken from the CI pipeline",
+        "why": "This is a DORA velocity metric about the delivery process, not a measure of what users receive."
+      },
+      {
+        "id": "d",
+        "text": "Share of requests that return HTTP 200 within the 30-second client timeout",
+        "why": "The failing calls already return 200 quickly, so this indicator would stay green throughout."
+      },
+      {
+        "id": "e",
+        "text": "Median request latency measured at the load balancer across all assistant calls",
+        "why": "Latency is a valid SLI, but nothing in the reports says answers are slow; it misses both failure modes."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is that the bad answers all returned HTTP 200, so transport-level indicators cannot see them. stop_reason values arrive on successful responses, which makes the max_tokens share a direct truncation signal, and sampled eval grading catches quality drift. The HTTP 200 within timeout option is tempting because it sounds like availability, but it measures the layer that is already healthy.",
+    "cue": "every one of those calls returned HTTP 200",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Handling stop reasons",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons"
+      },
+      {
+        "label": "SRE fundamentals: SLIs, SLAs and SLOs",
+        "url": "https://cloud.google.com/blog/products/devops-sre/sre-fundamentals-slis-slas-and-slos"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
   }
 ]

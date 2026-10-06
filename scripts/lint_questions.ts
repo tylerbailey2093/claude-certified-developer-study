@@ -47,6 +47,7 @@ const SOURCE_HOSTS = [
   'www.axelos.com',
   'docs.aws.amazon.com',
   'cloud.google.com',
+  'docs.cloud.google.com',
   'learn.microsoft.com',
   'docs.pydantic.dev',
   'langchain-ai.github.io',

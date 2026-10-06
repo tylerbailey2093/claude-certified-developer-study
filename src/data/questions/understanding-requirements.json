@@ -3,168 +3,806 @@
     "id": "legacy-010",
     "objective": "understanding-requirements",
     "domain": 2,
-    "subskills": [],
+    "subskills": [
+      "ur.infrastructure"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A requirement states customer records must be processed within the EU. Which infrastructure decision follows most directly?",
+    "stem": "A German insurer is building a claims summarizer that calls Claude through its cloud provider's managed model service. The data protection officer has ruled that claim text may be processed only inside the EU, and the prototype currently uses the provider's global endpoint for availability. Which change satisfies the requirement?",
     "options": [
       {
         "id": "a",
-        "text": "Use a regional endpoint that guarantees geographic routing",
-        "why": ""
+        "text": "Switch to the provider's EU regional endpoint, which guarantees that requests are routed and processed in that region",
+        "why": "Correct. Residency is about where inference runs, and a regional endpoint is the control that pins processing to the required geography."
       },
       {
         "id": "b",
-        "text": "Use a global endpoint for maximum availability",
-        "why": ""
+        "text": "Keep the global endpoint and encrypt the claim text with a customer-managed key before every single request is sent",
+        "why": "Encryption protects confidentiality in transit and at rest, but the model still has to process the text wherever the global endpoint routes it."
       },
       {
         "id": "c",
-        "text": "Encrypt the payload before sending it",
-        "why": ""
+        "text": "Keep the global endpoint and shorten the retention period on the application logs that hold claim text",
+        "why": "Retention controls how long data is kept, a different requirement dimension from where the data is processed."
       },
       {
         "id": "d",
-        "text": "Reduce the retention period on application logs",
-        "why": ""
+        "text": "Add a system prompt instruction stating that Claude must process each claim within EU jurisdiction only",
+        "why": "A prompt cannot change request routing; the model has no say in which data center serves the call."
       }
     ],
     "answer": [
       "a"
     ],
-    "explanation": "Residency is met by regional endpoints with guaranteed geographic routing. Global endpoints route dynamically for availability, the opposite of what residency requires. Encryption and log retention are good practice but don't control where processing happens.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
+    "explanation": "The cue is 'processed only inside the EU', a residency requirement. Global endpoints route dynamically for availability, which is exactly what residency forbids, while a regional endpoint guarantees the processing location. Encryption is the tempting distractor, but it changes who can read the data, not where inference happens.",
+    "cue": "may be processed only inside the EU",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
     "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "new-understanding-requirements-01",
-    "objective": "understanding-requirements",
-    "domain": 2,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "A telehealth company routes post-visit session summaries through Claude for clinician review. A newly passed data protection law in the patient's home country prohibits any processing of health data outside that country's borders, even momentarily in transit. Which infrastructure requirement should the solution architecture satisfy?",
-    "options": [
+    "sources": [
       {
-        "id": "a",
-        "text": "Encrypt the session summary with a customer-managed key before it leaves the clinic's network",
-        "why": ""
+        "label": "Models overview",
+        "url": "https://platform.claude.com/docs/en/models/overview"
       },
       {
-        "id": "b",
-        "text": "Route the request through a regional API endpoint that guarantees in-country processing",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "Shorten the retention window on stored session summaries to reduce exposure",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "Increase the request timeout budget to accommodate cross-border network latency",
-        "why": ""
+        "label": "Data residency",
+        "url": "https://platform.claude.com/docs/en/manage-claude/data-residency"
       }
     ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "The constraint is where processing happens, not how long data is kept or how fast a response arrives. A regional endpoint pins inference to the required jurisdiction. Encryption protects confidentiality in transit but doesn't control the country in which the model actually runs, so it fails the residency requirement outright. Shortening retention addresses how long data is stored, a different requirement dimension than where it's processed. Increasing the timeout is a latency parameter with no bearing on jurisdiction.",
-    "cue": "",
-    "pattern": "buried-constraint",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
   },
   {
     "id": "new-understanding-requirements-02",
     "objective": "understanding-requirements",
     "domain": 2,
-    "subskills": [],
+    "subskills": [
+      "ur.architecture",
+      "ur.functional"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A brokerage firm's policy states that every response Claude sends to a retail customer must have account numbers stripped before delivery, with no exceptions permitted under any circumstance. A junior engineer proposes solving this by adding a instruction to the system prompt asking Claude to redact account numbers whenever it sees one. What does this requirement actually call for?",
+    "stem": "A brokerage's support assistant drafts replies that go straight to retail customers. Compliance requires that account numbers are stripped from every outgoing reply with no exceptions, and a junior engineer proposes adding a redaction instruction to the system prompt. Which design meets the requirement?",
     "options": [
       {
         "id": "a",
-        "text": "A longer, more detailed system prompt describing exactly what an account number looks like",
-        "why": ""
+        "text": "Expand the system prompt with examples of every account-number format and a firm instruction to redact them",
+        "why": "More examples improve compliance rates, but a prompt is still a request the model can miss, so it cannot meet a no-exceptions rule."
       },
       {
         "id": "b",
-        "text": "A higher reasoning-effort configuration on the model to improve redaction accuracy",
-        "why": ""
+        "text": "Return each reply through a structured output schema that deliberately has no field for account numbers",
+        "why": "A schema controls which fields exist, not what text appears inside the reply field, so a number can still be written into it."
       },
       {
         "id": "c",
-        "text": "Periodic manual audits of a sample of outgoing customer responses",
-        "why": ""
+        "text": "Send every draft to a second Claude call that reviews it and removes any account numbers it finds",
+        "why": "A second model pass lowers the miss rate but is still probabilistic, so it cannot guarantee zero leaks."
       },
       {
         "id": "d",
-        "text": "A deterministic post-processing filter that runs on every response before delivery, independent of model behavior",
-        "why": ""
+        "text": "Run a deterministic redaction filter in code on every reply before delivery, whatever the model produced",
+        "why": "Correct. Code that runs on every reply enforces the rule regardless of model behaviour, which is what 'no exceptions' demands."
       }
     ],
     "answer": [
       "d"
     ],
-    "explanation": "\"No exceptions permitted under any circumstance\" means the requirement demands a guarantee, and a guarantee requires a deterministic control that runs regardless of what the model decides. A prompt instruction, however detailed, is still a request the model tries to follow, not a guarantee, so option 0 fails on the same grounds as the junior engineer's original proposal. Higher reasoning effort can reduce error rates but never eliminates them, so it can't satisfy \"no exceptions.\" Sampled manual audits catch problems after some have already reached customers, which directly contradicts a zero-exception requirement.",
-    "cue": "",
+    "explanation": "'With no exceptions' turns this into a must-requirement, and only a deterministic control placed in the delivery path can guarantee it. The second-model reviewer is the most tempting distractor because it feels like defence in depth, but it can be wrong in the same way the first call can. Prompt and model layers may still help, as long as the code filter is the enforcement point.",
+    "cue": "with no exceptions",
     "pattern": "must-means-deterministic",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Structured outputs",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+      },
+      {
+        "label": "Define success criteria and build evaluations",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
   },
   {
     "id": "new-understanding-requirements-03",
     "objective": "understanding-requirements",
     "domain": 2,
-    "subskills": [],
+    "subskills": [
+      "ur.functional",
+      "ur.infrastructure"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A project brief for an HR tool reads: 'Claude should draft a personalized onboarding email for each new hire based on their role and start date.' The same brief adds that the tool must stay responsive with sub-second turnaround even when 200 new hires start on the same day. A requirements analyst is sorting these two statements into a functional requirements document and an infrastructure requirements document.",
+    "stem": "An HR tool brief says Claude should draft a personalised onboarding email from each new hire's role and start date. The same brief says the first token of each draft must appear within one second even when 200 hires start on the same day. How should an analyst classify these two statements?",
     "options": [
       {
         "id": "a",
-        "text": "Both statements belong in infrastructure requirements, since they both describe system behavior under real operating conditions",
-        "why": ""
+        "text": "Both are infrastructure requirements, because both describe how the system behaves under real operating conditions",
+        "why": "Drafting the email is the capability being built, so calling it infrastructure confuses what the system does with the envelope it runs in."
       },
       {
         "id": "b",
-        "text": "Both statements belong in functional requirements, since neither one names a specific vendor or region",
-        "why": ""
+        "text": "Both are functional requirements, because neither one names a vendor, a hosting region or a platform",
+        "why": "Infrastructure requirements are not defined by naming a vendor; a latency target under concurrent load is non-functional either way."
       },
       {
         "id": "c",
-        "text": "The email-drafting behavior is functional; the sub-second-at-200-concurrent-hires statement is infrastructure",
-        "why": ""
+        "text": "Drafting the email is functional; the one-second first token across 200 concurrent hires is infrastructure",
+        "why": "Correct. One statement describes behaviour, the other a latency and throughput envelope that shapes configuration, not features."
       },
       {
         "id": "d",
-        "text": "The latency statement is functional, since it directly shapes what the end user experiences",
-        "why": ""
+        "text": "The latency target is functional, because it directly shapes what the end user experiences in the tool",
+        "why": "Users feel latency, but it is still a quality attribute of how the feature performs rather than a capability of the feature."
       }
     ],
     "answer": [
       "c"
     ],
-    "explanation": "Functional requirements describe what the system does (draft a personalized email); infrastructure requirements describe the non-functional envelope it must operate within (a throughput and latency constraint under concurrent load). Calling both statements infrastructure ignores that drafting the email is itself the capability being built, not a constraint on it. Calling both functional, on the reasoning that neither names a vendor or region, misses that a capacity/performance ceiling is the textbook definition of an infrastructure requirement regardless of vendor mention. Labeling the latency statement functional conflates user-experienced quality with the feature itself \u2014 latency-under-load is a quality attribute, not a capability.",
-    "cue": "",
+    "explanation": "Functional requirements state what the system does; infrastructure requirements state the envelope it must do it within. The cue is a time budget under concurrent load, which is latency plus throughput. The tempting error is treating anything users notice as functional.",
+    "cue": "the first token of each draft must appear within one second even when 200 hires start on the same day",
+    "pattern": "scope-boundary",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Define success criteria and build evaluations",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
+      },
+      {
+        "label": "Reducing latency",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-latency"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "understanding-requirements-001",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [
+      "ur.business"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A general counsel asks for 'real-time contract risk scoring' on incoming supplier contracts. In discovery you learn the scores are only read at the legal team's Thursday review meeting, and nobody acts on a score between meetings. Which latency requirement should go into the specification?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Scores for each week's contracts must be ready before the Thursday review starts, with no interactive latency target",
+        "why": "Correct. The requirement comes from how the output is consumed, and the only consumer reads it once a week at a fixed time."
+      },
+      {
+        "id": "b",
+        "text": "Time to first token must stay under 500 milliseconds so that scores begin to appear as soon as a contract arrives",
+        "why": "This optimizes the sponsor's adjective; nobody is watching a screen when a contract arrives, so a streaming target buys nothing."
+      },
+      {
+        "id": "c",
+        "text": "End-to-end scoring must finish within two seconds at the 95th percentile for every contract that is uploaded",
+        "why": "A tight percentile target constrains tier and architecture choices to serve a waiting user who does not exist in this process."
+      },
+      {
+        "id": "d",
+        "text": "Scores must be pushed to the legal team's dashboard over a persistent connection the moment they are ready",
+        "why": "Push delivery solves a freshness problem the scenario does not have, adding moving parts for a weekly reader."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Stakeholder adjectives are not specifications; usage is. The cue is that scores are only read at a weekly meeting, so the real requirement is a deadline, not a latency budget. The distractors all turn 'real-time' into a number without asking who is waiting.",
+    "cue": "only read at the legal team's Thursday review meeting",
     "pattern": "buried-constraint",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Define success criteria and build evaluations",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
+      },
+      {
+        "label": "Reducing latency",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-latency"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "understanding-requirements-002",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [
+      "ur.infrastructure"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A benefits assistant returns accurate answers, but at the Monday peak about 15% of calls fail with 429 errors. Every request sends the same 80-page benefits handbook ahead of a short user question, and the usage chart shows input tokens per minute at the limit while requests per minute stay well below it. Which change most directly raises usable throughput?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Cache the repeated handbook prefix, since cached input reads do not count toward the input-token rate limit on most models",
+        "why": "Correct. Cache reads are excluded from ITPM on most current models, so a high hit rate multiplies effective input volume without a limit increase."
+      },
+      {
+        "id": "b",
+        "text": "Raise max_tokens on each request so that every answer completes in one call and users send fewer follow-up questions",
+        "why": "max_tokens caps output and does not factor into OTPM, and the binding limit here is input tokens, so it changes nothing."
+      },
+      {
+        "id": "c",
+        "text": "Increase the SDK retry count so that failed calls are retried several more times before the error is shown to users",
+        "why": "Retries help a transient burst, but the input budget is exhausted every peak, so extra retries mostly add load and delay."
+      },
+      {
+        "id": "d",
+        "text": "Move to the most capable model tier so each answer is more complete and users ask fewer clarifying follow-up questions",
+        "why": "The content is already fine; a larger tier does not shrink the repeated handbook tokens that are exhausting the input limit."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is the same large handbook sent ahead of every question while ITPM, not RPM, is the binding limit. Prompt caching turns that repeated prefix into cache reads, which do not count toward ITPM on most models. Retries are the tempting answer, but they treat a capacity problem as a transient one.",
+    "cue": "Every request sends the same 80-page benefits handbook ahead of a short user question",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Rate limits",
+        "url": "https://platform.claude.com/docs/en/api/rate-limits"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "understanding-requirements-003",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [
+      "ur.infrastructure",
+      "ur.architecture"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A law firm's discovery assistant lets associates question the same privileged case file across dozens of turns. The firm's contract with Anthropic is a zero data retention arrangement that no workload may step outside, and an engineer wants to avoid paying full price to resend the large file every turn. Which design fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Send the case file inline in each Messages request and put a prompt-caching breakpoint after it to cut repeat cost",
+        "why": "Correct. Inline Messages requests and prompt caching are ZDR-eligible, and caching cuts the cost of the repeated prefix."
+      },
+      {
+        "id": "b",
+        "text": "Upload the case file once through the Files API, reference its file ID each turn, and delete it when the matter closes",
+        "why": "The Files API stores files until they are deleted or expire, so it is not ZDR-eligible even with a cleanup step."
+      },
+      {
+        "id": "c",
+        "text": "Load the case file into a code execution container once so Claude can search it with code across many turns",
+        "why": "Code execution keeps container data for up to 30 days and is listed as not ZDR-eligible, which breaks the retention rule."
+      },
+      {
+        "id": "d",
+        "text": "Pre-process the case file into summaries with a Message Batches job and pass only those summaries into each turn",
+        "why": "Batch jobs are stored for asynchronous processing and are retained for 29 days, so they sit outside a ZDR arrangement."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding clause is that no workload may step outside zero data retention. Stateful features (Files, code execution containers, Batch) are documented as not ZDR-eligible because they must store data, while inline Messages requests and prompt caching are eligible. The Files API is the tempting choice because deleting the file feels like zero retention, but the file is still stored between turns. [Likely: eligibility lists drift, check the retention page.]",
+    "cue": "zero data retention arrangement that no workload may step outside",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "API and data retention",
+        "url": "https://platform.claude.com/docs/en/manage-claude/api-and-data-retention"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "understanding-requirements-004",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [
+      "ur.architecture"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An insurer wants Claude to help onboard new policyholders: read the uploaded ID document, check the name against a sanctions-screening API, and draft a welcome letter. Every applicant goes through the same three steps in the same order, and auditors must be able to trace which step produced each decision. Which architecture fits best?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A fixed workflow in code: Claude extracts the ID fields, code calls the screening API, then Claude drafts the letter",
+        "why": "Correct. A predefined code path matches a fixed sequence, guarantees the screening call happens, and leaves a step-by-step trace."
+      },
+      {
+        "id": "b",
+        "text": "An autonomous agent given ID, screening and letter tools that decides for itself which tool to call next",
+        "why": "Autonomy is useful when the path cannot be known in advance; here it adds variance and makes the audit trail harder to read."
+      },
+      {
+        "id": "c",
+        "text": "An orchestrator agent that delegates each applicant's three steps to separate subagents and merges the results",
+        "why": "Orchestration suits work that must be decomposed dynamically; a fixed three-step path gains cost and latency for no benefit."
+      },
+      {
+        "id": "d",
+        "text": "A single Claude call with the screening API exposed as a tool, prompted to run the three steps in order",
+        "why": "The model still decides whether and when to call the screening tool, so a mandatory step depends on a prompt rather than code."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is 'the same three steps in the same order': known steps mean a workflow, not an agent. Anthropic's guidance is to use the simplest system that works and reserve agents for open-ended problems where the steps cannot be predicted. The single call with a tool is the tempting distractor, but it leaves the mandatory sanctions check to the model's discretion.",
+    "cue": "Every applicant goes through the same three steps in the same order",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "understanding-requirements-005",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [
+      "ur.architecture",
+      "ur.functional"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A freight portal uses Claude to draft quote emails for customers. The surcharge in each quote must match the published rate table by weight band and zone to the cent, and the email must explain the charge in plain language. Where should the surcharge be computed?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Include the rate table in the system prompt and have Claude look up and state the surcharge while drafting",
+        "why": "Claude usually gets the lookup right, but 'to the cent, every quote' is a guarantee a model cannot give."
+      },
+      {
+        "id": "b",
+        "text": "In application code from the rate table, passing the computed amount to Claude to explain in the email",
+        "why": "Correct. Code applies the deterministic rule exactly; Claude does the language work it is suited for."
+      },
+      {
+        "id": "c",
+        "text": "In Claude's structured output, using a schema with minimum and maximum bounds on the surcharge field",
+        "why": "Numeric bounds are not supported in structured output schemas, and a value inside a range can still be the wrong amount."
+      },
+      {
+        "id": "d",
+        "text": "In a Claude call with extended reasoning enabled so it works through the table step by step before answering",
+        "why": "More reasoning lowers the error rate but does not make a lookup deterministic, so it cannot meet a must-match rule."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The cue is 'must match the published rate table ... to the cent', a deterministic business rule. A lookup belongs in code, with the model explaining a number it was given. The schema-bounds option is tempting, but structured outputs do not support numeric minimum and maximum, and a range check would not prove the amount right anyway.",
+    "cue": "must match the published rate table by weight band and zone to the cent",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Structured outputs",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+      },
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "understanding-requirements-006",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [
+      "ur.functional"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A product owner's requirement for a ticket triage feature reads 'Claude should categorize tickets accurately.' Before design starts, the team needs an acceptance criterion that a release pipeline can check automatically. Which rewrite provides one?",
+    "options": [
+      {
+        "id": "a",
+        "text": "At least 95% of 500 human-labelled tickets receive the labelled category, beating the current baseline",
+        "why": "Correct. It is specific, measurable on a named set and compared with a baseline, so code can grade it on every release."
+      },
+      {
+        "id": "b",
+        "text": "The system prompt tells Claude to categorize carefully, double-check its choice and avoid guessing",
+        "why": "This is an implementation choice, not a criterion; nothing in it can be measured as passed or failed by a pipeline."
+      },
+      {
+        "id": "c",
+        "text": "The feature runs on the most capable available model so that categorization quality is maximized",
+        "why": "A model choice is a design decision; it states no threshold, so nobody can tell whether the requirement is met."
+      },
+      {
+        "id": "d",
+        "text": "The product owner personally reviews twenty sample categorizations before launch and confirms they look right",
+        "why": "A one-off subjective review on a tiny sample cannot run in a pipeline and does not state what 'right' means."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Good success criteria are specific, measurable, achievable and relevant, and Anthropic's example replaces 'classify sentiments well' with an F1 target on a held-out set. The cue is that the pipeline must check it automatically, which needs a threshold on labelled data. The prompt and model options describe how to try, not how to verify.",
+    "cue": "an acceptance criterion that a release pipeline can check automatically",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Define success criteria and build evaluations",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "understanding-requirements-007",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [
+      "ur.functional"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Claude extracts fields from supplier invoices into JSON that a billing service ingests automatically. Many invoices have no purchase-order number, and the requirement says the system must never invent one, because the billing service sends any invoice without a PO to a manual queue. How should the po_number field be specified?",
+    "options": [
+      {
+        "id": "a",
+        "text": "As a required string field, with a prompt instruction to write N/A whenever the invoice shows no PO number",
+        "why": "A sentinel string is just another PO-shaped value to the billing service, and the instruction to use it is not enforced."
+      },
+      {
+        "id": "b",
+        "text": "As a required field typed string or null in a structured-output schema, with code routing null to the manual queue",
+        "why": "Correct. A nullable type gives the model a valid way to say 'absent', and code acts on null deterministically."
+      },
+      {
+        "id": "c",
+        "text": "As a required string field with a regex pattern for the PO format, so malformed or invented values fail validation",
+        "why": "A pattern checks shape, not truth; an invented number in the right format passes, and a forced string invites invention."
+      },
+      {
+        "id": "d",
+        "text": "As an optional field the model may omit, with the billing service treating a missing key as an extraction error",
+        "why": "This conflates a legitimate absent PO with a failed extraction, so valid invoices land in an error path instead of the queue."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The cue is 'must never invent one' combined with a downstream consumer. A required string field pressures the model to fill something in, while a nullable field in an enforced schema makes absence a first-class, machine-readable answer that code can route. The regex option is tempting, but format validation cannot detect a plausible fabricated number.",
+    "cue": "must never invent one",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Structured outputs",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+      },
+      {
+        "label": "Define success criteria and build evaluations",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "understanding-requirements-008",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [
+      "ur.infrastructure"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A retail chat assistant gives accurate answers, but full responses take about nine seconds to arrive. Session analytics show shoppers abandon the chat if no text appears within two seconds, and the accuracy eval must not regress. Which two changes address the requirement? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Stream the response so that text renders as tokens are generated instead of after the full reply",
+        "why": "Correct. Streaming cuts time to first visible text, which is exactly the abandonment threshold being measured."
+      },
+      {
+        "id": "b",
+        "text": "Test a faster model tier against the accuracy eval and switch to it if the eval still passes",
+        "why": "Correct. A faster tier lowers latency, and gating the switch on the eval respects the no-regression constraint."
+      },
+      {
+        "id": "c",
+        "text": "Raise the client timeout so that long responses are allowed to complete instead of failing",
+        "why": "Nothing is timing out; a longer timeout lets slow responses finish but shows the shopper nothing sooner."
+      },
+      {
+        "id": "d",
+        "text": "Move the requests to the Message Batches API so that they are processed on separate capacity",
+        "why": "Batch is asynchronous with results arriving later, the opposite of what a waiting shopper needs."
+      },
+      {
+        "id": "e",
+        "text": "Raise max_tokens so that long answers are never truncated before they reach the shopper",
+        "why": "Truncation is not the complaint, and allowing longer outputs can only make full responses slower."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is that shoppers leave if no text appears within two seconds, a time-to-first-token requirement with a person waiting. Streaming improves perceived responsiveness and a faster tier cuts latency, provided the accuracy eval still passes. The timeout option is tempting because the responses are slow, but it changes when a call fails, not when text appears.",
+    "cue": "abandon the chat if no text appears within two seconds",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Reducing latency",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-latency"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "understanding-requirements-009",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [
+      "ur.architecture",
+      "ur.business"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A telecom wants a Claude agent that can issue account credits to cut call-handling time. The business rules state that any credit above $200 requires a supervisor's approval before it is applied, and every credit decision must be reconstructable for quarterly audits. Which two design elements meet these requirements? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Code in the credit tool path that holds any credit above $200 in a supervisor queue until it is approved",
+        "why": "Correct. The threshold check runs outside the model, so the approval step happens whatever the agent decides."
+      },
+      {
+        "id": "b",
+        "text": "An append-only log of each credit tool call with its inputs, the decision taken and the approver's identity",
+        "why": "Correct. Recording every call and approval outside the model is what makes each decision reconstructable later."
+      },
+      {
+        "id": "c",
+        "text": "A system prompt rule telling the agent to ask a supervisor before issuing any credit above $200",
+        "why": "The agent will usually comply, but a prompt is a request, so the approval requirement is not enforced."
+      },
+      {
+        "id": "d",
+        "text": "A more capable model tier so the agent judges more reliably which credits need a supervisor",
+        "why": "Better judgement reduces mistakes but cannot guarantee a mandatory approval step for every qualifying credit."
+      },
+      {
+        "id": "e",
+        "text": "An instruction for the agent to explain its reasoning to the customer so each decision is documented",
+        "why": "Customer-facing explanations are not an audit record; they are unstructured, can be wrong and are not stored for review."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Both requirements are musts: approval before money moves, and decisions reconstructable later. Each needs an enforced component in code: a gate on the tool path and a durable log. The system prompt rule is the tempting distractor because it usually works, but a requirement phrased as 'requires' needs a control, not a request.",
+    "cue": "any credit above $200 requires a supervisor's approval before it is applied",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      },
+      {
+        "label": "Define success criteria and build evaluations",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "understanding-requirements-010",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [
+      "ur.business",
+      "ur.infrastructure"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A benefits-enrollment assistant was prototyped on the cheapest, fastest model tier, which the product team prefers for cost. Legal has since confirmed that inference must run only on US infrastructure, and the cheapest tier does not support the US-only inference setting on the platform the team uses. How should the team resolve the conflict?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Treat US-only inference as a hard filter, then choose the cheapest tier that supports it and still passes the eval",
+        "why": "Correct. Hard constraints remove options first; cost and speed preferences then rank the tiers that survive."
+      },
+      {
+        "id": "b",
+        "text": "Keep the cheapest tier and send its requests through an API gateway hosted in a US cloud region",
+        "why": "The gateway's location says nothing about where the model provider runs inference, so the requirement is not met."
+      },
+      {
+        "id": "c",
+        "text": "Keep the cheapest tier and set the workspace default geography to US so that every request from the app inherits that setting",
+        "why": "A workspace default cannot make a tier that lacks US-only support run there; the tier still cannot meet the rule."
+      },
+      {
+        "id": "d",
+        "text": "Keep the cheapest tier and record the residency gap as an accepted risk until the tier gains support",
+        "why": "Legal has stated a must; a confirmed legal requirement is not a risk the delivery team can choose to accept."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that legal says inference 'must run only on US infrastructure', a hard constraint that outranks the cost preference. Resolve conflicts by filtering on hard constraints and ranking on preferences, accepting the higher price if needed. The workspace-default option is tempting because it is a real enforcement lever, but it cannot add support to a model that lacks it. [Likely: per-model geo support drifts.]",
+    "cue": "inference must run only on US infrastructure",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Data residency",
+        "url": "https://platform.claude.com/docs/en/manage-claude/data-residency"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "understanding-requirements-011",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [
+      "ur.infrastructure"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Finance has approved a summarization feature with a ceiling of $3,000 a month and wants usage to stop rather than overrun if the ceiling is reached. The feature runs in its own workspace on the Claude API. Which control satisfies this requirement?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A spend limit on the feature's workspace, so requests return an error once that limit is reached",
+        "why": "Correct. A workspace spend limit is enforced by the platform, so usage stops at the ceiling instead of overrunning."
+      },
+      {
+        "id": "b",
+        "text": "A system prompt instruction asking Claude to keep every summary short so monthly spend stays low",
+        "why": "Shorter outputs lower the average cost, but nothing stops spending once the ceiling is crossed."
+      },
+      {
+        "id": "c",
+        "text": "A monthly cost report from the usage export, reviewed by finance at each month-end close",
+        "why": "A report is detective, not preventive; the overrun has already happened by the time anyone reads it."
+      },
+      {
+        "id": "d",
+        "text": "A lower max_tokens value on each request so that every individual summary costs less to make",
+        "why": "This caps the cost of one response, not the monthly total, which still grows with request volume."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is 'stop rather than overrun', which asks for an enforced ceiling. Workspace spend limits make requests fail once reached, so the requirement maps to configuration rather than to prompt or token tuning. Lowering max_tokens is tempting because it does reduce cost, but it bounds each call, not the month.",
+    "cue": "wants usage to stop rather than overrun",
+    "pattern": "must-means-deterministic",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Rate limits",
+        "url": "https://platform.claude.com/docs/en/api/rate-limits"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "understanding-requirements-012",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [
+      "ur.business"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A hospital operations director asks for an assistant that summarizes discharge notes and says only that it 'must be secure and compliant'. Before any design work, you need to turn that phrase into requirements an architect can act on. Which two clarifying questions do that most directly? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Which regulation governs these notes, and where may the data be processed?",
+        "why": "Correct. It names the regime and the residency limit, which decide endpoints, regions and eligible features."
+      },
+      {
+        "id": "b",
+        "text": "May the AI vendor store prompts or outputs, and if so for how long?",
+        "why": "Correct. The answer sets the retention requirement, which rules features in or out of the design."
+      },
+      {
+        "id": "c",
+        "text": "Which model tier does the director prefer for summarization quality?",
+        "why": "Tier preference is a quality and cost question; it does not decode what 'secure and compliant' requires."
+      },
+      {
+        "id": "d",
+        "text": "Should the system prompt remind Claude that the data is confidential?",
+        "why": "This jumps to a prompt-level tactic, which is not a requirement and cannot enforce any compliance rule."
+      },
+      {
+        "id": "e",
+        "text": "What reading level and tone should the discharge summaries use?",
+        "why": "Tone is a legitimate functional detail, but it says nothing about security or compliance obligations."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "'Secure and compliant' hides data-class, residency and retention requirements, and you decode an adjective by asking which regulation, which data and where it may go. Those answers decide regions, endpoints and which stateful features are allowed. The system-prompt question is tempting because it sounds security-minded, but it is a tactic, not a requirement.",
+    "cue": "must be secure and compliant",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "API and data retention",
+        "url": "https://platform.claude.com/docs/en/manage-claude/api-and-data-retention"
+      },
+      {
+        "label": "Data residency",
+        "url": "https://platform.claude.com/docs/en/manage-claude/data-residency"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
   }
 ]

@@ -87,5 +87,181 @@
     "sources": [],
     "author": "legacy",
     "status": "retired"
+  },
+  {
+    "id": "new-understanding-requirements-01",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A telehealth company routes post-visit session summaries through Claude for clinician review. A newly passed data protection law in the patient's home country prohibits any processing of health data outside that country's borders, even momentarily in transit. Which infrastructure requirement should the solution architecture satisfy?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Encrypt the session summary with a customer-managed key before it leaves the clinic's network",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Route the request through a regional API endpoint that guarantees in-country processing",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Shorten the retention window on stored session summaries to reduce exposure",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Increase the request timeout budget to accommodate cross-border network latency",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The constraint is where processing happens, not how long data is kept or how fast a response arrives. A regional endpoint pins inference to the required jurisdiction. Encryption protects confidentiality in transit but doesn't control the country in which the model actually runs, so it fails the residency requirement outright. Shortening retention addresses how long data is stored, a different requirement dimension than where it's processed. Increasing the timeout is a latency parameter with no bearing on jurisdiction.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicative of legacy-010 (same residency to regional endpoint concept); legacy-010 was repaired instead."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "legacy-011",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An enterprise requires every production model version change to be recorded, reviewed, and approved before release. Which framework does this requirement come from?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Agile, which mandates sprint review of all changes",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "ITIL-style service management, where change and release management govern production changes",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Waterfall, which requires phase gate sign-off",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "DevOps, which automates approvals away",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Change records, approval boards, and release management are service management concepts, and a model version change is a production change like any other. Agile and Waterfall describe how work is planned and delivered rather than how production change is governed.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicative of new-systems-life-cycle-02 (same ITIL change-management concept); its DevOps distractor was a strawman."
+    ],
+    "sources": [],
+    "author": "legacy",
+    "status": "retired"
+  },
+  {
+    "id": "new-cost-and-token-management-01",
+    "objective": "cost-and-token-management",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A real-time chat assistant carries a 40KB frozen system prompt and receives traffic all day. Every response must still return to the user immediately, so nothing in the pipeline can tolerate an asynchronous delay. The team wants to cut cost without breaking that latency requirement. Which change fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Route the requests through the Batch API for its 50% token discount",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Add a cache_control breakpoint after the frozen system prompt",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Downgrade the chat assistant to a cheaper model tier",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Cut max_tokens in half to shrink every response",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "A cache breakpoint after the stable, unchanging system prompt is the highest-return, lowest-risk lever here, and it doesn't touch response timing at all. The Batch API is wrong for a nameable reason beyond just being scored in Domain 2 API Mechanics rather than this objective: batch processing is inherently asynchronous and can't satisfy an 'answer must return immediately' constraint, so it fails the stem's own requirement regardless of its 50% discount. A model downgrade is the last lever in the optimization order, not the first, because it invalidates existing evals. Cutting max_tokens risks truncating legitimate responses and doesn't address the actual cost driver, which is the repeated 40KB prefix.",
+    "cue": "",
+    "pattern": "scope-boundary",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicates legacy-047 (cache a large stable prefix before downgrading); its batch-versus-realtime framing for a cost decision sits too close to published Sample 1. Rewritten coverage lives in legacy-047."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-context-engineering-02",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An agentic pipeline calls a search API that returns full HTML pages and a code-execution tool that returns entire stdout logs. Token spend and latency have grown steadily as the pipeline chains more tool calls per task, even though none of the pipeline's instructions have changed. Which change is most likely to produce the largest reduction in context consumed per task?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Switch to a model with a larger context window so the same payloads fit more comfortably",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Summarize the conversation history every five turns",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Filter and truncate the raw tool outputs to only the fields the next step actually needs, before they enter context",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Lower the sampling temperature so responses are shorter",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "Tool output pruning is usually the largest single source of bloat in agentic systems, and the stem points straight at it: growth tracks tool calls, not turn count. A larger window (A) tolerates the waste rather than eliminating it, and cost still scales with it. Summarizing history every five turns (B) is compaction, which targets accumulated turns, not the raw tool payloads the stem identifies as the actual bulk. Temperature (D) affects sampling randomness, not payload size, and isn't a reliable lever on output length.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicates legacy-049 (prune verbose tool output at the source); kept the clearer item and moved the remaining pruning coverage to context-engineering-008 and -009."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
   }
 ]
