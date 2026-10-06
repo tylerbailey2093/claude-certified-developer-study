@@ -398,7 +398,7 @@
       },
       {
         "id": "b",
-        "text": "Let the SDK retry the 400 with exponential backoff, since the agent loop is under heavier load",
+        "text": "Let the SDK retry the 400 with exponential backoff, since the agent loop is now running under much heavier load",
         "why": "A 400 describes the request itself, so the identical request fails identically; the SDK deliberately does not retry it."
       },
       {

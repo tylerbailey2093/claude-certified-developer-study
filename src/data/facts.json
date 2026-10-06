@@ -305,5 +305,29 @@
       "asOfGuideNote": "beta header predates the guide; unsupported on Haiku 4.5 and Sonnet 4.6; teach as low exam weight",
       "source": "https://platform.claude.com/docs/en/build-with-claude/task-budgets"
     }
-  ]
+  ],
+  "mcp": {
+    "examRevision": "2025-11-25",
+    "examRevisionNote": "initialize handshake (protocolVersion, capabilities, clientInfo) then notifications/initialized; teach as exam material",
+    "postGuideRevision": "2026-07-28",
+    "postGuideNote": "stateless: no initialize or Mcp-Session-Id, server/discover; Roots, Sampling, Logging deprecated",
+    "asOfGuide": false,
+    "authorization": "OPTIONAL in the spec; HTTP transports SHOULD use the OAuth 2.1-based flow; stdio takes credentials from the environment",
+    "sdks": {
+      "python": "mcp 2.x: MCPServer (FastMCP import removed)",
+      "typescript": "v2 split packages @modelcontextprotocol/server and /client; v1 @modelcontextprotocol/sdk maintained on v1.x"
+    },
+    "connectorBetas": [
+      {
+        "beta": "mcp-client-2025-11-20",
+        "asOfGuide": "unknown"
+      },
+      {
+        "beta": "mcp-client-2026-09-15",
+        "what": "tool-list pinning",
+        "asOfGuide": false
+      }
+    ],
+    "source": "https://github.com/modelcontextprotocol/modelcontextprotocol/tree/main/docs/specification"
+  }
 }

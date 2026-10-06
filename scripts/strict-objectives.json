@@ -9,9 +9,11 @@
   "cost-and-token-management",
   "debugging-and-error-handling",
   "llm-fundamentals",
+  "mcp-server-development",
   "model-selection-and-tradeoffs",
   "software-engineering-foundations",
   "systems-life-cycle",
   "technical-fundamentals",
+  "tool-implementation",
   "understanding-requirements"
 ]
