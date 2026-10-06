@@ -3,253 +3,983 @@
     "id": "legacy-029",
     "objective": "configuration-management",
     "domain": 2,
-    "subskills": [],
+    "subskills": [
+      "cfg.model-pinning"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A production service's output quality drops on a day with no deploy and no prompt change. The model is specified by an alias. What is the remediation?",
+    "stem": "A ticket-classification service on the Claude API began mislabelling refund requests last Tuesday. The team confirms that no code, prompt or configuration change shipped that week, and the model name is read from an environment variable set to a convenience alias. Which remediation addresses the cause?",
     "options": [
       {
         "id": "a",
-        "text": "Add post-processing to restore the previous output shape",
-        "why": ""
+        "text": "Add a post-processing step that remaps refund labels to the categories the service used to return",
+        "why": "Patches one symptom of a moving model; the next silent change will break different labels, and nothing stops the drift."
       },
       {
         "id": "b",
-        "text": "Pin an explicit dated model identifier and gate future upgrades on an eval re-run",
-        "why": ""
+        "text": "Replace the alias with a full model ID and require an eval run before any future change to that value",
+        "why": "Correct. Only a floating reference changes behaviour without a deploy; a full model ID cannot change meaning without a commit, and the eval gate makes the next upgrade deliberate."
       },
       {
         "id": "c",
-        "text": "Lower the temperature to stabilize the output",
-        "why": ""
+        "text": "Set temperature to 0 so the classifier returns the same label for the same ticket on every request",
+        "why": "Lower temperature reduces sampling variance within one model; it does nothing when the alias now resolves to a different model."
       },
       {
         "id": "d",
-        "text": "Move the alias into an environment variable",
-        "why": ""
+        "text": "Move the alias out of the environment variable into a reviewed, version-controlled configuration file",
+        "why": "Relocating the alias adds review to the string, but the value still resolves to whatever snapshot the alias points at today, so the drift continues."
       }
     ],
     "answer": [
       "b"
     ],
-    "explanation": "An unpinned alias lets the underlying model change without a deploy, matching quality shifting on a day nothing shipped. Moving the alias to an environment variable relocates the config without stopping the drift.",
-    "cue": "",
-    "pattern": "unclassified",
+    "explanation": "Behaviour changed with nothing shipped, so something resolved differently on its own: the alias. Pinning means changing the value to a full model ID and gating the next bump on evals. Moving the alias into a reviewed file is the tempting answer, but where a value is read from does not change what it resolves to.",
+    "cue": "no code, prompt or configuration change shipped",
+    "pattern": "buried-constraint",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Model IDs and versioning",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions"
+      },
+      {
+        "label": "Model configuration (Claude Code)",
+        "url": "https://code.claude.com/docs/en/model-config"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
   },
   {
     "id": "legacy-030",
     "objective": "configuration-management",
     "domain": 2,
-    "subskills": [],
+    "subskills": [
+      "cfg.settings-json"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "Which file should be committed so a team shares the same Claude Code permission rules and hooks?",
+    "stem": "A team lead writes permission rules that block `terraform apply` and registers a hook that formats files after each edit. The rules and hook need to reach every teammate's clone and the CI runner automatically, with no per-person setup. Which file should hold them?",
     "options": [
       {
         "id": "a",
-        "text": ".claude/settings.local.json",
-        "why": ""
+        "text": ".claude/settings.local.json in the repository, which Claude Code applies over the shared project file",
+        "why": "The local file is personal and kept out of git, so teammates and the CI runner never receive what is in it."
       },
       {
         "id": "b",
-        "text": ".claude/settings.json",
-        "why": ""
+        "text": ".claude/settings.json in the repository, committed and reviewed like any other project file",
+        "why": "Correct. The shared project settings file is committed, so every clone, including the CI runner's, receives the same permission rules and hooks."
       },
       {
         "id": "c",
-        "text": "A .env file in the repository root",
-        "why": ""
+        "text": "~/.claude/settings.json on the lead's machine, which applies across every project the lead opens",
+        "why": "User settings apply to one developer's machine across all projects; nobody else's clone or the runner sees them."
       },
       {
         "id": "d",
-        "text": "The user-level ~/.claude/settings.json",
-        "why": ""
+        "text": "The project CLAUDE.md, with the rules written as explicit instructions under a Permissions heading",
+        "why": "CLAUDE.md is context Claude reads; it cannot register a hook or enforce a permission rule, whoever receives it."
       }
     ],
     "answer": [
       "b"
     ],
-    "explanation": "Project settings.json is the shared, committed configuration. The .local.json variant is personal and gitignored, user-level settings apply to one developer, and secrets never belong in a committed file.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
+    "explanation": "The cue is 'every teammate's clone and the CI runner': only a committed file reaches all of them, and only settings files register permission rules and hooks. The local settings file is the tempting choice because it sits in the project folder, but it is gitignored and per-developer.",
+    "cue": "every teammate's clone and the CI runner",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
     "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Settings files and precedence",
+        "url": "https://code.claude.com/docs/en/settings"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
   },
   {
     "id": "legacy-031",
     "objective": "configuration-management",
     "domain": 2,
-    "subskills": [],
+    "subskills": [
+      "cfg.prompt-versioning"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "How should prompts be managed in a production Claude application?",
+    "stem": "A support team edits the production system prompt directly in an admin console so fixes go live within minutes. After one edit fixed a complaint about refund wording, escalations in two unrelated categories doubled, and nobody can say which wording was live when. Which practice should the team adopt?",
     "options": [
       {
         "id": "a",
-        "text": "Embedded as string literals near the code that uses them, for locality",
-        "why": ""
+        "text": "Keep prompts as files in source control, run the regression suite on each change, and deploy by version tag",
+        "why": "Correct. Versioned files give a history and a rollback target, and the regression suite catches breakage in other categories before a change ships."
       },
       {
         "id": "b",
-        "text": "Versioned in source control with review, tied to eval results, and rollback-capable",
-        "why": ""
+        "text": "Keep editing in the console but require a second person to test the reported complaint before saving",
+        "why": "A second reviewer of the one failing case still cannot see regressions elsewhere, and console edits leave no version to roll back to."
       },
       {
         "id": "c",
-        "text": "Stored in a database and edited directly in production for fast iteration",
-        "why": ""
+        "text": "Store each prompt in a database row with an updated_at column so changes apply without a deploy",
+        "why": "A timestamp records the latest edit, not reviewed versions, and editing without a deploy is exactly what removed the gate."
       },
       {
         "id": "d",
-        "text": "Regenerated by the model at deploy time to stay current",
-        "why": ""
+        "text": "Embed the prompt as a string literal beside the calling code so that it is reviewed whenever that code is changed",
+        "why": "Source control helps, but with no eval gate a reviewer judges the edit by reading it, and the regression in other categories still ships."
       }
     ],
     "answer": [
-      "b"
+      "a"
     ],
-    "explanation": "Prompts are code. Version them, review them, tie each version to eval results, and make rollback as fast as a code rollback. Editing directly in production removes the review and eval gate.",
-    "cue": "",
-    "pattern": "unclassified",
+    "explanation": "Two failures: no record of what was live, and no check for regressions beyond the reported case. Versioned prompt files fix the first and a regression suite run on every change fixes the second, while rollback becomes redeploying the previous tag. Peer-testing the failing example is the tempting fix, but it cannot reveal what else broke.",
+    "cue": "nobody can say which wording was live when",
+    "pattern": "wrong-place-mechanism",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Demystifying evals for AI agents",
+        "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents"
+      },
+      {
+        "label": "Define success criteria and build evaluations",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
   },
   {
     "id": "new-configuration-management-01",
     "objective": "configuration-management",
     "domain": 2,
-    "subskills": [],
+    "subskills": [
+      "cfg.plugin-deps"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A platform team distributes an internal plugin through a private marketplace. To signal a new release, they bump the version field in the marketplace catalog entry from 1.2.0 to 1.3.0, but forget that the plugin's own plugin.json manifest still declares version 1.2.0. Team members run the plugin update command afterward.",
+    "stem": "A platform team ships an internal plugin through a private marketplace and announces 1.3.0 by changing the version in the marketplace entry. The plugin's own plugin.json still declares 1.2.0 from the last release. After running the plugin update command, what do team members get?",
     "options": [
       {
         "id": "a",
-        "text": "Users receive version 1.3.0, because the marketplace entry takes precedence for signaling new releases",
-        "why": ""
+        "text": "Version 1.3.0, because the marketplace entry is the field users compare when checking for updates",
+        "why": "Backwards: Claude Code computes the version from plugin.json first and falls back to the marketplace entry only when the manifest omits it."
       },
       {
         "id": "b",
-        "text": "Claude Code throws a version-conflict error and blocks the update until the two files agree",
-        "why": ""
+        "text": "An install error that names both version strings and blocks the update until they are reconciled",
+        "why": "The mismatch is silent at update time; only the plugin validate command reports it, so nobody is blocked or warned."
       },
       {
         "id": "c",
-        "text": "Users keep the cached 1.2.0 build, because Claude Code resolves the version from plugin.json first, silently masking the marketplace entry's value",
-        "why": ""
+        "text": "Their cached 1.2.0 copy, because the version in plugin.json takes precedence and has not changed",
+        "why": "Correct. The computed version comes from plugin.json first; it still reads 1.2.0, matches what users have cached, so no new copy is fetched."
       },
       {
         "id": "d",
-        "text": "Claude Code merges the two version strings and installs whichever one is numerically higher",
-        "why": ""
+        "text": "Version 1.3.0 after a warning, because Claude Code installs whichever of the two versions is higher",
+        "why": "There is no compare-and-take-higher rule; one field wins outright, and it is the manifest rather than the catalog entry."
       }
     ],
     "answer": [
       "c"
     ],
-    "explanation": "Claude Code resolves a plugin's version from its own plugin.json manifest before consulting the marketplace catalog entry, and does so without warning, so a stale manifest version silently masks a version bump made only in the marketplace entry. Assuming the marketplace entry wins gets the precedence backwards. There is no conflict error raised when the two disagree; the mismatch is silent, which is exactly the danger the mechanism creates. There is no merge-and-take-higher behavior either — one field wins outright, and it isn't the marketplace entry.",
-    "cue": "",
-    "pattern": "buried-constraint",
-    "difficulty": 2,
+    "explanation": "The cue is the stale version in plugin.json. When both files set a version, plugin.json wins without warning, and users get a new copy only when the computed version changes. Set the version in one place and bump it each release; assuming the marketplace entry wins is the trap.",
+    "cue": "The plugin's own plugin.json still declares 1.2.0",
+    "pattern": "diagnosis",
+    "difficulty": 3,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Marketplace reference",
+        "url": "https://code.claude.com/docs/en/plugins/marketplace-reference"
+      },
+      {
+        "label": "Host and maintain a marketplace",
+        "url": "https://code.claude.com/docs/en/plugins/host-marketplace"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
   },
   {
     "id": "new-configuration-management-02",
     "objective": "configuration-management",
     "domain": 2,
-    "subskills": [],
+    "subskills": [
+      "cfg.model-pinning",
+      "cfg.prompt-versioning"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A model an application depends on moves from Active to Deprecated status. Anthropic names a recommended replacement and sets a retirement date roughly 90 days out. The on-call engineer's instinct is to switch the pinned model identifier in every environment, including production, the same day the deprecation notice arrives.",
+    "stem": "A model that the production app pins has just moved to Deprecated, with a named replacement and a retirement date about three months away. The on-call engineer proposes switching every environment, production included, to the replacement ID today. What should the team do instead?",
     "options": [
       {
         "id": "a",
-        "text": "Leave the deprecated model pinned everywhere until the retirement date, to avoid any risk of a behavior change before then",
-        "why": ""
+        "text": "Keep the deprecated ID everywhere until the retirement date so that no behaviour change happens early",
+        "why": "Waiting for the deadline forces an untested cutover with no time to fix a regression, and requests fail once the model is retired."
       },
       {
         "id": "b",
-        "text": "Switch every environment, including production, immediately, since deprecated models are already less reliable",
-        "why": ""
+        "text": "Switch every environment today, since deprecated models are less reliable than active models",
+        "why": "The reliability concern is real, but promoting an unevaluated model to production swaps one risk for an unmeasured behaviour change."
       },
       {
         "id": "c",
-        "text": "Remove the explicit model pin entirely and switch to an alias, so future deprecations are absorbed automatically",
-        "why": ""
+        "text": "Remove the pin and use an alias so that future deprecations are absorbed without any config change",
+        "why": "An alias moves on Anthropic's schedule rather than the team's, which brings back the silent drift that pinning exists to prevent."
       },
       {
         "id": "d",
-        "text": "Test the replacement model against the existing eval suite first, then roll the pin forward once results clear the bar, well before the retirement date",
-        "why": ""
+        "text": "Run the regression evals on the replacement now, then roll the pin forward once it passes, well before the date",
+        "why": "Correct. A deprecation turns the pin into a scheduled migration: evaluate the replacement, promote it through a reviewed change, and leave runway for a failed eval."
       }
     ],
     "answer": [
       "d"
     ],
-    "explanation": "Configuration-management discipline gates any pinned-model change on an eval re-run before promoting it to production, and does so with enough runway before a hard deadline to absorb a failed evaluation. Waiting until the retirement date risks a forced, untested cutover with no time to react if the replacement regresses. Switching immediately without running the eval suite reintroduces exactly the 'quality shifted with no controlled deploy' risk that pinning exists to prevent. Removing the pin in favor of an alias trades one drift problem for a worse one, since an alias updates on Anthropic's schedule rather than on a schedule the team controls.",
-    "cue": "",
-    "pattern": "must-means-deterministic",
+    "explanation": "A retirement date months away means there is time to do this properly: evaluate the replacement against the existing suite, then move the pin in a reviewed change before requests start failing. Switching today skips the eval gate, and swapping to an alias trades a scheduled migration for permanent drift.",
+    "cue": "a retirement date about three months away",
+    "pattern": "sequence",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Model deprecations",
+        "url": "https://platform.claude.com/docs/en/about-claude/model-deprecations"
+      },
+      {
+        "label": "Model IDs and versioning",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
   },
   {
     "id": "new-configuration-management-03",
     "objective": "configuration-management",
     "domain": 2,
-    "subskills": [],
+    "subskills": [
+      "cfg.settings-json",
+      "cfg.claude-md"
+    ],
     "type": "multi",
     "select": 2,
-    "stem": "A team lead wants two things guaranteed on every Claude Code invocation across the team, with no reliance on the model choosing to comply: a specific destructive shell command must always be blocked outright, and a formatter script must always run after every file edit. Select the two configuration mechanisms that actually guarantee this behavior regardless of what Claude decides.",
+    "stem": "A team lead needs two behaviours in every Claude Code session across the team, regardless of what Claude decides: `rm -rf` must never run, and a formatter must run after every file edit. The team's reviewed project CLAUDE.md already states both rules. Which two additions make both behaviours hold? Select two.",
     "options": [
       {
         "id": "a",
-        "text": "A CLAUDE.md instruction telling Claude never to run that command and to run the formatter after every edit",
-        "why": ""
+        "text": "Restate both rules in capitals at the top of the project CLAUDE.md so they cannot be missed",
+        "why": "Emphasis may improve adherence, but CLAUDE.md is context the model reads, not a control the client enforces."
       },
       {
         "id": "b",
-        "text": "A permissions.deny rule in the shared, committed project settings.json blocking the command",
-        "why": ""
+        "text": "A permissions.deny rule for the command in the committed .claude/settings.json",
+        "why": "Correct. Deny rules are enforced by Claude Code before a tool call runs, in every permission mode, whatever Claude intends."
       },
       {
         "id": "c",
-        "text": "A PostToolUse hook configured in settings.json that runs the formatter after every file edit",
-        "why": ""
+        "text": "A PostToolUse hook in the committed .claude/settings.json that runs the formatter after edit tools",
+        "why": "Correct. Hooks run in the harness on every matching event, so the formatter runs whether or not Claude remembers to."
       },
       {
         "id": "d",
-        "text": "A longer, more detailed instruction appended to every request asking Claude to follow both rules",
-        "why": ""
+        "text": "A skill named format-and-guard whose description tells Claude to apply both rules on every task",
+        "why": "A skill loads when Claude judges its description relevant, and its content is still instructions Claude may or may not follow."
+      },
+      {
+        "id": "e",
+        "text": "The same deny rule and hook placed in each developer's .claude/settings.local.json file",
+        "why": "The mechanisms are right but the file is personal and gitignored, so the guarantee depends on every person configuring it."
       }
     ],
     "answer": [
       "b",
       "c"
     ],
-    "explanation": "Permission rules and hooks configured in settings.json are enforced by the Claude Code client itself, independent of what the model decides to do on any given turn, which is exactly what 'guaranteed, no exceptions' requires. A CLAUDE.md instruction is delivered as context the model reads and tries to follow, not a control the client enforces, so however clearly it's worded it remains a request rather than a guarantee. Appending a longer instruction to every request has the identical failure mode as the CLAUDE.md option: rewording or relocating a plain-language instruction doesn't change the fact that it's advisory, not deterministic.",
-    "cue": "",
+    "explanation": "'Regardless of what Claude decides' rules out every layer the model reads: CLAUDE.md and skills are requests. A deny rule blocks the command and a PostToolUse hook runs the formatter, both enforced by the harness. Putting them in the local file uses the right mechanism in the wrong scope.",
+    "cue": "regardless of what Claude decides",
     "pattern": "must-means-deterministic",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Configure permissions",
+        "url": "https://code.claude.com/docs/en/permissions"
+      },
+      {
+        "label": "Hooks reference",
+        "url": "https://code.claude.com/docs/en/hooks"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "configuration-management-001",
+    "objective": "configuration-management",
+    "domain": 2,
+    "subskills": [
+      "cfg.claude-md"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Claude keeps running the test suite with plain `pytest`, but this repository needs `make test`, which starts a local database first. The correction should reach every teammate's sessions without anyone repeating it in their prompts. Where should it go?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A short, concrete line in the committed project CLAUDE.md: run `make test`, not bare pytest",
+        "why": "Correct. Build and test commands are standing facts every session needs, and the committed project file reaches every teammate."
+      },
+      {
+        "id": "b",
+        "text": "A line in the developer's own ~/.claude/CLAUDE.md naming `make test` as the test command",
+        "why": "The user file loads on one developer's machine for every project, so teammates never receive the correction."
+      },
+      {
+        "id": "c",
+        "text": "A PostToolUse hook that reruns any pytest call as `make test` after it has finished",
+        "why": "A PostToolUse hook fires after the wrong command already ran, and hooks enforce actions rather than teach Claude a project fact."
+      },
+      {
+        "id": "d",
+        "text": "An `env` entry in .claude/settings.json setting TEST_COMMAND to `make test` for every session",
+        "why": "The variable is set for the process, but nothing tells Claude to read it, so its choice of command does not change."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "A fact Claude should know in every session, for every teammate, belongs in the committed project CLAUDE.md, written concretely enough to verify. A hook is the tempting answer for 'keeps doing the wrong thing', but enforcement is for guarantees; here Claude simply lacks a fact.",
+    "cue": "reach every teammate's sessions",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How Claude remembers your project (CLAUDE.md)",
+        "url": "https://code.claude.com/docs/en/memory"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "configuration-management-002",
+    "objective": "configuration-management",
+    "domain": 2,
+    "subskills": [
+      "cfg.settings-json",
+      "cfg.claude-md"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A security team manages every developer laptop and wants two things in all repositories, including ones with no .claude folder: Claude must be unable to read `.env` files, and Claude should be reminded of the customer data-handling policy. Developers must not be able to switch either off. Which two configurations fit? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "A permissions.deny rule for reading .env files in managed settings deployed to every laptop",
+        "why": "Correct. Managed settings sit above every other scope and apply in every repository, and a deny rule is enforced whatever Claude decides."
+      },
+      {
+        "id": "b",
+        "text": "A managed CLAUDE.md, deployed by IT to every laptop, that states the data-handling policy",
+        "why": "Correct. Behavioural guidance belongs in CLAUDE.md, and the managed file loads for every user on the machine and cannot be excluded."
+      },
+      {
+        "id": "c",
+        "text": "A line in the managed CLAUDE.md telling Claude never to open or read .env files",
+        "why": "Right scope, wrong layer: a must-not needs an enforced control, and a CLAUDE.md line is guidance Claude usually follows."
+      },
+      {
+        "id": "d",
+        "text": "The deny rule and policy text committed to each repository's .claude/settings.json and CLAUDE.md",
+        "why": "Repositories without a .claude folder get nothing, and project files can be edited by the developers the policy has to bind."
+      },
+      {
+        "id": "e",
+        "text": "The deny rule added to each developer's ~/.claude/settings.json by an onboarding script",
+        "why": "User settings belong to the developer, who can edit or delete the rule at any time after onboarding."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Two different needs: 'must be unable' is enforcement, a deny rule, while the reminder is guidance, CLAUDE.md. 'All repositories' and 'cannot switch off' both point to the managed tier. Putting the .env rule in the managed CLAUDE.md picks the right scope but the advisory layer.",
+    "cue": "including ones with no .claude folder",
+    "pattern": "wrong-place-mechanism",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "How Claude remembers your project (CLAUDE.md)",
+        "url": "https://code.claude.com/docs/en/memory"
+      },
+      {
+        "label": "Settings files and precedence",
+        "url": "https://code.claude.com/docs/en/settings"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "configuration-management-003",
+    "objective": "configuration-management",
+    "domain": 2,
+    "subskills": [
+      "cfg.claude-md"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A monorepo's root CLAUDE.md has grown to 700 lines, most of it API-layer conventions and a 60-line release procedure, and adherence is slipping. A teammate proposes splitting it into topic files pulled in with @imports, which keeps the root file short. Which change would actually cut what every session loads?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Split the content into topic files referenced through @imports from the root CLAUDE.md",
+        "why": "Imports organise the file, but imported files expand into context at launch with it, so every session still pays for all 700 lines."
+      },
+      {
+        "id": "b",
+        "text": "Move the API conventions into a path-scoped rule and the release procedure into a skill",
+        "why": "Correct. A path-scoped rule loads only when Claude touches matching files and a skill body loads only when invoked, so neither costs context in unrelated sessions."
+      },
+      {
+        "id": "c",
+        "text": "Move the API conventions and procedure into CLAUDE.local.md so the shared file stays short",
+        "why": "CLAUDE.local.md loads at launch alongside the project file, so nothing is saved, and the content stops reaching teammates."
+      },
+      {
+        "id": "d",
+        "text": "Move the content into each developer's ~/.claude/CLAUDE.md and delete it from the repository",
+        "why": "The user file still loads in every session, now in every project too, and the team loses its reviewed copy."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The cue is what the content is: guidance for one part of the tree and a multi-step procedure. Those belong in a path-scoped rule and a skill, which load on demand. @imports are the tempting answer because the root file shrinks, but imported files load at launch, so the context cost is unchanged.",
+    "cue": "most of it API-layer conventions and a 60-line release procedure",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How Claude remembers your project (CLAUDE.md)",
+        "url": "https://code.claude.com/docs/en/memory"
+      },
+      {
+        "label": "Extend Claude with skills",
+        "url": "https://code.claude.com/docs/en/skills"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "configuration-management-004",
+    "objective": "configuration-management",
+    "domain": 2,
+    "subskills": [
+      "cfg.settings-json"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A lead added a deny rule for `git push --force` and confirmed that Claude Code blocks it on her laptop. A week later a teammate's session force-pushed and the CI job can run the command too, yet git history shows no commit touching .claude/ since the rule was written. What is the most likely explanation?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The rule was saved to .claude/settings.local.json, which is personal and kept out of git",
+        "why": "Correct. The rule works only where that file exists, and the local file is excluded from commits, which matches a working laptop and an unchanged repository."
+      },
+      {
+        "id": "b",
+        "text": "The teammate's user settings contain an allow rule for git push, which overrides the project deny",
+        "why": "Deny is evaluated before allow across every scope, so an allow anywhere cannot carve an exception out of a deny."
+      },
+      {
+        "id": "c",
+        "text": "Deny rules apply only after the workspace trust dialog is accepted, which CI never shows",
+        "why": "Trust gating applies to allow rules and added directories in project settings; deny and ask rules apply at once because they only restrict."
+      },
+      {
+        "id": "d",
+        "text": "The CI job runs in bypassPermissions mode, which skips deny rules along with every prompt",
+        "why": "Deny rules block in every mode, including bypassPermissions, and this would not explain the teammate's interactive session anyway."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "A rule that works on one machine while the repository shows no change was never committed: the local settings file holds personal overrides and approvals and stays out of git. The allow-overrides-deny distractor fails because deny rules are evaluated first, whatever scope they come from.",
+    "cue": "no commit touching .claude/ since the rule was written",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Settings files and precedence",
+        "url": "https://code.claude.com/docs/en/settings"
+      },
+      {
+        "label": "Configure permissions",
+        "url": "https://code.claude.com/docs/en/permissions"
+      },
+      {
+        "label": "Choose a permission mode",
+        "url": "https://code.claude.com/docs/en/permission-modes"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "configuration-management-005",
+    "objective": "configuration-management",
+    "domain": 2,
+    "subskills": [
+      "cfg.settings-json"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A developer's ~/.claude/settings.json denies `Bash(npm publish *)`. The team's committed .claude/settings.json, which sits above user settings in precedence, allows the narrower `Bash(npm publish --dry-run)` so Claude can check packaging. What happens when Claude runs the dry-run command in that developer's session?",
+    "options": [
+      {
+        "id": "a",
+        "text": "It runs, because the shared project file outranks user settings and its allow rule applies",
+        "why": "Precedence decides which scalar value wins, but permission rules from every level merge, and deny is checked first."
+      },
+      {
+        "id": "b",
+        "text": "It runs, because the narrower allow rule is more specific than the broad deny pattern",
+        "why": "Specificity does not reorder evaluation; a broad deny blocks every matching call, including one a narrower allow names."
+      },
+      {
+        "id": "c",
+        "text": "It is blocked, because deny rules are evaluated before allow rules whatever file they come from",
+        "why": "Correct. Rules are checked deny, then ask, then allow, and the first match wins, so the user-level deny blocks the call."
+      },
+      {
+        "id": "d",
+        "text": "Claude Code prompts the developer, because rules from different scopes conflict on this command",
+        "why": "There is no conflict-resolution prompt; a matching deny decides the call before ask or allow rules are consulted."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "Two tempting ideas fail here: that a higher-precedence file wins, and that a more specific rule wins. Permission lists merge across scopes and are evaluated deny, then ask, then allow, first match wins, so the user-level deny blocks the dry run. To permit it, the developer must narrow their own deny rule.",
+    "cue": "denies `Bash(npm publish *)`",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Configure permissions",
+        "url": "https://code.claude.com/docs/en/permissions"
+      },
+      {
+        "label": "Settings files and precedence",
+        "url": "https://code.claude.com/docs/en/settings"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "configuration-management-006",
+    "objective": "configuration-management",
+    "domain": 2,
+    "subskills": [
+      "cfg.model-pinning"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Developers run Claude Code against the Anthropic API, while the CI agent runs it through Amazon Bedrock, and both read `sonnet` as the model from the shared settings. Refactors that passed review in development behave differently in CI, and the team wants both environments on the exact version it evaluated. What should they change?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Bind the sonnet alias to each provider's full model ID through the alias variable in that environment's settings",
+        "why": "Correct. Aliases resolve per provider and change over time; binding the alias to a full, provider-specific ID makes each environment run the evaluated version."
+      },
+      {
+        "id": "b",
+        "text": "Move the `sonnet` setting into managed settings so that no environment can override the alias",
+        "why": "Raising the scope does not change the value: the alias still resolves to whatever each provider maps it to."
+      },
+      {
+        "id": "c",
+        "text": "Switch both environments to the `opus` alias, which follows the newest release on every provider",
+        "why": "Every Claude Code alias resolves per provider and updates over time, so changing the family keeps the same drift."
+      },
+      {
+        "id": "d",
+        "text": "Use the Anthropic API's model ID string unchanged as the model setting in the Bedrock environment",
+        "why": "Bedrock uses its own ID format with a provider prefix, so a pin is per provider; the API string is not a Bedrock model ID."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Same alias, two providers: the cue is Bedrock. A Claude Code alias points to the recommended version for the provider and moves over time, so the fix is a full model ID in each provider's format, set where that environment reads it. Moving the alias to managed settings is the tempting answer but pins nothing.",
+    "cue": "runs it through Amazon Bedrock",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Model configuration (Claude Code)",
+        "url": "https://code.claude.com/docs/en/model-config"
+      },
+      {
+        "label": "Model IDs and versioning",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "configuration-management-007",
+    "objective": "configuration-management",
+    "domain": 2,
+    "subskills": [
+      "cfg.model-pinning"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A platform team is auditing a repository for model references that could start pointing at a different model without anyone committing a change. They want the list short and accurate, so pinned references must stay off it. Which two references belong on the list? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "`\"model\": \"sonnet\"` in the committed .claude/settings.json",
+        "why": "Correct. A Claude Code alias points to the recommended version for the provider and updates over time."
+      },
+      {
+        "id": "b",
+        "text": "`claude-sonnet-4-5` passed as the model in application code calling the Claude API",
+        "why": "Correct. Before the 4.6 generation, this dateless form is a convenience alias that resolves to the latest dated snapshot of that minor version."
+      },
+      {
+        "id": "c",
+        "text": "`claude-sonnet-5-5` passed as the model in application code calling the Claude API",
+        "why": "From the 4.6 generation on, the dateless ID is the snapshot itself, and updates ship under a new ID."
+      },
+      {
+        "id": "d",
+        "text": "`claude-haiku-4-5-20251001` passed as the model in a ticket-scoring script",
+        "why": "A dated pre-4.6 ID names one fixed snapshot, so its meaning cannot change without a commit."
+      },
+      {
+        "id": "e",
+        "text": "`model: claude-opus-4-6` in the frontmatter of a project subagent definition",
+        "why": "A 4.6-generation ID is a pinned snapshot wherever it appears, including subagent frontmatter."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is 'without anyone committing a change': only floating references qualify. Claude Code aliases and pre-4.6 API aliases float; dateless IDs from the 4.6 generation on are pinned snapshots, which is the misconception this item targets.",
+    "cue": "without anyone committing a change",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Model IDs and versioning",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions"
+      },
+      {
+        "label": "Model configuration (Claude Code)",
+        "url": "https://code.claude.com/docs/en/model-config"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "configuration-management-008",
+    "objective": "configuration-management",
+    "domain": 2,
+    "subskills": [
+      "cfg.model-pinning"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An extraction service pins a full model ID, its prompt and tool definitions are unchanged, and its regression suite still passes. The on-call engineer notices a slight shift in phrasing in this week's production outputs and suspects the model was silently updated behind the ID. What is the best assessment?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The weights behind the ID were updated, so the team should move to the newest model ID to regain stability",
+        "why": "Weights for a model ID are fixed and Anthropic ships updates under a new ID, so moving would introduce a real model change."
+      },
+      {
+        "id": "b",
+        "text": "The weights are fixed for that ID; serving infrastructure can shift behaviour slightly, so keep the pin and monitor",
+        "why": "Correct. The versioning docs name router, safety classifier and sampling changes as the likely cause of small shifts on a stable ID; evals and monitoring are the response."
+      },
+      {
+        "id": "c",
+        "text": "A full model ID silently becomes an alias once a newer model in the same family is released",
+        "why": "Model IDs never turn into aliases; only the convenience aliases for pre-4.6 models float, and this service does not use one."
+      },
+      {
+        "id": "d",
+        "text": "Prompt caching is serving responses generated by an older model, so the cache should be disabled",
+        "why": "Caching stores prompt prefixes, not responses, and a cache entry belongs to one model, so it cannot replay older outputs."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Pinning removes model drift, not every source of variance: the weights behind a model ID never change, but serving infrastructure around it can. With the suite still passing, the right response is to keep the pin and keep monitoring. Chasing a newer ID is the tempting answer and would introduce a real model change.",
+    "cue": "pins a full model ID",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Model IDs and versioning",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "configuration-management-009",
+    "objective": "configuration-management",
+    "domain": 2,
+    "subskills": [
+      "cfg.prompt-versioning"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A legal team asks which system prompt produced a disputed answer from three weeks ago, and the product owner wants any bad prompt release reversible in minutes. Prompts currently live in a shared document that engineers paste into a config service. Which two practices meet both requests? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Log a prompt identifier with its version, plus the model ID, on every request the application sends",
+        "why": "Correct. Per-call provenance lets anyone trace an output to the exact prompt and model that produced it."
+      },
+      {
+        "id": "b",
+        "text": "Keep prompts as versioned files in the repository and deploy by tag, so rollback redeploys the prior tag",
+        "why": "Correct. A tagged release makes rollback a normal deploy of a known-good version, as fast as a code rollback."
+      },
+      {
+        "id": "c",
+        "text": "Set temperature to 0 so that any past answer can be regenerated exactly from today's prompt",
+        "why": "Outputs are not guaranteed identical even at temperature 0, and today's prompt may not be the one live three weeks ago."
+      },
+      {
+        "id": "d",
+        "text": "Keep the shared document but add a changelog section where editors note the date of each change",
+        "why": "A hand-kept changelog is tied neither to requests nor to a deploy, so tracing and rollback stay unreliable."
+      },
+      {
+        "id": "e",
+        "text": "Ask the model to state its prompt version at the start of every response so transcripts capture it",
+        "why": "The model can misreport or omit it; provenance should come from the code that sent the request, not from the output."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Tracing needs provenance recorded by code on every call; fast rollback needs prompts released as versioned artifacts. The changelog is the tempting half-measure: it documents edits but connects them neither to requests nor to a deploy.",
+    "cue": "which system prompt produced a disputed answer",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Demystifying evals for AI agents",
+        "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents"
+      },
+      {
+        "label": "Define success criteria and build evaluations",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "configuration-management-010",
+    "objective": "configuration-management",
+    "domain": 2,
+    "subskills": [
+      "cfg.prompt-versioning"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team versions its system prompt by tag and gates each prompt change on a regression suite. An engineer edits only a tool's description to stop one mis-routed call and ships it without a new tag, since the prompt file is untouched, and other routing cases regress. What should change in the release process?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Treat tool definitions as part of the versioned release, so any change bumps the version and runs the suite",
+        "why": "Correct. The evaluated unit is the whole tuple of prompt, model ID, tool definitions and schema; changing any part invalidates the last eval."
+      },
+      {
+        "id": "b",
+        "text": "Exempt tool descriptions from review, since the model reads them as metadata rather than instructions",
+        "why": "Tool descriptions are text Claude reads to decide which tool to call, so editing them changes behaviour like any prompt edit."
+      },
+      {
+        "id": "c",
+        "text": "Move the tool description text into the system prompt so that the existing prompt tag covers it",
+        "why": "Relocating text to fit the current process distorts the design; the fix is to version everything that shapes behaviour."
+      },
+      {
+        "id": "d",
+        "text": "Re-run only the mis-routed case after each tool change, since the full suite already covers the prompt file",
+        "why": "Testing only the reported case is how this regression shipped; one fix commonly breaks cases the full suite would catch."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that only a tool description changed. An eval result describes the whole release tuple, so tool definitions, schemas and the model ID are versioned and gated like the prompt. Re-running just the fixed case is the tempting shortcut and is exactly how the regression escaped.",
+    "cue": "edits only a tool's description",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Demystifying evals for AI agents",
+        "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents"
+      },
+      {
+        "label": "Define success criteria and build evaluations",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "configuration-management-011",
+    "objective": "configuration-management",
+    "domain": 2,
+    "subskills": [
+      "cfg.plugin-deps"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A platform team lists a deploy plugin in its internal marketplace with a git source that names `ref: main`. An auditor requires every engineer's install to be reproducible from the marketplace file alone, even if branches or tags move later. What should the plugin source specify?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A release tag in `ref`, such as v2.4.0, in place of the main branch",
+        "why": "A tag is steadier than a branch but can be moved or deleted upstream, so a ref alone is not an immutable pin."
+      },
+      {
+        "id": "b",
+        "text": "A full 40-character commit `sha`, which Claude Code checks out even if `ref` is also set",
+        "why": "Correct. A commit SHA is immutable, and when both fields are set Claude Code checks out the sha, so every install gets the same code."
+      },
+      {
+        "id": "c",
+        "text": "A bumped `version` in the marketplace entry each time the main branch changes",
+        "why": "The version string controls when users update, not which commit they fetch; the source still follows a moving branch."
+      },
+      {
+        "id": "d",
+        "text": "`ref: main` plus a README note asking engineers to update the plugin only after a security review",
+        "why": "A README request is advisory and does nothing to stop the branch moving under every new install."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Reproducible means immutable: a full commit SHA is the only reference here that cannot move, and Claude Code prefers it over ref when both are set. A tag is the tempting answer, but the stem rules it out by requiring reproducibility even if tags move.",
+    "cue": "reproducible from the marketplace file alone",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Marketplace reference",
+        "url": "https://code.claude.com/docs/en/plugins/marketplace-reference"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "configuration-management-012",
+    "objective": "configuration-management",
+    "domain": 2,
+    "subskills": [
+      "cfg.plugin-deps"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team's review plugin calls an MCP tool provided by another plugin, which its plugin.json lists as a dependency by bare name. Last week the upstream plugin renamed that tool in a new major release, and the review plugin broke for everyone who updated. Which change prevents a repeat?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Declare the dependency with a semantic-version range the team has tested, such as `^2.0`",
+        "why": "Correct. A range keeps the dependency on compatible releases; a new major version is excluded until the team tests it and widens the range."
+      },
+      {
+        "id": "b",
+        "text": "Pin the review plugin's own `version` in plugin.json so updates to it are explicit",
+        "why": "That controls when users receive the review plugin itself, not which version of its dependency resolves."
+      },
+      {
+        "id": "c",
+        "text": "Turn off marketplace auto-update and tell engineers to update their plugins only on Fridays",
+        "why": "Scheduling updates changes when the break lands, not whether it lands; the bare name still tracks every release."
+      },
+      {
+        "id": "d",
+        "text": "Add the upstream plugin's marketplace to the cross-marketplace dependency allowlist",
+        "why": "That allowlist decides whether a dependency from another marketplace may install at all; it does not constrain versions."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "A bare-name dependency tracks whatever its marketplace publishes, so an upstream rename breaks every user on their next update. A tested semver range resolves only to compatible tagged releases. Pinning the plugin's own version is the tempting answer but controls the wrong package.",
+    "cue": "lists as a dependency by bare name",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Plugin dependencies",
+        "url": "https://code.claude.com/docs/en/plugins/dependencies"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
   }
 ]

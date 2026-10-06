@@ -3,210 +3,830 @@
     "id": "legacy-032",
     "objective": "claude-code-operation",
     "domain": 3,
-    "subskills": [],
+    "subskills": [
+      "cc.headless",
+      "cc.streaming"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A CI pipeline needs Claude Code to run non-interactively and return machine-parseable results. Which configuration applies?",
+    "stem": "A CI step runs Claude Code non-interactively to triage failing tests. The build log must show each tool call while Claude is still working, and the step must then read the run's final cost and session ID from the output. Which invocation fits?",
     "options": [
       {
         "id": "a",
-        "text": "Interactive mode with auto-approval enabled",
-        "why": ""
+        "text": "`claude -p` with `--output-format stream-json --verbose`, reading events line by line until the result",
+        "why": "Correct. stream-json emits one JSON event per line as the run progresses and ends with a result event carrying cost and session ID."
       },
       {
         "id": "b",
-        "text": "Headless mode with a JSON output format",
-        "why": ""
+        "text": "`claude -p` with `--output-format json`, parsing the single object it prints when the run ends",
+        "why": "The json format carries cost and session ID, but only as one object after the run finishes, so the log shows nothing while Claude works."
       },
       {
         "id": "c",
-        "text": "Streaming mode with verbose output",
-        "why": ""
+        "text": "`claude -p` with the default text output format, piped through `tee` into the build log",
+        "why": "Text output prints only the final response, with no tool-call events and no cost or session metadata to parse."
       },
       {
         "id": "d",
-        "text": "A custom slash command invoked at build time",
-        "why": ""
+        "text": "An interactive `claude` session started inside the CI container with the `--verbose` flag",
+        "why": "Interactive mode waits for a person at the terminal, which a CI step cannot provide; non-interactive runs use -p."
       }
     ],
     "answer": [
-      "b"
+      "a"
     ],
-    "explanation": "Headless mode is the non-interactive execution path for CI and scripting, and a JSON output format makes results parseable. Interactive and streaming modes both assume a human is present.",
-    "cue": "",
-    "pattern": "unclassified",
+    "explanation": "Two needs: live progress and parseable metadata at the end. stream-json gives both, an event per line and a final result event. Plain json is the tempting choice because it carries cost and session ID, but it prints only once the run is over.",
+    "cue": "show each tool call while Claude is still working",
+    "pattern": "buried-constraint",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Run Claude Code programmatically (headless)",
+        "url": "https://code.claude.com/docs/en/headless"
+      },
+      {
+        "label": "CLI reference",
+        "url": "https://code.claude.com/docs/en/cli-reference"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
   },
   {
     "id": "legacy-033",
     "objective": "claude-code-operation",
     "domain": 3,
-    "subskills": [],
+    "subskills": [
+      "cc.skills",
+      "cc.commands"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A Skill written to check brand voice in draft articles keeps firing on unrelated JSON config edits. What is the fix?",
+    "stem": "A team converted its brand-voice command file into a skill so Claude could apply it automatically to draft articles. Since the move it also fires when Claude edits JSON config files, and its frontmatter description reads 'Helps with writing and files'. What is the fix?",
     "options": [
       {
         "id": "a",
-        "text": "Move the Skill from the project directory to the user directory",
-        "why": ""
+        "text": "Move the skill from .claude/skills/ into ~/.claude/skills/ so it loads only for its author",
+        "why": "Location changes who has the skill, not when it triggers; the vague description still matches unrelated tasks."
       },
       {
         "id": "b",
-        "text": "Rewrite the description to state precisely which files and situations it applies to",
-        "why": ""
+        "text": "Rewrite the description to say it checks brand voice in draft articles, and when to use it",
+        "why": "Correct. Claude decides whether to load a skill by matching the task against its description, so a precise description fixes the trigger."
       },
       {
         "id": "c",
-        "text": "Convert the Skill into a hook so it only runs on demand",
-        "why": ""
+        "text": "Convert it back into a command file so that it runs only when someone types its name",
+        "why": "That stops the misfires but gives up the automatic use on drafts that the team converted it to get."
       },
       {
         "id": "d",
-        "text": "Reduce the length of the Skill's instructions",
-        "why": ""
+        "text": "Shorten the SKILL.md body so less of it is in context when Claude decides whether to use it",
+        "why": "Only the name and description are in context before invocation, so body length does not affect matching."
       }
     ],
     "answer": [
       "b"
     ],
-    "explanation": "Claude decides whether to load a Skill by reading its description, so the description functions as the trigger and should be written like a search query. Broad wording matches everything. Location doesn't affect matching, and body length is irrelevant since progressive disclosure keeps it out of context until the Skill fires.",
-    "cue": "",
-    "pattern": "unclassified",
+    "explanation": "A skill's description works like a search query: 'writing and files' matches nearly any edit. Rewriting it to say what the skill does and when to use it fixes the trigger while keeping automatic use on drafts. Reverting to a command stops the misfires but abandons the behaviour the team wanted.",
+    "cue": "its frontmatter description reads 'Helps with writing and files'",
+    "pattern": "diagnosis",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Extend Claude with skills",
+        "url": "https://code.claude.com/docs/en/skills"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
   },
   {
     "id": "legacy-034",
     "objective": "claude-code-operation",
     "domain": 3,
-    "subskills": [],
+    "subskills": [
+      "cc.hierarchy",
+      "cc.rules"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "CLAUDE.md files exist at the user level and in a project directory with different instructions. What happens?",
+    "stem": "A developer's ~/.claude/CLAUDE.md says to indent with tabs, while the repository's committed CLAUDE.md says to use two spaces. Claude's output alternates between the two from session to session. What explains this, and what is the fix?",
     "options": [
       {
         "id": "a",
-        "text": "Only the user-level file is used",
-        "why": ""
+        "text": "Both files are loaded together, so Claude may follow either; remove the conflict from one of them",
+        "why": "Correct. CLAUDE.md files are concatenated into context, not overridden, so a direct conflict leaves Claude to pick; the fix is consistency."
       },
       {
         "id": "b",
-        "text": "They are merged, with the more specific project-level context layering onto the broader level",
-        "why": ""
+        "text": "The project file overrides the user file, so the alternation must come from a stale resumed session",
+        "why": "No file replaces another; both are in context, and the alternation is the expected symptom of the conflict itself."
       },
       {
         "id": "c",
-        "text": "The session fails until the conflict is resolved",
-        "why": ""
+        "text": "The user file overrides the project file, so the team should restate the rule in capitals in the project file",
+        "why": "Neither file overrides the other, and louder wording leaves the contradiction in place for Claude to resolve each time."
       },
       {
         "id": "d",
-        "text": "Only the file in the current working directory is used",
-        "why": ""
+        "text": "Only the file in the launch directory loads, so the result depends on where Claude Code was started",
+        "why": "Claude Code loads the user file and every CLAUDE.md from the launch directory up to the root, not just one."
       }
     ],
     "answer": [
-      "b"
+      "a"
     ],
-    "explanation": "CLAUDE.md is hierarchical across enterprise, user, project, and subdirectory levels, and the levels merge with more specific context layering on. This is why shared project rules belong in the committed project file.",
-    "cue": "",
-    "pattern": "unclassified",
+    "explanation": "The cue is the alternation: it only happens when both instructions are in context. Claude Code concatenates every discovered CLAUDE.md, broadest first, rather than letting one override another, so the fix is removing the contradiction. Options built on 'X overrides Y' get the loading model wrong.",
+    "cue": "Claude's output alternates between the two",
+    "pattern": "buried-constraint",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "How Claude remembers your project (CLAUDE.md)",
+        "url": "https://code.claude.com/docs/en/memory"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
   },
   {
     "id": "new-claude-code-operation-01",
     "objective": "claude-code-operation",
     "domain": 3,
-    "subskills": [],
+    "subskills": [
+      "cc.rules",
+      "cc.settings"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A team wants every change touching src/payments/ to run a compliance script before a commit can happen, with no path for the agent to skip the step even if it judges the script unnecessary. Where should this rule live?",
+    "stem": "A team requires a compliance script to run before any commit that touches src/payments/, and no session may skip it, even when Claude judges the script unnecessary. The team already has a path-scoped rule describing the requirement. What should they add?",
     "options": [
       {
         "id": "a",
-        "text": "A .claude/rules/payments.md file scoped to that path with paths frontmatter",
-        "why": ""
+        "text": "A PreToolUse hook in .claude/settings.json that matches the commit command and runs the script first",
+        "why": "Correct. A hook runs in the harness on every matching tool call and can block the commit by exiting with code 2, whatever Claude decides."
       },
       {
         "id": "b",
-        "text": "A PreToolUse hook in settings.json that matches the commit command and runs the script first",
-        "why": ""
+        "text": "A second copy of the requirement in the root CLAUDE.md so it is in context in every session",
+        "why": "More copies of the instruction raise the odds Claude follows it, but they remain context rather than a guarantee."
       },
       {
         "id": "c",
-        "text": "A Skill named payments-compliance with a description telling Claude when to run it",
-        "why": ""
+        "text": "A payments-compliance skill whose description tells Claude to run the script before committing",
+        "why": "A skill loads when Claude judges the task matches its description, so running the script is still Claude's choice."
       },
       {
         "id": "d",
-        "text": "A line in the project CLAUDE.md stating the compliance script must always run first",
-        "why": ""
+        "text": "A custom /commit-payments command that runs the script and then commits, documented in the team wiki",
+        "why": "A command runs only when someone types it, so a session that commits another way skips the script."
       }
     ],
     "answer": [
-      "b"
+      "a"
     ],
-    "explanation": "A hook bound to a lifecycle event like PreToolUse is the only mechanism here that is code, not context — it runs regardless of what Claude decides. A path-scoped rule and a CLAUDE.md instruction are both context Claude reads and can deviate from under ambiguity; a Skill is discretionary and triggers on a description match, not on every matching commit. Any stem requiring a step with no possible skip is describing a hook.",
-    "cue": "",
+    "explanation": "'No session may skip it, even when Claude judges it unnecessary' rules out everything Claude reads or chooses to invoke. Rules, CLAUDE.md and skills are context, and a command depends on someone typing it. A PreToolUse hook registered in settings runs on every matching call and can block.",
+    "cue": "no session may skip it, even when Claude judges the script unnecessary",
     "pattern": "must-means-deterministic",
-    "difficulty": 2,
+    "difficulty": 1,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Hooks reference",
+        "url": "https://code.claude.com/docs/en/hooks"
+      },
+      {
+        "label": "How Claude remembers your project (CLAUDE.md)",
+        "url": "https://code.claude.com/docs/en/memory"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
   },
   {
     "id": "new-claude-code-operation-02",
     "objective": "claude-code-operation",
     "domain": 3,
-    "subskills": [],
+    "subskills": [
+      "cc.auto"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "An engineer wants Claude Code to work through a long backlog of small refactors overnight with far fewer approval prompts, but still wants any command that reaches outside the repository or resembles a prompt-injection attempt blocked automatically rather than approved. Which permission mode fits both requirements?",
+    "stem": "An engineer wants Claude Code to work through a long backlog of small refactors with far fewer approval prompts. She still wants actions that escalate beyond the task, or that look driven by injected content in files Claude reads, blocked rather than approved. Which permission mode fits?",
     "options": [
       {
         "id": "a",
-        "text": "bypassPermissions, since it removes prompting entirely for the overnight run",
-        "why": ""
+        "text": "bypassPermissions, which removes approval prompts entirely for the length of the session",
+        "why": "It skips permission checks altogether, so nothing reviews escalation or injection; it is meant for isolated containers."
       },
       {
         "id": "b",
-        "text": "acceptEdits, since file writes and common filesystem commands stop requiring approval",
-        "why": ""
+        "text": "acceptEdits, which approves file edits and common filesystem commands without asking",
+        "why": "It removes prompts only for edits and a few filesystem commands, and adds no screening for escalation or injection."
       },
       {
         "id": "c",
-        "text": "auto, since a classifier model reviews actions and still blocks scope escalation and injection",
-        "why": ""
+        "text": "auto, in which a separate classifier model reviews actions and blocks escalation and injection",
+        "why": "Correct. Auto mode replaces most prompts with a classifier that still blocks out-of-scope and injection-driven actions."
       },
       {
         "id": "d",
-        "text": "dontAsk, since it denies anything outside the existing allow rules without prompting",
-        "why": ""
+        "text": "dontAsk, which denies every action that is not already covered by an allow rule",
+        "why": "It cuts prompts by refusing work rather than approving it, so most of the backlog would simply be denied."
       }
     ],
     "answer": [
       "c"
     ],
-    "explanation": "auto hands most approval decisions to a separate classifier that still screens for scope escalation, untrusted infrastructure, and prompt injection, which is exactly the combination the stem asks for. bypassPermissions skips checks entirely, which drops the safety requirement. acceptEdits only auto-approves writes and common filesystem commands, leaving other shell and network activity still gated, and adds no injection screening of its own. dontAsk denies anything not already allow-listed instead of approving more of the backlog, so it doesn't reduce prompts the way the stem wants.",
-    "cue": "",
+    "explanation": "The cue is the second requirement: fewer prompts, but escalation and injection still blocked. Auto mode hands approval to a classifier that screens for exactly those. bypassPermissions is the tempting choice for 'fewer prompts' but removes the checks entirely.",
+    "cue": "look driven by injected content in files Claude reads",
     "pattern": "buried-constraint",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Choose a permission mode",
+        "url": "https://code.claude.com/docs/en/permission-modes"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "claude-code-operation-001",
+    "objective": "claude-code-operation",
+    "domain": 3,
+    "subskills": [
+      "cc.sessions",
+      "cc.slash"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "Midway through a long session, Claude rewrote three modules with its edit tools in a direction the developer rejects. She wants those file changes undone, then wants to continue the same task with the context window freed up, keeping the task's thread. Which two commands fit? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "/rewind to a checkpoint from before the rewrite, restoring the code",
+        "why": "Correct. Checkpoints track changes made through Claude's file-editing tools, so rewinding restores those modules."
+      },
+      {
+        "id": "b",
+        "text": "/compact with focus instructions describing the task in progress",
+        "why": "Correct. Compaction summarises the conversation and keeps going, freeing context while preserving the task's thread."
+      },
+      {
+        "id": "c",
+        "text": "/clear to start a fresh conversation for the rest of the task",
+        "why": "/clear starts an empty conversation, losing the thread she wants to keep, and it does not touch any files."
+      },
+      {
+        "id": "d",
+        "text": "/branch to fork the conversation before continuing with the task",
+        "why": "Branching keeps an alternative conversation path, but it neither undoes file edits nor frees context."
+      },
+      {
+        "id": "e",
+        "text": "/context to remove the rewrite from the conversation history",
+        "why": "/context visualises what fills the context window; it reports usage rather than removing anything."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Undoing edits made by Claude's file tools is /rewind; continuing the same task with less context is /compact. /clear is the tempting second pick, but it starts an empty conversation and leaves files unchanged. Changes made through Bash would need git instead, because checkpoints do not track them.",
+    "cue": "with its edit tools",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Checkpointing",
+        "url": "https://code.claude.com/docs/en/checkpointing"
+      },
+      {
+        "label": "Commands reference",
+        "url": "https://code.claude.com/docs/en/commands"
+      },
+      {
+        "label": "Sessions",
+        "url": "https://code.claude.com/docs/en/sessions"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "claude-code-operation-002",
+    "objective": "claude-code-operation",
+    "domain": 3,
+    "subskills": [
+      "cc.init",
+      "cc.memory"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A developer opens Claude Code for the first time in an unfamiliar service that has no CLAUDE.md. The team wants a reviewed file of build commands and conventions that every clone receives, and she also wants Claude to pick up her personal corrections over time without writing them down. Which two steps fit? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Run /init, refine the generated CLAUDE.md, and commit it to the repository",
+        "why": "Correct. /init analyses the codebase and drafts a CLAUDE.md with the commands and conventions it finds; committing shares it."
+      },
+      {
+        "id": "b",
+        "text": "Leave auto memory on so Claude saves notes from her corrections in its memory folder",
+        "why": "Correct. Auto memory is the component Claude writes itself, recording corrections and preferences across sessions."
+      },
+      {
+        "id": "c",
+        "text": "Rely on auto memory to capture the team's build commands and share them with each clone",
+        "why": "Auto memory is machine-local and skips what can be derived from the code, so it never reaches other clones."
+      },
+      {
+        "id": "d",
+        "text": "Run /memory to analyse the codebase and generate the project CLAUDE.md file",
+        "why": "/memory opens and edits memory files and toggles auto memory; generating a file from the codebase is /init."
+      },
+      {
+        "id": "e",
+        "text": "Ask Claude to append each personal correction to the committed CLAUDE.md",
+        "why": "That publishes personal preferences to the whole team and means writing them down, which she wanted to avoid."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Two different writers: CLAUDE.md is written by people and shared through git, while auto memory is written by Claude and stays on one machine. /init drafts the team file and auto memory captures personal corrections. Using auto memory for team conventions fails because it is machine-local.",
+    "cue": "every clone receives",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How Claude remembers your project (CLAUDE.md)",
+        "url": "https://code.claude.com/docs/en/memory"
+      },
+      {
+        "label": "Commands reference",
+        "url": "https://code.claude.com/docs/en/commands"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "claude-code-operation-003",
+    "objective": "claude-code-operation",
+    "domain": 3,
+    "subskills": [
+      "cc.rules",
+      "cc.hierarchy"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A repository's API handlers under src/api/ follow strict validation conventions that are irrelevant to its front-end and data code. The team wants those conventions loaded only when Claude works on files in that tree, not in every session. Where should they go?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A rule file in .claude/rules/ with `paths` frontmatter matching src/api/**",
+        "why": "Correct. Path-scoped rules load when Claude reads, writes or edits a matching file, and stay out of unrelated sessions."
+      },
+      {
+        "id": "b",
+        "text": "A section in the root CLAUDE.md headed 'Applies only to src/api/'",
+        "why": "The root file loads at launch in every session regardless of its headings, so the conventions cost context everywhere."
+      },
+      {
+        "id": "c",
+        "text": "A PreToolUse hook that prints the conventions whenever an edit touches src/api/",
+        "why": "Hooks are for enforcement; printing guidance from one is a roundabout injection that fires on edits but not reads."
+      },
+      {
+        "id": "d",
+        "text": "A rule file in .claude/rules/ with no frontmatter, named api-conventions.md",
+        "why": "A rule without paths frontmatter loads at launch with the same priority as the project CLAUDE.md, in every session."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is 'only when Claude works on files in that tree'. Path-scoped rules exist for this: they load when Claude touches a matching file. A rule file without paths frontmatter is the tempting answer because it lives in the right folder, but it loads at launch like CLAUDE.md.",
+    "cue": "only when Claude works on files in that tree",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How Claude remembers your project (CLAUDE.md)",
+        "url": "https://code.claude.com/docs/en/memory"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "claude-code-operation-004",
+    "objective": "claude-code-operation",
+    "domain": 3,
+    "subskills": [
+      "cc.agents",
+      "cc.skills"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Investigating a flaky pipeline means reading thousands of log lines, and the developer wants the main conversation to receive only a short diagnosis, not the logs themselves. The investigation should use read-only tools on a cheaper model. Which mechanism fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A subagent in .claude/agents/ with read-only tools and a smaller model set in its frontmatter",
+        "why": "Correct. A subagent runs in its own context window with its own tools and model and returns only its summary."
+      },
+      {
+        "id": "b",
+        "text": "A skill containing the investigation steps, invoked by name when a pipeline fails",
+        "why": "A skill runs inline by default, so every log line it reads lands in the main conversation's context."
+      },
+      {
+        "id": "c",
+        "text": "A path-scoped rule matching the log directory that tells Claude to summarise logs as it reads them",
+        "why": "A rule adds instructions to the current context; the logs Claude reads still fill the main window."
+      },
+      {
+        "id": "d",
+        "text": "/compact with instructions to keep only the diagnosis, run after the logs are read",
+        "why": "Compaction helps afterwards, but the logs first flood the main window, and it cannot restrict tools or change the model."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that the main conversation should receive only the diagnosis. Subagents exist for context isolation: they do noisy work in a separate window, with their own tools and model, and return a summary. A skill is the tempting answer, but by default it runs in the main context.",
+    "cue": "receive only a short diagnosis, not the logs themselves",
+    "pattern": "tradeoff",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Create custom subagents",
+        "url": "https://code.claude.com/docs/en/sub-agents"
+      },
+      {
+        "label": "Extend Claude with skills",
+        "url": "https://code.claude.com/docs/en/skills"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "claude-code-operation-005",
+    "objective": "claude-code-operation",
+    "domain": 3,
+    "subskills": [
+      "cc.streaming",
+      "cc.sessions"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An internal tool drives Claude Code from Python and sends a user's follow-up questions one at a time as they arrive. It must keep a single process and its context alive across those messages instead of re-spawning Claude Code for each one. Which approach fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Run `claude -p` with stream-json as both input and output format, writing each message to stdin",
+        "why": "Correct. Streaming input keeps one process reading user messages from stdin as JSON lines, so context persists across turns."
+      },
+      {
+        "id": "b",
+        "text": "Run a new `claude -p` for each message and pass `--resume` with the previous run's session ID",
+        "why": "Resuming restores the context, but every message re-spawns a process, which is what the tool has to avoid."
+      },
+      {
+        "id": "c",
+        "text": "Run `claude -p --continue` for each message so the latest conversation in the directory is reused",
+        "why": "--continue also starts a new process per message, and in a shared directory it can pick up the wrong conversation."
+      },
+      {
+        "id": "d",
+        "text": "Run `claude -p` once with `--include-partial-messages` so the process stays open for prompts",
+        "why": "That flag adds token-level deltas to streamed output; it does not make the process read further input."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is one live process across messages. Streaming input mode keeps the process reading JSON-line messages from stdin, with context persisting between turns. Resuming by session ID is the tempting answer because it keeps context, but it re-spawns Claude Code every time.",
+    "cue": "keep a single process and its context alive",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "CLI reference",
+        "url": "https://code.claude.com/docs/en/cli-reference"
+      },
+      {
+        "label": "Run Claude Code programmatically (headless)",
+        "url": "https://code.claude.com/docs/en/headless"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "claude-code-operation-006",
+    "objective": "claude-code-operation",
+    "domain": 3,
+    "subskills": [
+      "cc.auto",
+      "cc.headless"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A scheduled CI job runs `claude -p` to update documentation and has no human watching. Security requires that it can use only the exact tools on an approved list, with anything else refused rather than judged case by case. Which permission setup fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "`--permission-mode dontAsk` with only the approved tools listed in `--allowedTools`",
+        "why": "Correct. dontAsk denies every call that would otherwise prompt, so only pre-approved tools and actions needing no approval run."
+      },
+      {
+        "id": "b",
+        "text": "`--permission-mode auto`, so a classifier blocks risky actions and lets routine ones run",
+        "why": "The classifier judges each action, so tools outside the list can still be approved, which the requirement rules out."
+      },
+      {
+        "id": "c",
+        "text": "`--permission-mode bypassPermissions` in a container, with the approved list in CLAUDE.md",
+        "why": "bypassPermissions runs everything, and a list in CLAUDE.md is guidance Claude reads rather than a control."
+      },
+      {
+        "id": "d",
+        "text": "`--permission-mode acceptEdits`, since a documentation job mostly needs to write files",
+        "why": "acceptEdits also auto-approves edits and filesystem commands such as rm and mv that are not on the approved list."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "'Refused rather than judged case by case' separates dontAsk from auto: dontAsk denies anything not pre-approved, while auto asks a classifier to judge. Auto is the tempting answer for unattended work, but its whole design is case-by-case judgement, which this requirement forbids.",
+    "cue": "anything else refused rather than judged case by case",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Choose a permission mode",
+        "url": "https://code.claude.com/docs/en/permission-modes"
+      },
+      {
+        "label": "Run Claude Code programmatically (headless)",
+        "url": "https://code.claude.com/docs/en/headless"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "claude-code-operation-007",
+    "objective": "claude-code-operation",
+    "domain": 3,
+    "subskills": [
+      "cc.commands",
+      "cc.slash"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team wants a reusable prompt that drafts a migration plan for a table the user names, typed as `/migrate orders`. It must run only when someone types it, never because Claude decided it was relevant. What should they create?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A skill or command file named migrate that uses `$ARGUMENTS`, with `disable-model-invocation: true`",
+        "why": "Correct. A custom command receives arguments through $ARGUMENTS, and disabling model invocation means it runs only when typed."
+      },
+      {
+        "id": "b",
+        "text": "A subagent named migrate in .claude/agents/ whose description mentions table migrations",
+        "why": "Claude delegates to a subagent when a task matches its description, which is the automatic invocation the team rules out."
+      },
+      {
+        "id": "c",
+        "text": "A section in the project CLAUDE.md describing how to write migration plans for any table",
+        "why": "CLAUDE.md loads in every session and Claude applies it when it judges it relevant; it cannot be invoked by name."
+      },
+      {
+        "id": "d",
+        "text": "A UserPromptSubmit hook that injects the migration template whenever a prompt mentions a table name",
+        "why": "The hook fires on any prompt that matches, so the template appears whenever a table is mentioned, not only on the command."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "A prompt run by name with an argument is a custom slash command, now a skill or a command file, and `disable-model-invocation: true` stops Claude from starting it on its own. The subagent is the tempting option, but Claude delegates to it whenever a task matches its description.",
+    "cue": "never because Claude decided it was relevant",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Extend Claude with skills",
+        "url": "https://code.claude.com/docs/en/skills"
+      },
+      {
+        "label": "Commands reference",
+        "url": "https://code.claude.com/docs/en/commands"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "claude-code-operation-008",
+    "objective": "claude-code-operation",
+    "domain": 3,
+    "subskills": [
+      "cc.settings",
+      "cc.auto"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A project's .claude/settings.json denies `Bash(terraform apply *)` and lists `Bash(git push *)` under ask. A developer switches the session into auto mode to cut down on prompts. Which two statements describe what happens? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "terraform apply stays blocked, because deny rules apply in every permission mode",
+        "why": "Correct. Modes set the baseline and rules are layered on top; deny rules block in every mode, including bypassPermissions."
+      },
+      {
+        "id": "b",
+        "text": "git push still prompts the developer, because explicit ask rules apply in auto mode",
+        "why": "Correct. Auto mode hands undecided actions to the classifier, but a matching ask rule still forces a prompt."
+      },
+      {
+        "id": "c",
+        "text": "The classifier may approve terraform apply if it judges the action within the task's scope",
+        "why": "A matching deny rule decides the call before the classifier is consulted, so the classifier never gets a vote."
+      },
+      {
+        "id": "d",
+        "text": "git push is approved automatically, because auto mode replaces the ask list with classifier review",
+        "why": "Auto mode removes prompts for actions no rule covers; it does not discard the ask rules the project configured."
+      },
+      {
+        "id": "e",
+        "text": "Both rules are suspended until the developer leaves auto mode, since modes override settings",
+        "why": "Permission modes and rules are layered, not alternatives, so the settings rules keep applying in every mode."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is that both commands are already covered by explicit rules. Rules resolve before the mode's default behaviour: deny blocks in every mode and ask still prompts in auto. The tempting error is treating auto mode as a switch that overrides configured rules.",
+    "cue": "lists `Bash(git push *)` under ask",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Choose a permission mode",
+        "url": "https://code.claude.com/docs/en/permission-modes"
+      },
+      {
+        "label": "Configure permissions",
+        "url": "https://code.claude.com/docs/en/permissions"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "claude-code-operation-009",
+    "objective": "claude-code-operation",
+    "domain": 3,
+    "subskills": [
+      "cc.init",
+      "cc.slash"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A repository already has a team-reviewed CLAUDE.md, and a new developer runs /init in it to see what Claude Code would generate. She is worried that the reviewed file will be lost. What does /init do here?",
+    "options": [
+      {
+        "id": "a",
+        "text": "It analyses the codebase and suggests improvements to the existing CLAUDE.md instead of overwriting it",
+        "why": "Correct. When a CLAUDE.md already exists, /init proposes improvements rather than replacing the file."
+      },
+      {
+        "id": "b",
+        "text": "It replaces the existing CLAUDE.md with a freshly generated file based on the current codebase",
+        "why": "Overwriting would destroy reviewed content; the documented behaviour on an existing file is to suggest improvements."
+      },
+      {
+        "id": "c",
+        "text": "It writes a separate CLAUDE.local.md beside the existing file so that nothing in the shared file changes",
+        "why": "CLAUDE.local.md is a personal file for private preferences; /init does not divert its output there by default."
+      },
+      {
+        "id": "d",
+        "text": "It refuses to run and points the developer to /memory for editing the existing file instead",
+        "why": "/init runs in repositories that already have a CLAUDE.md; /memory is for opening and editing memory files."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "/init drafts a CLAUDE.md from the codebase in a new repository and, when one already exists, suggests improvements rather than overwriting it. Replacing the file is the tempting fear, but the documented behaviour protects reviewed content.",
+    "cue": "already has a team-reviewed CLAUDE.md",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How Claude remembers your project (CLAUDE.md)",
+        "url": "https://code.claude.com/docs/en/memory"
+      },
+      {
+        "label": "Commands reference",
+        "url": "https://code.claude.com/docs/en/commands"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
+  },
+  {
+    "id": "claude-code-operation-010",
+    "objective": "claude-code-operation",
+    "domain": 3,
+    "subskills": [
+      "cc.agents",
+      "cc.memory"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team's code-reviewer subagent keeps rediscovering the same recurring issues in every session. They want it to build up its own notes across sessions, and those notes must be shareable with teammates through version control. Which configuration fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Enable persistent memory in the subagent's frontmatter at project scope, so its notes live under .claude/",
+        "why": "Correct. The memory field gives the subagent its own memory directory, and project scope places it in the repository where it can be committed."
+      },
+      {
+        "id": "b",
+        "text": "Enable persistent memory in the subagent's frontmatter at user scope, so notes follow each reviewer",
+        "why": "User scope keeps the notes in each developer's home directory across projects, so teammates never receive them."
+      },
+      {
+        "id": "c",
+        "text": "Rely on the main session's auto memory, which the subagent reads each time it is spawned",
+        "why": "The main conversation's auto memory is not loaded into subagents, and it is machine-local in any case."
+      },
+      {
+        "id": "d",
+        "text": "Have the developer copy the subagent's findings into the project CLAUDE.md after each review",
+        "why": "This shares notes but depends on a person writing them; the team wants the subagent to keep its own memory."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is 'shareable through version control'. A subagent's persistent memory can be scoped to the user, the project or local; only project scope puts the notes in the repository. User scope is the tempting answer because it persists, but it stays on each machine.",
+    "cue": "shareable with teammates through version control",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Create custom subagents",
+        "url": "https://code.claude.com/docs/en/sub-agents"
+      },
+      {
+        "label": "How Claude remembers your project (CLAUDE.md)",
+        "url": "https://code.claude.com/docs/en/memory"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-config-cc",
+    "status": "active"
   }
 ]
