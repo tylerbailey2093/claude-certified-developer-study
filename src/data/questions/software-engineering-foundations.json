@@ -1,465 +1,1883 @@
 [
   {
-    "id": "legacy-021",
-    "objective": "software-engineering-foundations",
-    "domain": 2,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "A service fans out 300 concurrent Claude requests when a job starts and immediately receives 429s. What is the correct change?",
-    "options": [
-      {
-        "id": "a",
-        "text": "Wrap each call in a retry loop with a fixed short delay",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "Limit concurrency with a queue or semaphore and ramp traffic gradually",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "Switch to a larger model, which has higher rate limits",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "Disable streaming to close connections faster",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "Rate limits are per-organization and sharp ramps can trip acceleration limits, so shaping concurrency is the fix. A fixed-delay retry loop increases volume at the worst moment and ignores retry-after. Model tier does not determine rate limits.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "legacy-022",
-    "objective": "software-engineering-foundations",
-    "domain": 2,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "A team hand-rolls a retry decorator around every call made through the official SDK. What is the concern?",
-    "options": [
-      {
-        "id": "a",
-        "text": "The SDK does not support retries, so this is necessary",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "The SDK already retries transient failures with backoff and honors retry-after, so a second layer multiplies request volume",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "Retries are prohibited by the API terms",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "Retry logic belongs in the model configuration",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "Official SDKs retry connection errors, 408, 409, 429, and 5xx twice by default with exponential backoff, honoring retry-after, and the count is configurable. Layering a custom fixed-delay retry compounds load during exactly the incident it should survive.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "legacy-023",
-    "objective": "software-engineering-foundations",
-    "domain": 2,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "A team is using Claude Code to migrate a large legacy module to a new framework. Which practice most reduces risk?",
-    "options": [
-      {
-        "id": "a",
-        "text": "Complete the migration in one large change so the codebase is never in a mixed state",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "Work in bounded increments with tests passing between each, and avoid adding behavior in the same change",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "Skip code review for AI-generated changes since the model follows existing patterns",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "Refactor and add the new features together to avoid touching files twice",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "Incremental refactoring with green tests between steps makes large-scale migration safe, and separating refactoring from behavior change keeps failures attributable. AI-generated code needs the same review rigor as human-written code.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "new-software-engineering-foundations-01",
-    "objective": "software-engineering-foundations",
-    "domain": 2,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "A data pipeline calls Claude to extract structured fields from support tickets, and the extracted JSON is inserted directly into a downstream Postgres table without any application-level validation. The team currently prompts Claude with 'respond only with JSON matching this schema.' Occasionally a field's type mismatches the column type and the insert fails. Which change most directly prevents malformed JSON from being emitted in the first place?",
-    "options": [
-      {
-        "id": "a",
-        "text": "Add a stricter instruction telling Claude to double-check its output before responding",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "Set output_config.format to a json_schema definition matching the required fields and types",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "Wrap the insert statement in a try/except block and log failures for manual review",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "Increase max_tokens so the response is never truncated mid-object",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "output_config.format with a json_schema type uses grammar-constrained decoding, so every generated token is restricted to stay inside the schema — malformed JSON and type mismatches become structurally impossible, not just less likely. A prompt instruction is a soft request the model can still violate. Wrapping the insert in try/except only catches the failure after it happens, it does not prevent the malformed output. Raising max_tokens addresses truncation, not field-type mismatches, which is a different failure mode.",
-    "cue": "",
-    "pattern": "must-means-deterministic",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
-  },
-  {
     "id": "new-software-engineering-foundations-02",
     "objective": "software-engineering-foundations",
     "domain": 2,
-    "subskills": [],
+    "subskills": [
+      "swe.rest"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A backend service calls an internal REST endpoint to create a customer record, and its client library automatically retries any non-2xx response by resubmitting the same request body. During a traffic spike the endpoint starts returning 409 responses, because an earlier request actually succeeded server-side but its response timed out on the client before arriving, so the client never learned it had already succeeded. What is the correct fix?",
+    "stem": "An onboarding agent calls `POST /customers` on an internal CRM through a client tool, and the tool's HTTP client retries after any timeout. When a slow create times out after the CRM has already committed the record, the retry gets 409 because the email must be unique, and the workflow marks onboarding as failed even though the customer exists. Which change fixes this at the protocol level?",
     "options": [
       {
         "id": "a",
-        "text": "Increase the client's retry count so the 409 eventually succeeds",
-        "why": ""
+        "text": "Send one Idempotency-Key per onboarding on every attempt, so the CRM replays the original 201 response",
+        "why": "Correct. A timeout on POST is an unknown outcome; a key generated once per logical operation lets the server recognise the retry and return the stored result instead of a conflict."
       },
       {
         "id": "b",
-        "text": "Treat 409 as equivalent to 429 and apply the same exponential backoff strategy",
-        "why": ""
+        "text": "Treat 409 like 429 and keep retrying it with exponential backoff until the CRM accepts the create",
+        "why": "This 409 reflects a state that waiting will never change, because the record already exists; backing off just repeats a request the server must reject."
       },
       {
         "id": "c",
-        "text": "Have the client check whether the record already exists before resubmitting the create request, rather than blindly retrying with the same body",
-        "why": ""
+        "text": "Raise the HTTP client timeout so that slow creates finish before the client gives up and retries",
+        "why": "A longer timeout narrows the window, but any response slower than the new limit still times out after commit, so the false failures continue."
       },
       {
         "id": "d",
-        "text": "Switch the endpoint from REST to GraphQL to avoid status-code ambiguity",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "c"
-    ],
-    "explanation": "409 Conflict means the resource already exists in a state that conflicts with the request; the fix is to inspect current state before acting, not to resend the identical request. Increasing retries just repeats the same failure forever, since the conflict never resolves itself. 429 is a rate-limit signal where backoff helps; 409 is a state-conflict signal where backoff does nothing, so treating them the same is a category error. Swapping protocols doesn't touch the actual bug, which is a missing idempotency check.",
-    "cue": "",
-    "pattern": "buried-constraint",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "new-software-engineering-foundations-03",
-    "objective": "software-engineering-foundations",
-    "domain": 2,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "A nightly reconciliation script kicks off at 1 AM and immediately submits all 900 of the day's transaction records to Claude for anomaly review at once, using asyncio.gather with no concurrency cap. Within the first thirty seconds most requests fail with 429 responses, and the on-call engineer's instinct is to just add a longer fixed delay before each retry. What is the more durable fix?",
-    "options": [
-      {
-        "id": "a",
-        "text": "Bound concurrency with a semaphore or queue and ramp the request rate up gradually instead of firing all 900 at once",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "Keep the current fan-out pattern but add a longer fixed delay before each retry",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "Switch the reconciliation job to a larger, higher-throughput model so more requests succeed per second",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "Disable the SDK's built-in retry behavior so failed requests fail fast instead of queuing",
-        "why": ""
+        "text": "Turn off retries for the create call and send every timed-out onboarding to a manual review queue instead",
+        "why": "Removing retries trades false failures for unknown outcomes on every timeout, including creates that never committed, and moves reconciliation to people."
       }
     ],
     "answer": [
       "a"
     ],
-    "explanation": "The root cause is unbounded fan-out, not slow retries — bounding concurrency and ramping traffic gradually is what actually keeps the request rate under the limit. A longer fixed delay treats the symptom on each failed call but the next batch still fires all 900 at once and trips the same limit. Model tier does not change organization-level rate limits, so a larger model doesn't help. Disabling the SDK's own retry/backoff removes a mechanism that was already helping and makes the failure mode worse, not better.",
-    "cue": "",
-    "pattern": "buried-constraint",
+    "explanation": "The cue is a timeout after commit: the client cannot tell success from failure, and POST is not idempotent, so a plain retry collides with the record it already created. An idempotency key reused across attempts makes the retry safe; the IETF draft has the server replay the first response and answer 409 only while the original is still in flight. Raising the timeout is tempting but only shrinks the window.",
+    "cue": "times out after the CRM has already committed the record",
+    "pattern": "diagnosis",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "MDN: Idempotent (mdn/content source)",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/glossary/idempotent/index.md"
+      },
+      {
+        "label": "IETF draft: Idempotency-Key header (working group source)",
+        "url": "https://github.com/ietf-wg-httpapi/idempotency/blob/main/draft-ietf-httpapi-idempotency-key-header.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "legacy-022",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.rest",
+      "swe.async"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A chat endpoint must answer within 45 seconds or show a fallback message. A developer wraps `client.messages.create` in a retry decorator that makes up to three attempts and leaves the SDK client at its default settings. During an API slowdown, some users wait well over ten minutes and the API receives bursts of repeated calls. Which change fixes the cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Remove the decorator and set the client's timeout and max_retries so their worst case fits in 45 seconds",
+        "why": "Correct. The defaults are a 10-minute timeout with two SDK retries, so the decorator multiplies both attempts and waiting; one retry layer sized to the budget bounds latency and load."
+      },
+      {
+        "id": "b",
+        "text": "Keep the decorator but add jittered exponential backoff between its attempts so that retries spread out",
+        "why": "Jitter spreads the decorator's attempts, but each still inherits the 10-minute default timeout and two SDK retries underneath, so the long waits and multiplied calls remain."
+      },
+      {
+        "id": "c",
+        "text": "Switch the endpoint to streaming so that the first tokens reach the user sooner and the socket stays busy",
+        "why": "Streaming helps long generations and perceived latency, but a stalled request still waits for the default timeout and is still retried by both layers."
+      },
+      {
+        "id": "d",
+        "text": "Lower max_tokens on the request so each response is shorter and finishes inside the decorator's window",
+        "why": "A shorter answer does not help when the API is slow to respond at all; the default timeout and the stacked retries still decide how long users wait."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that the SDK client keeps its defaults: a 10-minute timeout and two retries with backoff that already honour retry-after. Wrapping that in a three-attempt decorator allows up to nine calls and a worst case well over an hour. The fix is a single retry layer whose timeout times attempts fits the 45-second budget; jitter on the outer layer is the tempting distractor but leaves both the multiplication and the long timeout in place.",
+    "cue": "leaves the SDK client at its default settings",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Python SDK",
+        "url": "https://platform.claude.com/docs/en/api/sdks/python"
+      },
+      {
+        "label": "Claude API errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
   },
   {
     "id": "new-software-engineering-foundations-04",
     "objective": "software-engineering-foundations",
     "domain": 2,
-    "subskills": [],
+    "subskills": [
+      "swe.rest"
+    ],
     "type": "multi",
     "select": 2,
-    "stem": "A platform team's incident postmortem shows that during a partial Claude API outage, request volume to the API nearly tripled because a wrapper library retried every failed call five times with a fixed one-second delay on top of the official SDK client used underneath it. The wrapper also kept retrying 400 responses caused by a recently introduced malformed-request bug, which never succeeded no matter how many attempts were made. Select the two changes the team should make.",
+    "stem": "A postmortem finds that during a partial Claude API outage, request volume multiplied because an in-house wrapper retried every failed call five times with a fixed one-second delay, on top of the official SDK client it wraps. The same wrapper also kept retrying 400 responses caused by a malformed-request bug shipped that morning. Which two changes should the team make? Select two.",
     "options": [
       {
         "id": "a",
-        "text": "Remove the custom wrapper's retry loop and rely on the SDK's built-in max_retries and backoff, which already honors retry-after",
-        "why": ""
+        "text": "Remove the wrapper's retry loop and rely on the SDK's own retries, tuning max_retries on the client if needed",
+        "why": "Correct. The SDK already retries connection errors, 408, 409, 429 and 5xx with exponential backoff that honours retry-after, so a second layer only multiplies attempts during the incident."
       },
       {
         "id": "b",
-        "text": "Increase the SDK's own max_retries from its default of 2 to a much higher number, in addition to keeping the wrapper",
-        "why": ""
+        "text": "Raise the SDK's max_retries well above its default of 2 while keeping the wrapper in place as a second layer",
+        "why": "This makes both layers retry harder at the same time, multiplying total attempts further exactly when the API is already degraded."
       },
       {
         "id": "c",
-        "text": "Stop retrying 400-class responses, since they indicate a malformed request that will not succeed regardless of attempts",
-        "why": ""
+        "text": "Stop retrying 400 responses, because an identical malformed request fails the same way on every attempt",
+        "why": "Correct. A 400 means the request itself is wrong; the SDK does not retry it, and resending the same bytes cannot succeed until the bug is fixed."
       },
       {
         "id": "d",
-        "text": "Add a circuit breaker that halts all traffic to the API for 24 hours after any single failure",
-        "why": ""
+        "text": "Add a circuit breaker that halts all API traffic for 24 hours after any single failed request",
+        "why": "A 24-hour halt after one failure takes down healthy traffic during a partial outage; a useful breaker needs thresholds and short, probing recovery."
+      },
+      {
+        "id": "e",
+        "text": "Replace the fixed one-second delay with jittered exponential backoff and keep all five wrapper attempts",
+        "why": "Better spacing for the wrapper's attempts, but it keeps the multiplication of SDK retries and still resends 400s that can never succeed."
       }
     ],
     "answer": [
       "a",
       "c"
     ],
-    "explanation": "Removing the redundant wrapper eliminates the double-retry layer that multiplied load during the outage, and the SDK's own max_retries/backoff already honors retry-after. Not retrying 400s is correct because that status is a client error the SDK never retries by default — resending a malformed request cannot succeed. Raising max_retries while keeping the wrapper in place makes the storm worse, since both layers now retry harder. A blanket 24-hour halt is wildly disproportionate to a partial outage and one malformed-request bug, and would take down unrelated, healthy traffic.",
-    "cue": "",
-    "pattern": "must-means-deterministic",
-    "difficulty": 2,
+    "explanation": "The cue is that the wrapper sits on top of the SDK client, which already retries transient failures with backoff and honours retry-after. Removing the outer layer stops the multiplication, and validation errors such as 400 should not be retried because the same request fails the same way. Adding jitter to the wrapper is the tempting partial fix, but it leaves both defects in place.",
+    "cue": "on top of the official SDK client it wraps",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 3,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Python SDK",
+        "url": "https://platform.claude.com/docs/en/api/sdks/python"
+      },
+      {
+        "label": "Claude API errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
   },
   {
-    "id": "new-software-engineering-foundations-05",
+    "id": "software-engineering-foundations-001",
     "objective": "software-engineering-foundations",
     "domain": 2,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "A senior engineer sees that a teammate's pull request, written entirely by Claude Code, passed the project's automated eval suite and every unit test on the first run. The reviewer is ready to approve it with only a skim, reasoning that a model whose own output already validated cleanly is unlikely to have introduced a subtle bug worth digging for. What should the reviewer do instead?",
+    "subskills": [
+      "swe.rest"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A document-tagging worker calls Claude through the official SDK with default settings, and its own error handler decides whether to requeue a failed item for another attempt an hour later. The team wants requeueing reserved for failures that a later identical request could plausibly fix. Which two errors should the handler requeue? Select two.",
     "options": [
       {
         "id": "a",
-        "text": "Approve with a skim, since passing evals and unit tests is sufficient signal for AI-authored changes",
-        "why": ""
+        "text": "529 overloaded_error returned while the API is under unusually high traffic",
+        "why": "Correct. Overload is a transient server-side condition; the same request can succeed once traffic subsides, so a later attempt is reasonable."
       },
       {
         "id": "b",
-        "text": "Apply the same review rigor used for human-written code, regardless of who or what authored it",
-        "why": ""
+        "text": "413 request_too_large because the attached document exceeds the byte limit",
+        "why": "The same document is just as large an hour later; the request must be split or shrunk before it can succeed."
       },
       {
         "id": "c",
-        "text": "Ask the same model to regenerate the code a second time and diff the two outputs before deciding",
-        "why": ""
+        "text": "429 rate_limit_error returned with a retry-after header on the response",
+        "why": "Correct. A rate-limit 429 with retry-after says capacity will return; an identical request later can succeed once the bucket refills."
       },
       {
         "id": "d",
-        "text": "Skip review entirely and rely on the CI pipeline as the sole gate for AI-authored pull requests",
-        "why": ""
+        "text": "400 invalid_request_error caused by a malformed messages array in the body",
+        "why": "A malformed body fails validation identically every time, so requeueing it burns capacity with no chance of success."
+      },
+      {
+        "id": "e",
+        "text": "401 authentication_error returned after the workspace API key was revoked",
+        "why": "A revoked key stays revoked; the request fails until someone supplies a valid credential, which is a fix rather than a retry."
       }
     ],
     "answer": [
-      "b"
+      "a",
+      "c"
     ],
-    "explanation": "Provenance doesn't change risk: AI-generated code needs the same review rigor as human-written code, because passing tests and evals only proves the code satisfies what was already checked, not that it's free of subtler issues. Approving on a skim (or skipping review entirely) relaxes the control specifically because of authorship, which is the trap. Regenerating and diffing two outputs from the same model is a superficial consistency check — both generations can share the same blind spot, so it doesn't substitute for actual review.",
-    "cue": "",
-    "pattern": "scope-boundary",
-    "difficulty": 2,
+    "explanation": "The cue is 'a later identical request could plausibly fix': only transient conditions qualify. Overload (529) and rate limiting (429 with retry-after) clear with time, while 400, 401 and 413 describe the request or its credentials and fail the same way every time. The 413 is the tempting one because size feels like load, but the bytes do not change.",
+    "cue": "a later identical request could plausibly fix",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "new-software-engineering-foundations-06",
-    "objective": "software-engineering-foundations",
-    "domain": 2,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "A team's Claude-powered ticket-triage prompt has been hand-edited nine times over two months, each time to fix one specific misclassification, but engineers just paste new wording into the console each time rather than committing it anywhere. When the tenth edit reintroduces a bug that edit six had already fixed, nobody can find what changed between them or why. Which practice addresses the root cause?",
-    "options": [
+    "sources": [
       {
-        "id": "a",
-        "text": "Increase the prompt's temperature so classification becomes more consistent across edits",
-        "why": ""
+        "label": "Claude API errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
       },
       {
-        "id": "b",
-        "text": "Add more few-shot examples to the prompt so the model needs fewer manual edits over time",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "Switch to a larger model that is less prone to misclassification",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "Treat the prompt as a versioned artifact — commit each revision to the repository and review changes like code",
-        "why": ""
+        "label": "Rate limits",
+        "url": "https://platform.claude.com/docs/en/api/rate-limits"
       }
     ],
-    "answer": [
-      "d"
-    ],
-    "explanation": "The root cause is that prompt revisions were never checked into source control, so nothing could be diffed, reviewed, or bisected when a regression reappeared. Committing and reviewing prompt changes like code is what makes a reintroduced bug findable and preventable. Temperature, few-shot examples, and a larger model are all prompt-tuning moves that leave the missing versioning process untouched, so the same silent regression can recur regardless of which one is applied.",
-    "cue": "",
-    "pattern": "scope-boundary",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
   },
   {
-    "id": "new-software-engineering-foundations-07",
+    "id": "software-engineering-foundations-002",
     "objective": "software-engineering-foundations",
     "domain": 2,
-    "subskills": [],
+    "subskills": [
+      "swe.rest"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A three-line change to a repository's settings.json disables a permission rule that had been blocking a Claude Code agent from running shell commands as root, and it gets merged straight to main because 'it's just a config tweak, not real code.' Two weeks later the same agent runs an unreviewed destructive command in a teammate's branch. Which practice would most directly have prevented this outcome?",
+    "stem": "A knowledge-base service lets editors update articles, and a Claude-backed auto-tagger also updates them by reading an article, adding tags, and sending the whole document back with PUT. Editors report that their changes sometimes vanish a few minutes after saving, and no request in the logs returned an error. Which change prevents the lost edits?",
     "options": [
       {
         "id": "a",
-        "text": "Require CLAUDE.md and settings.json changes to go through the same pull-request review and CI gates as source code, since they govern what the system is allowed to do",
-        "why": ""
+        "text": "Send the article's ETag in an If-Match header on each PUT, and re-read and retag on a 412",
+        "why": "Correct. The tagger writes back a stale copy; a conditional write makes the server reject it with 412 when an editor changed the article after the read."
       },
       {
         "id": "b",
-        "text": "Add a system-prompt instruction telling the agent never to run destructive commands",
-        "why": ""
+        "text": "Add an Idempotency-Key header to each tagger PUT so that repeated writes are deduplicated",
+        "why": "Idempotency keys deduplicate retries of one operation; the tagger and the editor are different operations, so both writes apply and the later one wins."
       },
       {
         "id": "c",
-        "text": "Rotate the API key used by the agent on a monthly schedule",
-        "why": ""
+        "text": "Bound the tagger to a single in-flight request so it never writes two articles at once",
+        "why": "The race is between the tagger and a human editor on the same article, so limiting the tagger to one request at a time does not close it."
       },
       {
         "id": "d",
-        "text": "Move the permission setting into a code comment inside CLAUDE.md instead of settings.json",
-        "why": ""
+        "text": "Instruct the tagging prompt to return the article body unchanged so edits are preserved",
+        "why": "The body is lost because the tagger's copy was read before the editor saved, not because the model rewrote it; a prompt cannot fix a stale read."
       }
     ],
     "answer": [
       "a"
     ],
-    "explanation": "settings.json and CLAUDE.md are versioned configuration artifacts that determine what the system is allowed to do, and gating them through the same review and CI pipeline as source code is what would have caught the permission change before merge. A system-prompt instruction is a request the agent can still fail to follow; a permission rule is the deterministic control the prompt instruction can't replace. Key rotation is a credential-hygiene practice unrelated to a permission bypass. Moving the setting into a comment removes its enforcement entirely, making the problem worse.",
-    "cue": "",
-    "pattern": "must-means-deterministic",
+    "explanation": "The cue is read, modify, then PUT of the whole document: the classic lost update. Without a precondition the last write wins silently, which matches 'no error'. `If-Match` with the ETag turns the overwrite into a 412 that the tagger handles by re-reading. Idempotency keys are the tempting distractor, but they solve duplicate retries, not concurrent writers.",
+    "cue": "sending the whole document back with PUT",
+    "pattern": "diagnosis",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "MDN: If-Match (mdn/content source)",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/web/http/reference/headers/if-match/index.md"
+      },
+      {
+        "label": "MDN: 412 Precondition Failed (mdn/content source)",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/web/http/reference/status/412/index.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
   },
   {
-    "id": "new-software-engineering-foundations-08",
+    "id": "software-engineering-foundations-003",
     "objective": "software-engineering-foundations",
     "domain": 2,
-    "subskills": [],
+    "subskills": [
+      "swe.rest"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A team asks Claude Code to migrate a 40,000-line billing module from a deprecated ORM to its replacement. Partway through, the agent proposes finishing the whole migration in one sweeping commit that also fixes several unrelated bugs it noticed along the way, reasoning that touching each file only once saves review time. The team is under a hard deadline and finds the one-pass approach tempting. What should they require instead?",
+    "stem": "A sync job pages through a ticketing API with `?offset=N&limit=100` to embed every ticket into a retrieval index. Support agents keep closing and deleting tickets while the job runs, and audits find tickets that were never embedded even though every request returned 200. Which change fixes the root cause?",
     "options": [
       {
         "id": "a",
-        "text": "Approve the single large commit, since touching each file only once reduces total review overhead",
-        "why": ""
+        "text": "Page with a cursor such as the last ticket ID seen, so each request continues after a stable item",
+        "why": "Correct. A cursor names the last item returned, so deletions before it do not shift the next page; offsets are positions, and positions move when rows disappear."
       },
       {
         "id": "b",
-        "text": "Let the agent proceed as proposed, but add a longer QA cycle at the very end to catch any issues",
-        "why": ""
+        "text": "Reduce the page size from 100 to 20 so fewer rows can shift position between consecutive requests",
+        "why": "Smaller pages shrink each gap but leave the positional drift in place; deletions between requests still slide rows past the next offset."
       },
       {
         "id": "c",
-        "text": "Split the migration into bounded increments with tests passing between each step, and keep the unrelated bug fixes in separate changes",
-        "why": ""
+        "text": "Split the offset range across parallel workers so the whole sync finishes before the data changes",
+        "why": "Parallel workers still request positional slices, and deletes during the run still shift rows across slice boundaries, so tickets are skipped."
       },
       {
         "id": "d",
-        "text": "Postpone the migration until after the deadline, since large-scale refactors are inherently too risky to attempt under time pressure",
-        "why": ""
+        "text": "Retry any page that returns fewer than 100 tickets until the API sends back a complete page",
+        "why": "Skipped tickets go missing between full pages that returned 200, so a short page is not the symptom and retrying it recovers nothing."
       }
     ],
     "answer": [
-      "c"
+      "a"
     ],
-    "explanation": "The correct discipline for large-scale refactoring is bounded increments with tests green between each step, and never mixing a refactor with a behavior change in the same commit — the unrelated bug fixes are behavior changes and must be split out. Approving the single sweep trades safety for review convenience and mixes concerns. Deferring all verification to one QA pass at the end loses the between-step safety net, making any failure hard to attribute to a specific change. Large-scale refactoring is explicitly in scope and doable under deadline pressure; the fix is incremental discipline, not avoidance.",
-    "cue": "",
+    "explanation": "The cue is deletions during the run. Offset pagination addresses rows by position, so each deletion before the current offset slides an unseen row into the range already read, and it is skipped without any error. Cursor pagination continues from the last item seen; Anthropic's own list endpoints use `after_id` and `last_id` the same way. Smaller pages are tempting but only shrink the gap.",
+    "cue": "keep closing and deleting tickets while the job runs",
     "pattern": "buried-constraint",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "List Message Batches (cursor pagination)",
+        "url": "https://platform.claude.com/docs/en/api/messages/batches/list"
+      },
+      {
+        "label": "Python SDK",
+        "url": "https://platform.claude.com/docs/en/api/sdks/python"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-004",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.rest",
+      "swe.json"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A TypeScript client consumes Claude's streaming responses by switching on each event's `type` and throwing on any value it does not recognise. Without the team changing its `anthropic-version` header, the client starts failing mid-stream on an event type that did not exist when the code was written. What is the correct fix?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Ignore unrecognised event types in a default branch, since a version may add new enum-like values",
+        "why": "Correct. Anthropic's versioning policy keeps existing inputs and outputs but may add new variants such as streaming event types, so a tolerant reader skips what it does not know."
+      },
+      {
+        "id": "b",
+        "text": "Pin an older anthropic-version value so the API stops emitting event types the client does not know",
+        "why": "Additions are allowed within a version, which is exactly what happened here; older versions are deprecated, so pinning backward neither prevents additions nor lasts."
+      },
+      {
+        "id": "c",
+        "text": "Treat the unknown event as an error event, then retry the whole request with exponential backoff",
+        "why": "The event is valid, so the retry receives the same event and fails again, turning a parsing bug into a retry storm."
+      },
+      {
+        "id": "d",
+        "text": "Switch the client to non-streaming requests so it no longer has to parse server-sent event types",
+        "why": "This gives up streaming to dodge a parsing bug, and non-streaming responses can also gain new fields and enum values within a version."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that the version header never changed: the API added a value within the same version, which its versioning policy explicitly permits. Clients must be tolerant readers that ignore unknown fields and give every switch on a server enum a default branch. Pinning an older version looks like a fix but misreads the policy.",
+    "cue": "Without the team changing its `anthropic-version` header",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "API versions",
+        "url": "https://platform.claude.com/docs/en/api/versioning"
+      },
+      {
+        "label": "Streaming messages",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-005",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.rest"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A finance agent's `schedule_payment` tool calls a payments REST API that the same team owns, and timeouts between regions are common. The requirement is that a timed-out payment can be retried without ever being executed twice, even when the first attempt actually succeeded. Which two designs meet the requirement? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "The tool picks a payment ID once per decision and creates it with PUT /payments/{id}, which the server treats as create-or-replace",
+        "why": "Correct. PUT to a client-chosen URI is idempotent by definition: repeating it leaves the same single payment, whatever happened to the first attempt."
+      },
+      {
+        "id": "b",
+        "text": "The tool sends one Idempotency-Key per payment decision, and the server stores the first response under that key and replays it",
+        "why": "Correct. The key identifies the logical operation, so any retry of it is recognised and answered with the stored result instead of a second execution."
+      },
+      {
+        "id": "c",
+        "text": "The server rejects a second POST with the same payee and amount within five minutes as a likely duplicate",
+        "why": "A heuristic window blocks legitimate repeat payments and misses retries that arrive after five minutes, so it neither guarantees nor preserves correctness."
+      },
+      {
+        "id": "d",
+        "text": "The tool generates a fresh Idempotency-Key on every attempt so that each request is uniquely traceable",
+        "why": "A new key per attempt makes every retry look like a new operation, which is exactly what lets the duplicate payment through."
+      },
+      {
+        "id": "e",
+        "text": "The system prompt instructs Claude to call schedule_payment at most once in any conversation",
+        "why": "The duplicates come from HTTP retries below the model, and a prompt is a request rather than an enforced control in any case."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue 'without ever being executed twice' demands a deterministic, protocol-level guarantee. Either make the operation idempotent by design (a client-chosen ID with PUT) or make POST safe with a key generated once per logical operation and reused on every attempt. A per-attempt key is the tempting near-miss: it looks like the same mechanism but defeats it.",
+    "cue": "without ever being executed twice",
+    "pattern": "must-means-deterministic",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "MDN: Idempotent (mdn/content source)",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/glossary/idempotent/index.md"
+      },
+      {
+        "label": "MDN: PUT (mdn/content source)",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/web/http/reference/methods/put/index.md"
+      },
+      {
+        "label": "IETF draft: Idempotency-Key header (working group source)",
+        "url": "https://github.com/ietf-wg-httpapi/idempotency/blob/main/draft-ietf-httpapi-idempotency-key-header.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "new-software-engineering-foundations-01",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.json"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An extraction service asks Claude to 'respond only with JSON matching this schema' and inserts each result into a Postgres table. Every response must match the column types before it reaches the insert, but roughly one in a few hundred returns a quantity such as '12 units' where an integer belongs. Which change most directly meets the requirement?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Pass the schema as a structured-outputs JSON schema format so decoding is constrained to its types",
+        "why": "Correct. Constrained decoding produces JSON with the declared types and required fields, turning a requested format into an enforced one for normal completions."
+      },
+      {
+        "id": "b",
+        "text": "Add an example JSON object to the prompt showing integer quantities so the model copies the types",
+        "why": "A one-shot example improves compliance but is still a request, so the rare type drift continues."
+      },
+      {
+        "id": "c",
+        "text": "Catch the failed insert and ask Claude to correct its JSON, retrying until the database accepts it",
+        "why": "A repair loop reacts after the failure, adds latency and cost, and has no guaranteed end; it does not stop bad output from being produced."
+      },
+      {
+        "id": "d",
+        "text": "Raise max_tokens so that long responses are never cut off partway through a JSON object or value",
+        "why": "Truncation is a different failure; here the quantity field is complete but carries the wrong type."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is 'must match': a prompt instruction or example is a request, so the rare violation persists. Structured outputs use constrained decoding so the JSON follows the schema's types and required fields. The application should still check the stop reason and domain rules, because a refusal or max_tokens stop can break the schema and value ranges are not enforced.",
+    "cue": "Every response must match the column types",
+    "pattern": "must-means-deterministic",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Structured outputs",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-006",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.json"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A Python service returns order IDs as JSON numbers, and a TypeScript dashboard links each order to its detail page. After the platform switched to 64-bit snowflake IDs, some dashboard links open the wrong order, yet the same IDs are correct in the Python logs and in the database. Which fix addresses the cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Serialize order IDs as JSON strings in the API contract and treat them as opaque strings in the dashboard",
+        "why": "Correct. JavaScript parses JSON numbers as doubles, exact only up to 2^53 - 1; strings carry every digit, and IDs are never used for arithmetic."
+      },
+      {
+        "id": "b",
+        "text": "Convert each ID with Number() inside a JSON.parse reviver so that the dashboard gets a numeric type",
+        "why": "By the time a reviver sees the value it is already a rounded double; only the reviver's source text with BigInt, or strings in the contract, recover the digits."
+      },
+      {
+        "id": "c",
+        "text": "Call json.dumps with ensure_ascii=False in the Python service so that every digit is encoded unchanged",
+        "why": "ensure_ascii controls escaping of non-ASCII characters; digits are ASCII and Python already writes them exactly, so the output does not change."
+      },
+      {
+        "id": "d",
+        "text": "Change the ID column to a DECIMAL type in Postgres so identifiers keep full precision end to end",
+        "why": "The database and Python are already exact; the precision is lost when the browser parses the JSON number."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is 64-bit IDs that are right everywhere except the browser. Python ints are arbitrary precision, but JavaScript rounds integers beyond `Number.MAX_SAFE_INTEGER` (2^53 - 1) when parsing JSON numbers. The durable fix is a contract change: identifiers travel as strings. The reviver option is tempting, but converting with Number() repeats the rounding.",
+    "cue": "switched to 64-bit snowflake IDs",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "MDN: Number.MAX_SAFE_INTEGER (mdn/content source)",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/web/javascript/reference/global_objects/number/max_safe_integer/index.md"
+      },
+      {
+        "label": "MDN: JSON.parse (mdn/content source)",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/web/javascript/reference/global_objects/json/parse/index.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-007",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.json"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "An invoice extractor uses structured outputs with a schema that declares `amount_cents` as an integer with `minimum: 1` and `currency` as an enum of uppercase ISO codes. In production a few records still arrive with an amount of -500 or a currency of 'usd', and every one of those responses ended with stop_reason end_turn. Which two checks belong in the application after parsing? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Reject or flag any amount_cents outside the business range before the record is saved",
+        "why": "Correct. Numeric constraints such as minimum are not enforced by constrained decoding; the SDK helpers move them into descriptions, so range checks remain application code."
+      },
+      {
+        "id": "b",
+        "text": "Compare currency case-insensitively against the allowed codes and normalise it to uppercase",
+        "why": "Correct. The structured outputs documentation warns that enum values can come back in a different capitalisation, so compare case-insensitively and normalise."
+      },
+      {
+        "id": "c",
+        "text": "Add additionalProperties: false to the schema so unexpected values cannot appear in any field",
+        "why": "additionalProperties false is already required by structured outputs and restricts extra keys, not the values inside declared fields."
+      },
+      {
+        "id": "d",
+        "text": "Restate the minimum amount in the system prompt so the model respects the range while generating",
+        "why": "A prompt makes the range more likely but does not enforce it, which is the same gap the schema already left; validation still belongs in code."
+      },
+      {
+        "id": "e",
+        "text": "Change amount_cents from integer to number in the schema so negative values fail to decode",
+        "why": "Widening integer to number allows fractions and says nothing about sign, so negative amounts still decode."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is the `minimum: 1` that was violated anyway: structured outputs guarantee shape and types but not numeric ranges, string lengths or enum casing. Domain rules are validated at the boundary in your own code. Restating the rule in the prompt is the tempting distractor, but it is a request, not a check.",
+    "cue": "declares `amount_cents` as an integer with `minimum: 1`",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Structured outputs",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-008",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.json"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Tool inputs produced by Claude are validated against a hand-written JSON Schema before a shipping API is called. The schema declares `address` and `postcode` with string types under `properties` and sets nothing else, yet an input with `postcode` missing entirely passed validation. Which schema change rejects such input?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Add a required array listing address and postcode, since declared properties are optional by default",
+        "why": "Correct. Keywords under properties only constrain keys that are present; required is what makes a key mandatory."
+      },
+      {
+        "id": "b",
+        "text": "Set additionalProperties to false so that no declared property can be left out of the object",
+        "why": "additionalProperties restricts keys that are not declared; it says nothing about declared keys that are absent."
+      },
+      {
+        "id": "c",
+        "text": "Add a format keyword to postcode so that validators check the field is present and well formed",
+        "why": "format is an annotation by default and, like other property keywords, applies only when the key is present."
+      },
+      {
+        "id": "d",
+        "text": "Give postcode a minLength of 1 so that any missing or empty postcode values are rejected by the validator",
+        "why": "minLength rejects an empty string, but a missing key is never checked against the postcode subschema at all."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that the schema sets nothing beyond properties. In JSON Schema, properties are optional unless listed in `required`, and every per-property keyword (type, format, minLength) applies only to keys that exist. `additionalProperties: false` is the tempting distractor because it sounds strict, but it limits extra keys, not missing ones.",
+    "cue": "sets nothing else",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "JSON Schema: object",
+        "url": "https://json-schema.org/understanding-json-schema/reference/object"
+      },
+      {
+        "label": "JSON Schema: type and format",
+        "url": "https://json-schema.org/understanding-json-schema/reference/type"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "legacy-021",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.async",
+      "swe.rest"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A TypeScript service enriches 5,000 CRM records by running `await Promise.all(records.map(enrich))`, where `enrich` makes one Claude request through the SDK. The job passed in staging with 50 records, but in production most requests fail with 429 in the first few seconds, even though the job's total for the minute is under the organization's rate limit. What is the correct change?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Run a fixed pool of workers that pull records from a shared iterator, and raise the pool size gradually",
+        "why": "Correct. A promise starts when it is created, so map launches all 5,000 at once; a worker pool caps in-flight requests, and a gradual ramp avoids acceleration limits."
+      },
+      {
+        "id": "b",
+        "text": "Replace Promise.all with Promise.allSettled so one rejected request does not abort the other records",
+        "why": "allSettled changes how results and failures are collected, but every request still starts at the same instant, so the burst and the 429s are unchanged."
+      },
+      {
+        "id": "c",
+        "text": "Raise maxRetries on the client so that the SDK keeps retrying each 429 until capacity frees up again",
+        "why": "More retries resend the same burst during the overload; the SDK already backs off and honours retry-after, and the root cause is the unbounded launch."
+      },
+      {
+        "id": "d",
+        "text": "Add `await sleep(100)` at the start of `enrich` so that consecutive requests are spaced 100 ms apart",
+        "why": "All 5,000 calls start together, sleep 100 ms concurrently and then fire together; a delay inside tasks launched at once does not space them out."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is 429s in the first seconds while the per-minute total is within the limit: limits are enforced over short intervals and a token bucket punishes bursts. `records.map(enrich)` starts every promise immediately, so only a bound on in-flight work (a worker pool or semaphore) fixes it. The sleep distractor is the tempting one, but a delay inside concurrently started tasks shifts the whole burst rather than spreading it.",
+    "cue": "in the first few seconds, even though the job's total for the minute is under the organization's rate limit",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Rate limits",
+        "url": "https://platform.claude.com/docs/en/api/rate-limits"
+      },
+      {
+        "label": "MDN: Promise.all (mdn/content source)",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/web/javascript/reference/global_objects/promise/all/index.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-009",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.async"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An async Python job labels 2,000 support tickets with `asyncio.gather` and writes each label as soon as it returns. A downstream report must be built from all labels or none, because a partial run corrupts it, but when one request fails after the SDK's retries are spent, gather raises while the other requests keep running and writing. Which change meets the requirement?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Run the requests in an asyncio.TaskGroup and write the labels only after the group exits cleanly",
+        "why": "Correct. A TaskGroup cancels the remaining tasks when one fails, and deferring writes until it exits cleanly means a failed run leaves nothing partial behind."
+      },
+      {
+        "id": "b",
+        "text": "Pass return_exceptions=True to gather so failures come back as results instead of being raised",
+        "why": "This is best-effort semantics: every task runs to completion and the caller gets a mixed list, the opposite of all-or-nothing."
+      },
+      {
+        "id": "c",
+        "text": "Wrap each coroutine in asyncio.shield so in-flight requests finish before the error reaches the caller",
+        "why": "shield protects work from cancellation, so the other requests run to completion and keep writing, the reverse of what is needed."
+      },
+      {
+        "id": "d",
+        "text": "Raise max_retries on the client so a failing request is much less likely to exhaust all its retries",
+        "why": "Fewer failures do not change the semantics; when one still fails, gather leaves the rest running and their writes still land."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is all or none. `gather` without `return_exceptions` propagates the first exception but does not cancel the other awaitables, and writing results as they arrive makes partial output inevitable. A TaskGroup cancels its siblings on failure, and moving the write after the group commits only a complete set. `return_exceptions=True` is the tempting distractor, but it is the best-effort pattern.",
+    "cue": "must be built from all labels or none",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Python asyncio tasks docs (CPython source)",
+        "url": "https://github.com/python/cpython/blob/main/Doc/library/asyncio-task.rst"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-010",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.async"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A Python consumer reads chat transcripts from a message queue and summarises each one with Claude, guarded by `asyncio.Semaphore(20)`. The reader schedules a new task the moment each message arrives, and during a traffic spike the process is killed for running out of memory even though only 20 requests are ever in flight. Which change fixes it?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Feed messages into an asyncio.Queue with a maxsize and run 20 workers, so the reader waits when it is full",
+        "why": "Correct. A bounded queue blocks the producer when consumers fall behind, so the backlog stays in the source system instead of piling up as tasks in memory."
+      },
+      {
+        "id": "b",
+        "text": "Lower the semaphore from 20 to 5 so that fewer in-flight summaries hold their response bodies in memory at once",
+        "why": "The semaphore bounds HTTP requests, not task creation; waiting tasks still pile up without limit, just behind a narrower gate."
+      },
+      {
+        "id": "c",
+        "text": "Gather the tasks with return_exceptions=True so that failed summaries release their memory at once",
+        "why": "How exceptions are reported has no effect on how many tasks are created; the unbounded backlog is still there."
+      },
+      {
+        "id": "d",
+        "text": "Raise the SDK client timeout so slow summaries finish instead of holding memory across their retries",
+        "why": "The memory is held by thousands of waiting tasks, not by retries; a longer timeout can make each in-flight request last longer."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that a task is created per message regardless of capacity. A semaphore caps concurrent requests but not queued work, so memory grows with the backlog. Backpressure means slowness propagates upstream: `asyncio.Queue(maxsize=...)` makes `put` wait when full, and a fixed set of workers drains it. Lowering the semaphore is tempting but tightens the wrong bound.",
+    "cue": "schedules a new task the moment each message arrives",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Python asyncio queues docs (CPython source)",
+        "url": "https://github.com/python/cpython/blob/main/Doc/library/asyncio-queue.rst"
+      },
+      {
+        "label": "Python asyncio tasks docs (CPython source)",
+        "url": "https://github.com/python/cpython/blob/main/Doc/library/asyncio-task.rst"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-011",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.async"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "An API endpoint answers each question by making three independent Claude calls (summary, risk flags, suggested reply) one after another, and it fails the whole response if any call errors. Product now requires a reply within 20 seconds that shows whichever parts succeeded. Which two changes meet the requirement? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Start all three calls together and await them with Promise.allSettled, then render the fulfilled ones",
+        "why": "Correct. Independent calls should run concurrently, and allSettled waits for every call and reports each outcome, so partial results can be shown."
+      },
+      {
+        "id": "b",
+        "text": "Set a per-request timeout and lower maxRetries so each call's worst case fits inside 20 seconds",
+        "why": "Correct. The SDK default is a 10-minute timeout with two retries, so without tighter per-request limits one slow call can blow the 20-second budget."
+      },
+      {
+        "id": "c",
+        "text": "Start all three calls together and await them with Promise.all so the reply goes out once all resolve",
+        "why": "Promise.all rejects as soon as any call rejects, so one failure still discards the parts that succeeded."
+      },
+      {
+        "id": "d",
+        "text": "Submit the three calls as one Message Batch so they are processed together at a lower price",
+        "why": "Batches suit work nobody is waiting on; results can take up to 24 hours, which cannot meet a 20-second reply."
+      },
+      {
+        "id": "e",
+        "text": "Chain the calls so that each one receives the previous call's output as additional context",
+        "why": "Chaining makes the calls sequential again and adds dependencies the task does not have, which increases latency."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Two requirements decide it: partial results and a 20-second budget. Concurrent calls collected with `Promise.allSettled` deliver whatever succeeded, and tight per-request timeouts and retry counts bound the worst case, since SDK defaults allow minutes. `Promise.all` is the tempting near-miss because it is concurrent, but it rejects on the first failure.",
+    "cue": "shows whichever parts succeeded",
+    "pattern": "tradeoff",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "MDN: Promise.allSettled (mdn/content source)",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/web/javascript/reference/global_objects/promise/allsettled/index.md"
+      },
+      {
+        "label": "TypeScript SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "new-software-engineering-foundations-06",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.vcs"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A ticket-triage prompt has been edited nine times in two months, each time by pasting new wording into a production configuration console to fix one misclassification. The tenth edit brings back a bug that the sixth edit had fixed, and nobody can tell what changed between versions or why. Which practice addresses the root cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Keep the prompt as a file in the repository so every change is a reviewed commit with a message",
+        "why": "Correct. A prompt is behaviour-defining code; version control gives each change a diff, an author, a reason and a reviewer, plus a known version to roll back to."
+      },
+      {
+        "id": "b",
+        "text": "Add few-shot examples of each fixed misclassification so later edits are less likely to undo them",
+        "why": "Examples may improve accuracy, but without history the next edit can still silently remove them and nobody can trace when or why."
+      },
+      {
+        "id": "c",
+        "text": "Run the eval suite after each console edit and restore the earlier wording if the score drops",
+        "why": "Evals catch regressions, which is valuable, but restoring the earlier wording needs a record of that wording, which the console does not keep."
+      },
+      {
+        "id": "d",
+        "text": "Copy each prompt version into a shared wiki page along with the date on which it went live",
+        "why": "A manual copy drifts from what is actually deployed, carries no review, and records neither who changed what nor why."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that nobody can see what changed or why: the missing control is version history. A prompt in the repository gets diffs, review, commit messages and tags tied to deploys, like any other code. The eval option is tempting and worth doing as well, but it detects regressions without explaining or reverting them.",
+    "cue": "nobody can tell what changed between versions or why",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Pro Git: About version control (book source)",
+        "url": "https://github.com/progit/progit2/blob/main/book/01-introduction/sections/about-version-control.asc"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-012",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.vcs"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A developer commits a `.env` file containing an Anthropic API key to a private repository, notices an hour later, and pushes a commit that deletes the file. The repository is mirrored to two CI systems and has been cloned by fifteen engineers since. What should happen next?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Revoke and rotate the key now, then add secret scanning that blocks commits containing credentials",
+        "why": "Correct. Every clone and mirror holds the key, so it must be treated as leaked; only rotation makes those copies worthless, and scanning stops the next one."
+      },
+      {
+        "id": "b",
+        "text": "Rewrite history to purge the file and force-push, so the key no longer appears in any commit",
+        "why": "Rewriting shared history cannot reach the fifteen clones or the mirrors that already hold the commit, disrupts everyone, and leaves the key valid."
+      },
+      {
+        "id": "c",
+        "text": "Add .env to .gitignore so the key cannot be committed again, and close the incident as resolved",
+        "why": "gitignore prevents future commits of untracked files, but the leaked key is still valid and still in history."
+      },
+      {
+        "id": "d",
+        "text": "Restrict the repository to the core team so that fewer people can browse the history that still contains it",
+        "why": "Everyone with an existing clone or mirror already has the key; access controls on the repository cannot recall copies."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is the mirrors and clones: git history is copied everywhere, so a deleting commit or even a force-push leaves the key in other repositories. A committed secret is a leaked secret, and the response is rotation first, then prevention such as secret scanning in CI. Purging history is the tempting distractor; it is cleanup, not remediation.",
+    "cue": "mirrored to two CI systems and has been cloned by fifteen engineers",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Claude Code GitHub Actions",
+        "url": "https://code.claude.com/docs/en/github-actions"
+      },
+      {
+        "label": "Pro Git: Rewriting history (book source)",
+        "url": "https://github.com/progit/progit2/blob/main/book/07-git-tools/sections/rewriting-history.asc"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-013",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.vcs"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Your team publishes `acme-claude-tools`, an internal Python package at version 2.4.1 that other teams depend on with `~=2.4`. The next change renames the `summarize()` keyword argument `max_len` to `max_output_tokens` and removes the old name. What version should the release carry?",
+    "options": [
+      {
+        "id": "a",
+        "text": "3.0.0, because removing a keyword argument is an incompatible change to the public API",
+        "why": "Correct. Callers passing max_len break, which is a backward-incompatible change and requires a MAJOR bump under SemVer."
+      },
+      {
+        "id": "b",
+        "text": "2.5.0, because the rename adds new functionality that is backward compatible for callers",
+        "why": "MINOR is for backward-compatible additions; existing callers using max_len would break, so this change is not compatible."
+      },
+      {
+        "id": "c",
+        "text": "2.4.2, because the change is small and only fixes a confusingly named parameter",
+        "why": "PATCH is reserved for backward-compatible bug fixes; the size or intent of a change does not matter when callers break."
+      },
+      {
+        "id": "d",
+        "text": "2.5.0-rc.1, because a pre-release lets dependent teams try out the rename safely",
+        "why": "A pre-release of 2.5.0 still previews a MINOR release, and the release it previews would break existing callers anyway."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that the old name is removed, so existing calls fail: an incompatible public API change, which SemVer maps to MAJOR. Had the team kept `max_len` as a deprecated alias, a MINOR release announcing the deprecation would have been correct, with removal in a later MAJOR. A MINOR or PATCH number would let the `~=2.4` pin pull the break into every dependent team.",
+    "cue": "removes the old name",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Semantic Versioning 2.0.0 (spec source)",
+        "url": "https://github.com/semver/semver/blob/master/semver.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-014",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.vcs"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Version 3.2.0 of an internal SDK wrapper was published yesterday and, by mistake, dropped a public function that two services still call. Several other services have already pinned 3.2.0 and deployed it without problems. What is the correct response under Semantic Versioning?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Publish 3.2.1 restoring the function, and note in the changelog that 3.2.0 is faulty",
+        "why": "Correct. The SemVer FAQ says to fix the problem in a new patch version that restores compatibility and to document the offending version, never to modify it."
+      },
+      {
+        "id": "b",
+        "text": "Delete 3.2.0 from the registry and republish the fixed code under the same version",
+        "why": "Released contents must never be modified; services that pinned 3.2.0 would silently receive different code under the same number."
+      },
+      {
+        "id": "c",
+        "text": "Move the 3.2.0 git tag to a fixed commit and rebuild the package from the new tag",
+        "why": "Retagging changes what 3.2.0 means after the fact, the same violation as republishing, and breaks reproducible builds for everyone who pinned it."
+      },
+      {
+        "id": "d",
+        "text": "Leave 3.2.0 as it is and ask the two broken services to pin 3.1.x for the time being",
+        "why": "This leaves a compatibility break inside a MINOR release for every future upgrader and pushes the cost onto consumers."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that 3.2.0 is already published: SemVer forbids modifying a released version, so the only fix is forward, with a patch release that restores compatibility and a note marking 3.2.0 as faulty. Republishing or retagging under the same number is the tempting shortcut, but it means two different artifacts share one version.",
+    "cue": "was published yesterday",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Semantic Versioning 2.0.0 (spec source)",
+        "url": "https://github.com/semver/semver/blob/master/semver.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-015",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.vcs",
+      "swe.sdlc"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Answer quality on an internal Claude assistant dropped at some point in the last 120 commits, which mix prompt edits, tool-schema changes and refactors. An eval script exits non-zero when the pass rate falls below baseline and takes about four minutes per run. What is the fastest reliable way to find the commit that introduced the drop?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Run git bisect between the last good release tag and HEAD, using the eval script with git bisect run",
+        "why": "Correct. Bisect is a binary search, so about seven four-minute runs cover 120 commits, and the script's exit code marks each commit good or bad automatically."
+      },
+      {
+        "id": "b",
+        "text": "Ask Claude Code to read all 120 diffs and name the commit most likely to have caused the drop",
+        "why": "A model's reading of diffs is a hypothesis, not evidence; the culprit may be a schema or refactor change that looks harmless."
+      },
+      {
+        "id": "c",
+        "text": "Revert the prompt-file commits one at a time from newest to oldest, re-running the eval after each revert",
+        "why": "This is a linear search over only part of the history, and it never tests the schema and refactor commits that may be responsible."
+      },
+      {
+        "id": "d",
+        "text": "Compare production error rates before and after each deploy to find the release where errors rose",
+        "why": "Quality regressions typically raise no errors, so error rates stay flat across deploys and point nowhere."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is an automated check that exits non-zero on failure, which is exactly what `git bisect run` needs to mark commits good or bad. A binary search over 120 commits needs about seven runs. Because eval results vary run to run, the script should compare the pass rate to baseline with a tolerance, as this one does.",
+    "cue": "exits non-zero when the pass rate falls below baseline",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Pro Git: Debugging with Git (book source)",
+        "url": "https://github.com/progit/progit2/blob/main/book/07-git-tools/sections/debugging.asc"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-016",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.vcs"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A release tool computes the next version of a TypeScript client for an internal Claude service from Conventional Commits merged since v1.8.3, and the team publishes whatever it computes. Which two of the merged commits make the next release 2.0.0 rather than 1.9.0? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "feat(tools)!: rename the orderId input of lookup_order to order_id",
+        "why": "Correct. The ! after the type and scope marks a breaking change, which Conventional Commits maps to a SemVer MAJOR bump."
+      },
+      {
+        "id": "b",
+        "text": "fix(parser): reject trailing commas, with footer BREAKING CHANGE: lenient parsing removed",
+        "why": "Correct. A BREAKING CHANGE footer makes a commit of any type, including fix, a MAJOR change."
+      },
+      {
+        "id": "c",
+        "text": "feat(tools): add an optional locale input to the lookup_order tool",
+        "why": "A backward-compatible new feature is a feat without a breaking marker, which maps to MINOR."
+      },
+      {
+        "id": "d",
+        "text": "chore(deps): upgrade the Anthropic SDK dependency to its next major version",
+        "why": "Upgrading a dependency does not by itself change this library's public API, and without a breaking marker the type carries no bump."
+      },
+      {
+        "id": "e",
+        "text": "perf: cache the system prompt prefix to cut latency on repeated calls",
+        "why": "perf is an allowed type with no implicit version effect unless the commit also carries a breaking marker."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Conventional Commits maps fix to PATCH, feat to MINOR, and any commit with `!` or a `BREAKING CHANGE:` footer to MAJOR, whatever its type. The tempting distractor is the dependency upgrade: a major bump in a dependency does not by itself break this library's public API, so it carries no implicit version change.",
+    "cue": "from Conventional Commits merged since v1.8.3",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Conventional Commits 1.0.0 (spec source)",
+        "url": "https://github.com/conventional-commits/conventionalcommits.org/blob/master/content/v1.0.0/index.md"
+      },
+      {
+        "label": "Semantic Versioning 2.0.0 (spec source)",
+        "url": "https://github.com/semver/semver/blob/master/semver.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-017",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.sdlc"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team changes the system prompt of its contract-review assistant; lint and the unit tests, which run with the Claude client mocked, all pass, and the error-rate dashboard stays flat after deploy. A week later, lawyers report that clause summaries now miss indemnity terms far more often. Which addition to CI would have caught this before merge?",
+    "options": [
+      {
+        "id": "a",
+        "text": "An eval suite of graded contract cases that fails the build when the pass rate drops below baseline",
+        "why": "Correct. Only a task-specific eval scores what the model actually produces, and gating on an aggregate pass rate tolerates run-to-run variation."
+      },
+      {
+        "id": "b",
+        "text": "Full line coverage of the prompt-building module, enforced as a required check on every pull request",
+        "why": "Coverage measures which lines ran under the mocked client; it says nothing about the quality of real model outputs."
+      },
+      {
+        "id": "c",
+        "text": "A snapshot test asserting that outputs for ten sample contracts match stored outputs byte for byte",
+        "why": "Model outputs vary between runs, so byte-equal snapshots fail on harmless changes and check sameness rather than correctness."
+      },
+      {
+        "id": "d",
+        "text": "A post-deploy alert that fires whenever 5xx responses or p95 latency rise above their usual levels",
+        "why": "A quality regression throws no errors and adds no latency, so these signals stay green, and they fire after deploy rather than before merge."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is the mocked client: unit tests verify the plumbing around Claude, not the quality of its answers, and dashboards measure availability. A prompt change needs an eval suite gating on pass rate against baseline. Snapshot tests are tempting because they touch real outputs, but they gate on byte equality, which nondeterministic generation cannot meet.",
+    "cue": "which run with the Claude client mocked",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Develop tests (evals)",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-018",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.sdlc"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A rewritten system prompt for a customer-facing assistant is ready to launch. The support director requires that it can be switched back within one minute if complaints spike, without waiting on the 25-minute build-and-deploy pipeline. Which release approach meets the requirement?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Ship both prompt versions and pick one with a runtime feature flag, starting with a small share of users",
+        "why": "Correct. A flag is a configuration change that takes effect without a deploy, so it doubles as the kill switch and allows a gradual canary."
+      },
+      {
+        "id": "b",
+        "text": "Tag the release in git so that the previous prompt version can be checked out and redeployed as soon as needed",
+        "why": "A tag identifies what to roll back to, but the rollback itself still has to go through the 25-minute pipeline."
+      },
+      {
+        "id": "c",
+        "text": "Keep the old prompt in a commented-out block so an engineer can restore it with a one-line commit",
+        "why": "The one-line commit still has to build and deploy, so the rollback takes at least 25 minutes."
+      },
+      {
+        "id": "d",
+        "text": "Run the eval suite as a required CI check so that a weaker prompt is blocked before it ever merges",
+        "why": "An eval gate lowers the chance of a bad launch but gives no fast way back when production complaints arrive anyway."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is a one-minute rollback that cannot use the pipeline, so deploy and release must be decoupled. A runtime flag selects the prompt version, which makes rollback a configuration change and supports a gradual canary with the same switch. Tagging is tempting because it is good hygiene, but it still routes the rollback through a redeploy.",
+    "cue": "without waiting on the 25-minute build-and-deploy pipeline",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Azure App Configuration: feature management (source)",
+        "url": "https://github.com/MicrosoftDocs/azure-docs/blob/main/articles/azure-app-configuration/concept-feature-management.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-019",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.sdlc"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team adds a CI step that runs Claude Code headlessly on each pull request to detect renamed or retyped tool-schema fields. The job must fail whenever such a change is found, and it runs unattended on shared runners. Which configuration fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "claude -p with only Read pre-approved and a --json-schema findings list, plus a script that fails on any finding",
+        "why": "Correct. Structured output gives a machine-readable verdict, the script turns it into a deterministic exit code, and pre-approving only Read keeps the run least-privilege."
+      },
+      {
+        "id": "b",
+        "text": "claude -p with --permission-mode bypassPermissions so that the unattended run never stalls on a prompt",
+        "why": "Bypassing permissions grants every tool on a shared runner, the opposite of least privilege, and it does nothing to produce a pass or fail signal."
+      },
+      {
+        "id": "c",
+        "text": "claude -p instructed in the prompt to exit with status 1 if it finds a breaking schema field change",
+        "why": "The process exit code reflects whether the run itself succeeded, not the model's finding; asking in the prompt is a request, not a gate."
+      },
+      {
+        "id": "d",
+        "text": "An interactive claude session launched by the runner, with the review instructions placed in CLAUDE.md",
+        "why": "An interactive session waits for input nobody will give, and CLAUDE.md is advisory context rather than a pass or fail mechanism."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is 'must fail': the verdict has to become an exit code through code, not through the model's goodwill. Headless mode with `--output-format json` and `--json-schema` returns a `structured_output` field a script can test, and `--allowedTools` limits the run to what it needs. The prompt-requested exit code is tempting but conflates run success with the finding.",
+    "cue": "must fail whenever such a change is found",
+    "pattern": "must-means-deterministic",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Run Claude Code programmatically",
+        "url": "https://code.claude.com/docs/en/headless"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-020",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.sdlc"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A team is designing CI for a Claude-backed claims assistant. Unit tests must be free and repeatable on every push, while answer quality must be checked whenever the prompt, model ID or tool schemas change. Which two practices fit? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Stub the Claude client in unit tests and assert on the requests the app builds and how it handles responses",
+        "why": "Correct. With the client stubbed, unit tests cost nothing, never vary, and still verify request construction and response handling, including errors."
+      },
+      {
+        "id": "b",
+        "text": "Run the eval suite when prompt, model or tool-schema files change, gating on pass rate against a baseline",
+        "why": "Correct. Path-triggered evals spend money only when behaviour-defining files change, and gate on an aggregate that tolerates run-to-run variation."
+      },
+      {
+        "id": "c",
+        "text": "Run the full eval suite against the live API on every push to every branch so quality is never missed",
+        "why": "Live evals on every push cost money and time on changes that cannot affect quality, and results vary, so this breaks the free and repeatable requirement."
+      },
+      {
+        "id": "d",
+        "text": "Gate each merge on Claude's own assessment of whether the new prompt beats the current one",
+        "why": "A model grading its own change is neither a deterministic nor an accountable gate; at most it is a second opinion."
+      },
+      {
+        "id": "e",
+        "text": "Replay recorded responses from the old prompt as the expected outputs for the new prompt's evals",
+        "why": "Replayed old responses never exercise the new prompt, so the suite would pass regardless of how the change affects quality."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Two requirements split the work: free and repeatable means no live calls in unit tests, and quality checks mean an eval suite triggered by the files that change behaviour. Running live evals on every push is the tempting over-correction, and it fails the cost and repeatability requirement.",
+    "cue": "free and repeatable on every push",
+    "pattern": "tradeoff",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Develop tests (evals)",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "new-software-engineering-foundations-05",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.code-review"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A pull request written entirely by Claude Code passes the unit tests and the eval suite on the first run and follows the repository's existing patterns. The assigned reviewer proposes approving after a quick skim because the author is a model whose output automation has already validated. What should the reviewer do?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Review it to the same standard as a human-written change, since the approver stays accountable for it",
+        "why": "Correct. Provenance does not change risk; tests prove only what they check, and fluent generated code is good at hiding wrong assumptions."
+      },
+      {
+        "id": "b",
+        "text": "Approve after a skim, since passing tests and evals covers what a deeper review would usually find",
+        "why": "Tests and evals verify the cases someone thought to write; security, compatibility and intent gaps are what human review exists to catch."
+      },
+      {
+        "id": "c",
+        "text": "Have Claude regenerate the change from the same prompt and approve if the two versions match closely",
+        "why": "Two samples from the same model and prompt share the same blind spots, so their agreement is not evidence of correctness."
+      },
+      {
+        "id": "d",
+        "text": "Ask the Claude session that wrote the change to review its own diff and approve if it finds nothing",
+        "why": "The authoring context is biased toward its own output, and a model's self-check does not replace an accountable human approval."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is the reasoning 'because the author is a model'. Review rigour follows risk, not authorship, and the human who approves owns the change. Self-review in the writing session is the tempting option, but even a fresh-context AI review only adds a layer; it does not replace human approval.",
+    "cue": "because the author is a model",
+    "pattern": "scope-boundary",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Best practices for Claude Code",
+        "url": "https://code.claude.com/docs/en/best-practices"
+      },
+      {
+        "label": "Claude Code Code Review",
+        "url": "https://code.claude.com/docs/en/code-review"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-021",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.code-review"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team runs an AI review bot that posts inline findings on every pull request. Their compliance rule says a change under `billing/` must never merge without approval from a billing engineer, yet last month one merged after the bot reported no issues. Which control enforces the rule?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Branch protection requiring a code-owner approval from the billing team for every path under billing/",
+        "why": "Correct. Branch protection with code owners is enforced by the platform at merge time, the layer that can guarantee a named human approved."
+      },
+      {
+        "id": "b",
+        "text": "A rule in the bot's review instructions to flag every change under billing/ as a high-severity finding",
+        "why": "Findings inform reviewers but neither approve nor block; Claude Code Code Review, for example, always completes its check run as neutral."
+      },
+      {
+        "id": "c",
+        "text": "A CLAUDE.md line telling Claude Code to ask before it edits anything under billing/ during a session",
+        "why": "CLAUDE.md is advisory context for an authoring session; it does not control who can merge, and changes can come from anywhere."
+      },
+      {
+        "id": "d",
+        "text": "A required CI check that runs the eval suite whenever a pull request changes files under billing/",
+        "why": "This is deterministic, but it checks behaviour rather than human approval, so a billing change can still merge without a billing engineer."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is 'must never merge without approval': that calls for a deterministic, merge-time control. Branch protection with required code-owner review is enforced by the platform, while review bot findings are advisory by design. The eval check is tempting because it is a real gate, but it gates on a different property than the one the rule names.",
+    "cue": "must never merge without approval from a billing engineer",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Claude Code Code Review",
+        "url": "https://code.claude.com/docs/en/code-review"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-022",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.code-review",
+      "swe.rest"
+    ],
+    "type": "multi",
+    "select": 3,
+    "stem": "A reviewer is reading a Claude-written pull request that adds a `refund_status` tool to a support agent. The diff wraps the SDK call in a three-attempt retry loop, catches `Exception` and returns an empty string on any failure, and in the same commit renames the public response field `refundId` to `refund_id`. Which three findings should block approval? Select three.",
+    "options": [
+      {
+        "id": "a",
+        "text": "The retry loop stacks on the SDK's built-in retries and multiplies attempts during an outage",
+        "why": "Correct. The SDK already retries transient errors with backoff and honours retry-after; an outer loop multiplies load and latency in the very incident it targets."
+      },
+      {
+        "id": "b",
+        "text": "Catching Exception and returning an empty string hides failures from the agent and the logs",
+        "why": "Correct. A blanket catch turns every failure into a silent empty result, so the agent cannot tell 'no refund' from 'lookup failed'."
+      },
+      {
+        "id": "c",
+        "text": "The field rename breaks existing consumers and needs a compatible migration or a major version",
+        "why": "Correct. Renaming a public field is an incompatible change; it needs expand and contract or a MAJOR version, not a silent rename."
+      },
+      {
+        "id": "d",
+        "text": "The handler logs the request ID of each failed SDK call, which could expose internal details",
+        "why": "Logging the request ID is recommended practice: it is the identifier support needs and contains no customer data."
+      },
+      {
+        "id": "e",
+        "text": "The tool's input schema uses an enum for refund states instead of an unconstrained string",
+        "why": "An enum for a closed set of states is good schema design; it constrains inputs and documents the valid values."
+      }
+    ],
+    "answer": [
+      "a",
+      "b",
+      "c"
+    ],
+    "explanation": "Three defects are classic in fluent generated code: a duplicate retry layer, a swallowed exception, and a breaking contract change hidden in a feature commit. The request-ID logging is the tempting distractor, but the SDK exposes that ID precisely so failures can be logged and reported to support.",
+    "cue": "renames the public response field",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Python SDK",
+        "url": "https://platform.claude.com/docs/en/api/sdks/python"
+      },
+      {
+        "label": "Semantic Versioning 2.0.0 (spec source)",
+        "url": "https://github.com/semver/semver/blob/master/semver.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-023",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.code-review"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A developer has Claude Code implement a change to a sliding-window rate limiter and then, in the same session, asks it to review the diff; it reports no issues. A colleague later finds an off-by-one error at the window boundary. Which change to the workflow most improves the AI-assisted review step?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Run the review in a fresh session or subagent that sees the diff and the requirement, not the authoring chat",
+        "why": "Correct. Anthropic's best practices recommend a writer/reviewer split because a fresh context is not biased toward code it just wrote."
+      },
+      {
+        "id": "b",
+        "text": "Ask the same session to review the diff three more times and merge only if every pass reports no issues",
+        "why": "Repeated passes in the same context share the same assumptions, so their agreement adds little independent evidence."
+      },
+      {
+        "id": "c",
+        "text": "Add 'be extremely critical and assume there are bugs' to the review request in the authoring session",
+        "why": "Stronger wording does not remove the authoring context, and a reviewer told to find problems tends to report some even when the work is sound."
+      },
+      {
+        "id": "d",
+        "text": "Let a reviewer subagent approve the pull request directly, so the colleague's review is not needed",
+        "why": "This removes the accountable human layer; an AI reviewer is one layer of review, not the approver."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that the review ran in the same session that wrote the code, whose context carries the author's assumptions. A fresh session or subagent reviews the diff against the requirement without that bias. A more critical prompt is the tempting fix, but wording cannot remove the context, and it encourages findings for their own sake.",
+    "cue": "in the same session",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Best practices for Claude Code",
+        "url": "https://code.claude.com/docs/en/best-practices"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "legacy-023",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.refactoring"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team is using Claude Code to move a 40,000-line billing module from a deprecated ORM to its replacement under a tight deadline. Claude proposes one sweeping commit that also fixes several unrelated bugs it noticed, so that each file is touched only once. Which plan should the team require?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Small behaviour-preserving steps with tests green after each one, and the bug fixes in separate commits",
+        "why": "Correct. Separating structure from behaviour keeps each step verifiable, reviewable and revertible, and a failing step points to one small change."
+      },
+      {
+        "id": "b",
+        "text": "The single sweeping commit as proposed, followed by an extended manual QA cycle once it is merged",
+        "why": "End-of-line QA finds failures but cannot attribute them in a diff that mixes a migration with behaviour changes, and the diff cannot be bisected."
+      },
+      {
+        "id": "c",
+        "text": "The single sweeping commit as proposed, reviewed by a second Claude session in a fresh context",
+        "why": "A fresh reviewer helps, but it still faces one huge diff that mixes refactor and fixes, which no reviewer can check meaningfully."
+      },
+      {
+        "id": "d",
+        "text": "Postponing the migration until after the deadline, because large refactors are too risky under pressure",
+        "why": "Incremental steps make the migration safe to do now; avoidance is not the only alternative to a big-bang change."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is the bug fixes riding along in the refactor. A refactor must preserve behaviour, so mixing in fixes makes it unverifiable, and one sweeping commit can be neither reviewed nor bisected. Small green steps with the fixes split out keep every change attributable. The fresh-context review is tempting but cannot rescue an unreviewable diff.",
+    "cue": "also fixes several unrelated bugs it noticed",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Best practices for Claude Code",
+        "url": "https://code.claude.com/docs/en/best-practices"
+      },
+      {
+        "label": "Pro Git: Debugging with Git (book source)",
+        "url": "https://github.com/progit/progit2/blob/main/book/07-git-tools/sections/debugging.asc"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-024",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.refactoring"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Before Claude Code splits a 3,000-line Python module that computes partner commission payouts, the team notes that it has no tests. Finance requires that its current outputs, including a known rounding quirk, stay exactly the same in this release. What should happen first?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Write characterization tests that record the module's current outputs, quirk included, for representative inputs",
+        "why": "Correct. Characterization tests pin what the code does today, bugs included, which turns 'did the split change anything?' into a pass or fail answer."
+      },
+      {
+        "id": "b",
+        "text": "Fix the rounding quirk first so that the new tests can assert the correct values instead of the buggy ones",
+        "why": "Fixing the quirk changes behaviour, which finance has ruled out for this release, and it mixes a behaviour change into the refactor."
+      },
+      {
+        "id": "c",
+        "text": "Have Claude write unit tests from the docstrings that describe what each function is intended to compute",
+        "why": "Docstrings describe intent, not reality; tests built from them either fail on the quirk or encode behaviour the code does not have."
+      },
+      {
+        "id": "d",
+        "text": "Enter plan mode so that Claude proposes the split and its new file layout before it edits any files",
+        "why": "Planning first is good practice, but a plan is not a behaviour pin; without tests nobody can show the outputs stayed the same."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that outputs must stay exactly the same, quirk included, in a module with no tests. Characterization tests record actual behaviour on representative inputs so each refactoring step can be checked against it, which also gives Claude a check it can run. Plan mode is the tempting distractor because it is also a 'first' step, but it verifies nothing.",
+    "cue": "including a known rounding quirk, stay exactly the same",
+    "pattern": "sequence",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Best practices for Claude Code",
+        "url": "https://code.claude.com/docs/en/best-practices"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-025",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.refactoring",
+      "swe.rest"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A Claude-backed recommendations API returns `productId`, and the team wants to rename it to `product_id`. Three mobile app versions in users' hands still read `productId`, and older versions take months to age out. Which approach changes the field safely?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Return both names for a while, move clients to product_id, and drop productId once its usage reaches zero",
+        "why": "Correct. Expand and contract adds the new field beside the old one, migrates readers, and removes the old name only when nothing uses it."
+      },
+      {
+        "id": "b",
+        "text": "Rename the field and have Claude regenerate every client SDK in the same PR so all apps update together",
+        "why": "Regenerated SDKs only reach new app builds; installed versions keep reading productId and break as soon as the server drops it."
+      },
+      {
+        "id": "c",
+        "text": "Rename the field behind a feature flag and switch it on for all users once the server deploy is done",
+        "why": "A flag controls when the rename happens, but flipping it for everyone still breaks every installed version that reads productId."
+      },
+      {
+        "id": "d",
+        "text": "Rename it with a codemod across the server and client repositories and merge them as one change",
+        "why": "A coordinated change keeps the repositories consistent, but installed app versions are not in any repository and cannot be updated by a merge."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is old app versions that linger for months: the server cannot change in lockstep with clients it does not control. Expand and contract keeps both names until usage of the old one disappears, the same idea SemVer applies when it asks for a deprecation release before removal. The coordinated codemod is tempting because it is atomic in the repository, but the break still reaches devices the repository cannot.",
+    "cue": "older versions take months to age out",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Semantic Versioning 2.0.0 (spec source)",
+        "url": "https://github.com/semver/semver/blob/master/semver.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-026",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.refactoring"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A monorepo has about 450 call sites of a deprecated helper `fetch_json(url, retries=3)` that must become `http.get_json(url)`, dropping the retries argument because the new client retries itself. Every call site follows one of three syntactic shapes, and the code has good test coverage. Which approach should the team take with Claude Code?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Have Claude write an AST-based codemod, test it on a few files, review it and a sample diff, then run it in small PRs",
+        "why": "Correct. A codemod turns a repeated mechanical change into a deterministic, re-runnable script that is reviewed once, and small PRs keep rollback surgical."
+      },
+      {
+        "id": "b",
+        "text": "Ask Claude to hand-edit all 450 call sites in a single session and then open one pull request containing every change",
+        "why": "Hand-editing 450 sites in one session exhausts context, is not reproducible, and yields a pull request too large to review."
+      },
+      {
+        "id": "c",
+        "text": "Run a project-wide regex replace on `fetch_json(` and then fix whatever the failing tests report afterwards",
+        "why": "A regex is not syntax-aware: it mishandles multi-line calls, aliases, comments and strings, and leaves the tests to find the damage."
+      },
+      {
+        "id": "d",
+        "text": "Add a CLAUDE.md rule to use http.get_json and let call sites migrate as people touch those files over time",
+        "why": "Advisory rules never finish a migration; both helpers would coexist indefinitely and the deprecated one would keep spreading."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is three syntactic shapes repeated across hundreds of files: the change can be expressed as a deterministic AST transform. Having Claude write and test the codemod, then run it in batches, makes the change reviewable once and repeatable. The regex replace is tempting because it is also deterministic, but it is not syntax-aware.",
+    "cue": "Every call site follows one of three syntactic shapes",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Best practices for Claude Code",
+        "url": "https://code.claude.com/docs/en/best-practices"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
+  },
+  {
+    "id": "software-engineering-foundations-027",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [
+      "swe.refactoring"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team is replacing a legacy rules engine that routes insurance claims with a Claude-based classifier. The legacy engine must keep serving production throughout, and each claim category must be switchable back to the old path if the new one misbehaves. Which strategy fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Put a routing facade in front, move one claim category at a time to the classifier, and retire the old engine last",
+        "why": "Correct. The strangler fig pattern routes through a facade so each capability moves independently and can be routed back, until the legacy system has nothing left."
+      },
+      {
+        "id": "b",
+        "text": "Finish the classifier, cut over in a single weekend window, and keep the old engine's code for a month as fallback",
+        "why": "A big-bang cutover offers only all-or-nothing rollback, and redeploying old code is far slower than flipping a route."
+      },
+      {
+        "id": "c",
+        "text": "Rewrite the engine on a long-lived feature branch and merge it once the classifier handles every claim category",
+        "why": "A long-lived branch accumulates drift and still lands as one big-bang merge with no per-category rollback."
+      },
+      {
+        "id": "d",
+        "text": "Run the classifier in shadow mode on all claims indefinitely and compare its routing with the legacy engine's",
+        "why": "Shadow mode is a useful validation step, but on its own it never moves traffic, so the migration never happens."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is per-category rollback while the old system keeps serving, which is the strangler fig pattern. A facade routes each category to the old or new implementation, so both migration and rollback are routing changes. Shadow mode is tempting because it is a sensible early step, but by itself it never migrates anything.",
+    "cue": "each claim category must be switchable back to the old path",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Azure Architecture Center: Strangler Fig pattern (source)",
+        "url": "https://github.com/MicrosoftDocs/architecture-center/blob/main/docs/patterns/strangler-fig.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-swe",
+    "status": "active"
   }
 ]

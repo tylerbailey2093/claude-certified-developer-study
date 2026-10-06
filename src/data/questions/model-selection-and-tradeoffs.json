@@ -3,168 +3,681 @@
     "id": "legacy-044",
     "objective": "model-selection-and-tradeoffs",
     "domain": 5,
-    "subskills": [],
+    "subskills": [
+      "ms.tiers"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A high-volume, latency-sensitive routing step classifies incoming messages into six categories. Which tier fits best?",
+    "stem": "A help desk platform adds a triage step that routes each incoming chat message to one of six queues before a human sees it. The step handles several million messages a day under a sub-second latency budget, and an eval on last month's traffic shows the smallest tier labels them as accurately as the larger ones. Which model choice fits this step?",
     "options": [
       {
         "id": "a",
-        "text": "The most capable available model, for accuracy",
-        "why": ""
+        "text": "The Haiku tier, since it is the fastest and cheapest and the eval shows it meets the bar",
+        "why": "Correct. High-volume, narrow, latency-sensitive classification is the Haiku use case, and the eval confirms quality."
       },
       {
         "id": "b",
-        "text": "The fastest, lowest-cost tier, validated with evals",
-        "why": ""
+        "text": "The Opus tier, so the triage step has the strongest reasoning as a safety margin",
+        "why": "Pays for capability the eval shows is unneeded and adds latency and cost across millions of calls."
       },
       {
         "id": "c",
-        "text": "The mid-tier model with maximum effort",
-        "why": ""
+        "text": "The Sonnet tier at max effort, balancing capability with extra reasoning per message",
+        "why": "Max effort spends more tokens and time on a narrow task, working against the sub-second budget."
       },
       {
         "id": "d",
-        "text": "Whichever tier the rest of the application already uses",
-        "why": ""
+        "text": "Whichever tier the rest of the platform uses, so that every step behaves consistently",
+        "why": "Consistency is not a requirement here; each step's tier should fit its own volume and latency."
       }
     ],
     "answer": [
-      "b"
+      "a"
     ],
-    "explanation": "Narrow, high-volume, latency-sensitive classification is what the fast, low-cost tier is for, provided evals confirm the quality bar. Defaulting to the most capable model for every task is the classic overprovisioning mistake.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
+    "explanation": "High volume, a narrow classification task and a sub-second budget describe the Haiku tier's use case, and the eval confirms quality holds. Defaulting to the most capable tier for a routing step is the classic overprovisioning mistake. Sonnet at max effort is tempting as a middle path, but max effort spends more tokens and time on exactly the dimension this step must minimise.",
+    "cue": "under a sub-second latency budget",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
     "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Models overview",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/overview"
+      },
+      {
+        "label": "Choosing the right model",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/choosing-a-model"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
   },
   {
     "id": "legacy-045",
     "objective": "model-selection-and-tradeoffs",
     "domain": 5,
-    "subskills": [],
+    "subskills": [
+      "ms.breaking",
+      "ms.adaptive"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "After migrating to a newer model, requests that previously worked return 400 errors on the thinking parameter. What is the likely cause?",
+    "stem": "A team moves a code-review agent from an older Sonnet model to a newer generation by changing only the model string. The request still sends thinking type enabled with the budget_tokens value carried over from the old code, and every call now fails with a 400 pointing at the thinking configuration. What should they do?",
     "options": [
       {
         "id": "a",
-        "text": "The API key lacks permission for the new model",
-        "why": ""
+        "text": "Switch to adaptive thinking steered by effort, then evaluate two or three effort levels",
+        "why": "Correct. Newer generations replace manual budgets with adaptive thinking and effort, and no fixed budget-to-effort mapping exists."
       },
       {
         "id": "b",
-        "text": "The newer model runs adaptive thinking and rejects manual thinking budgets",
-        "why": ""
+        "text": "Retry the failed calls with exponential backoff until the new model accepts the request",
+        "why": "A 400 is a validation error about request shape; an identical retry fails identically."
       },
       {
         "id": "c",
-        "text": "The context window shrank below the request size",
-        "why": ""
+        "text": "Lower budget_tokens to the 1,024 minimum so the manual thinking request passes validation",
+        "why": "The newer model rejects manual thinking budgets altogether, so the value is not what fails."
       },
       {
         "id": "d",
-        "text": "Thinking is only available on the Batch API",
-        "why": ""
+        "text": "Revert permanently to the older model ID so the existing thinking configuration keeps working",
+        "why": "Every model ID has its own retirement schedule; reverting postpones a migration that still has to happen."
       }
     ],
     "answer": [
-      "b"
+      "a"
     ],
-    "explanation": "Breaking behavior changes across releases are explicitly in scope. Newer models use adaptive thinking with effort as the control and reject manual budget_tokens, which is why migration means reading the guide and re-running evals rather than swapping a model string.",
-    "cue": "",
-    "pattern": "unclassified",
+    "explanation": "Newer generations replace manual thinking budgets with adaptive thinking controlled by effort, so a carried-over budget_tokens request is a request-shape error, not a transient fault. There is no fixed mapping from a budget to an effort level, so the migration should evaluate a few levels against the existing suite. Shrinking the budget is tempting because the error names the thinking block, but manual mode itself is what the newer model rejects.",
+    "cue": "still sends thinking type enabled with the budget_tokens value carried over",
+    "pattern": "diagnosis",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Thinking",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking"
+      },
+      {
+        "label": "Migrating to Claude Sonnet 5.5",
+        "url": "https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide"
+      },
+      {
+        "label": "Models overview",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/overview"
+      }
+    ],
+    "verified": "2026-10-06",
+    "postGuide": {
+      "note": "budget_tokens returning a 400 applies to the Claude 4.7-and-later generations. At guide time, manual budgets were deprecated on the 4.6 models but still accepted. Engineering knowledge, low exam confidence."
+    },
+    "author": "agent:q-llm-models",
+    "status": "active"
   },
   {
     "id": "legacy-046",
     "objective": "model-selection-and-tradeoffs",
     "domain": 5,
-    "subskills": [],
+    "subskills": [
+      "ms.breaking"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A team migrating to Opus 5 finds their requests now return 400 when they set temperature to 0 for deterministic extraction. What should they do?",
+    "stem": "An invoice extractor sets temperature to 0 and relies on a prompt instruction to get JSON back. After the model ID is moved to a newer release, every request returns a 400 naming the temperature parameter, and the accounts system downstream must receive JSON that matches a fixed schema. What should the team do?",
     "options": [
       {
         "id": "a",
-        "text": "Set temperature to 1 explicitly and accept the variability",
-        "why": ""
+        "text": "Remove temperature and enforce the schema with structured outputs, then re-run the extraction evals",
+        "why": "Correct. The sampling setting has to go, and a must-match schema needs an enforced control rather than an instruction."
       },
       {
         "id": "b",
-        "text": "Remove the sampling parameter and control output using effort plus a structured output schema",
-        "why": ""
+        "text": "Set temperature to 0.01 so the value is accepted while keeping near-deterministic output",
+        "why": "The newer release rejects any non-default sampling value, so 0.01 fails the same way."
       },
       {
         "id": "c",
-        "text": "Downgrade to a model that still accepts temperature",
-        "why": ""
+        "text": "Remove temperature and strengthen the prompt instruction to always return valid JSON",
+        "why": "Clears the 400 but leaves schema compliance as a request; a must-match requirement needs enforcement."
       },
       {
         "id": "d",
-        "text": "Wrap the call in a retry loop until it succeeds",
-        "why": ""
+        "text": "Revert to the older model ID and keep temperature 0 as the consistency guarantee",
+        "why": "Temperature 0 never guaranteed consistent output, and the older ID will eventually retire."
       }
     ],
     "answer": [
-      "b"
+      "a"
     ],
-    "explanation": "Non-default sampling parameters return 400 on the newest models; effort has replaced them as the control surface. For deterministic extraction specifically, a structured output schema constrains the shape far more reliably than temperature ever did.",
-    "cue": "",
-    "pattern": "unclassified",
+    "explanation": "The newer release rejects non-default sampling parameters, so temperature has to go, and the downstream must-match requirement calls for an enforced control rather than an instruction. Structured outputs constrain the response to the JSON schema. Removing temperature and tightening the prompt is tempting because it clears the 400, but a prompt is a request and only the schema is a guarantee.",
+    "cue": "must receive JSON that matches a fixed schema",
+    "pattern": "must-means-deterministic",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Messages API reference",
+        "url": "https://platform.claude.com/docs/en/api/messages/create"
+      },
+      {
+        "label": "Structured outputs",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+      },
+      {
+        "label": "Migrating to Claude Sonnet 5.5",
+        "url": "https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide"
+      }
+    ],
+    "verified": "2026-10-06",
+    "postGuide": {
+      "note": "Non-default temperature, top_p and top_k returning a 400 (Claude Opus 4.7 and later, Sonnet 5 and later) landed after the July 2026 guide. Engineering knowledge, not exam content."
+    },
+    "author": "agent:q-llm-models",
+    "status": "active"
   },
   {
     "id": "new-model-selection-and-tradeoffs-01",
     "objective": "model-selection-and-tradeoffs",
     "domain": 5,
-    "subskills": [],
+    "subskills": [
+      "ms.adaptive",
+      "ms.tiers"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A compliance workflow synthesizes conflicting clauses across long contracts using Claude Sonnet 5 at effort high, and the evals gating this workflow were all tuned against that configuration. Latency is now a concern, so an engineer proposes switching the workflow to Claude Haiku 4.5 at effort low to speed things up while keeping quality about the same. What is wrong with this proposal?",
+    "stem": "A contract-comparison workflow runs on a Sonnet model at high effort, and its release evals were all tuned against that configuration. To cut latency, an engineer proposes moving it to the Haiku tier at low effort, expecting similar quality. What is the main problem with the proposal?",
     "options": [
       {
         "id": "a",
-        "text": "Nothing is wrong — Haiku 4.5 at effort low will reliably match Sonnet 5's quality on this task",
-        "why": ""
+        "text": "The Haiku tier has no effort parameter at all, and a tier swap voids evals tuned on Sonnet",
+        "why": "Correct. Haiku is differently shaped, not just cheaper, and any model change invalidates evaluated behaviour."
       },
       {
         "id": "b",
-        "text": "Claude Haiku 4.5 has no effort parameter, and swapping tiers invalidates the evals that were tuned on Sonnet 5's behavior",
-        "why": ""
+        "text": "The Haiku tier requires adaptive thinking to be enabled before any effort level takes effect",
+        "why": "Backwards: the Haiku model rejects adaptive thinking and supports thinking only through manual budgets."
       },
       {
         "id": "c",
-        "text": "Effort low always increases latency compared to effort high, so the proposal will make the workflow slower",
-        "why": ""
+        "text": "Low effort disables thinking on every tier, so quality would drop whichever model is used",
+        "why": "Effort is a behavioural signal; at low effort Claude still thinks on sufficiently difficult problems."
       },
       {
         "id": "d",
-        "text": "Claude Sonnet 5 does not support adaptive thinking, so the current baseline is already misconfigured",
-        "why": ""
+        "text": "The Haiku tier has a lower output ceiling, so comparison reports would be cut off at length",
+        "why": "Its maximum output is lower than Sonnet's but ample for reports like these; it is not the main problem."
       }
     ],
     "answer": [
-      "b"
+      "a"
     ],
-    "explanation": "Haiku 4.5 is differently shaped, not just cheaper: it runs extended thinking only and has no effort parameter at all, so 'effort low' on Haiku isn't a valid configuration to begin with. Even setting that aside, a tier swap invalidates every eval run against the old model, which is exactly what the workflow's evals were tuned on — the correct move is to step effort down on Sonnet 5 first, not swap tiers. Option A ignores both problems. Option C inverts the actual relationship between effort and latency (lower effort reduces reasoning depth and typically latency, it doesn't guarantee the opposite outcome described). Option D is a false factual claim — Sonnet 5 does support adaptive thinking.",
-    "cue": "",
+    "explanation": "Haiku is differently shaped, not just cheaper: it takes thinking only through manual budgets and has no effort parameter, so 'Haiku at low effort' is not a valid request. Even setting that aside, a tier swap changes the model the evals measured. The better first move for latency is lowering effort on the current Sonnet model and re-running the suite.",
+    "cue": "moving it to the Haiku tier at low effort",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Models overview",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/overview"
+      },
+      {
+        "label": "Thinking",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking"
+      },
+      {
+        "label": "Effort",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/effort"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "model-selection-and-tradeoffs-001",
+    "objective": "model-selection-and-tradeoffs",
+    "domain": 5,
+    "subskills": [
+      "ms.tiers"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team is prototyping an autonomous agent that will refactor a large legacy codebase over several hours of tool use. Nobody yet knows whether any model can complete the task, and per-task cost is secondary to finding out. Which starting point fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Start on the Opus tier, optimise prompts, then lower effort or downgrade while evals hold",
+        "why": "Correct. Capability-first fits complex, high-autonomy work where feasibility is unproven and accuracy outweighs cost."
+      },
+      {
+        "id": "b",
+        "text": "Start on the Haiku tier and move up a tier each time the agent fails a refactoring run",
+        "why": "Efficiency-first suits simple, cost-sensitive work; failures here cannot separate a capability gap from a prompt problem."
+      },
+      {
+        "id": "c",
+        "text": "Start on the Sonnet tier at low effort, raising effort only after the first runs succeed",
+        "why": "Low effort handicaps a feasibility test, so early failures could wrongly mark the task as infeasible."
+      },
+      {
+        "id": "d",
+        "text": "Run all three tiers in production from day one and keep whichever finishes the most tasks",
+        "why": "Feasibility is a development question; shipping unevaluated agents to production adds risk and cost."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "When feasibility is the open question and accuracy outweighs cost, Anthropic describes starting capability-first: use the strongest model, get it working, then lower effort or downgrade while evals hold. Starting on the smallest tier is the efficiency-first path, which fits cost-sensitive, straightforward work. Its failures here would not tell the team whether the task or the model was the limit.",
+    "cue": "Nobody yet knows whether any model can complete the task",
     "pattern": "buried-constraint",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Choosing the right model",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/choosing-a-model"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "model-selection-and-tradeoffs-002",
+    "objective": "model-selection-and-tradeoffs",
+    "domain": 5,
+    "subskills": [
+      "ms.tiers",
+      "ms.tradeoffs"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A research assistant uses an Opus-tier orchestrator that plans each query and synthesises the findings, and it fans out to dozens of subagents that each extract facts from one source. The subagent tasks are narrow and well specified, and their combined tokens make up most of the bill. Which change best fits the tradeoff?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Run the subagents on the Haiku tier and keep the orchestrator on Opus, confirming with evals",
+        "why": "Correct. Narrow, high-volume sub-agent work is a Haiku use case, while planning and synthesis justify Opus."
+      },
+      {
+        "id": "b",
+        "text": "Move the orchestrator to the Haiku tier as well, so the whole system runs on the cheapest model",
+        "why": "Planning and synthesis are where capability matters most; the orchestrator is not the dominant cost."
+      },
+      {
+        "id": "c",
+        "text": "Raise the subagents' effort to max so each extraction finishes in a single tool call",
+        "why": "Max effort raises token spend on narrow tasks, moving the dominant cost in the wrong direction."
+      },
+      {
+        "id": "d",
+        "text": "Enable fast mode on the subagents so their share of the bill is processed more quickly",
+        "why": "Fast mode buys output speed at premium per-token prices; it raises cost instead of lowering it."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Narrow, well-specified, high-volume work is the Haiku tier's use case, including sub-agent tasks, while planning and synthesis justify the stronger orchestrator. Splitting tiers by role cuts the dominant cost without touching the part that needs deep reasoning, and evals confirm the subagents still extract correctly. Moving the orchestrator down as well is tempting for symmetry, but it puts the hardest work on the least capable model.",
+    "cue": "The subagent tasks are narrow and well specified",
+    "pattern": "tradeoff",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Choosing the right model",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/choosing-a-model"
+      },
+      {
+        "label": "Models overview",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/overview"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "model-selection-and-tradeoffs-003",
+    "objective": "model-selection-and-tradeoffs",
+    "domain": 5,
+    "subskills": [
+      "ms.adaptive"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Product wants a support bot's reasoning depth to scale with question difficulty. The bot runs on the Haiku tier with manual thinking at a fixed budget, so an engineer replaces that block with thinking type adaptive and ships the change. What is the most likely result, and the right fix?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Requests fail with a 400; move the route to a tier that supports adaptive thinking and re-run evals",
+        "why": "Correct. The Haiku model rejects adaptive thinking, so scaling reasoning means a model change gated by evals."
+      },
+      {
+        "id": "b",
+        "text": "Requests succeed, but the tier ignores the adaptive setting and keeps thinking at the old budget",
+        "why": "Unsupported request shapes fail validation with a 400; they are not silently downgraded."
+      },
+      {
+        "id": "c",
+        "text": "Requests fail until effort is also set, since adaptive thinking on this tier needs an effort level",
+        "why": "The Haiku model has no effort parameter, so adding one would introduce a second invalid field."
+      },
+      {
+        "id": "d",
+        "text": "Requests succeed and thinking now scales per request, since every current tier supports adaptive mode",
+        "why": "Adaptive thinking is not universal: the Haiku model supports only manual extended thinking."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Adaptive thinking is not supported on every tier: the Haiku model takes thinking only through manual budget_tokens and returns a 400 for adaptive. Scaling reasoning with difficulty therefore means moving the route to a tier that supports adaptive thinking, which is a model change that needs evals. The silently-ignored option is tempting, but unsupported request shapes fail validation rather than degrading quietly.",
+    "cue": "The bot runs on the Haiku tier with manual thinking",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Thinking",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "model-selection-and-tradeoffs-004",
+    "objective": "model-selection-and-tradeoffs",
+    "domain": 5,
+    "subskills": [
+      "ms.adaptive"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A platform team is writing a routing library that attaches thinking settings to requests for Haiku, Sonnet and Opus routes. The library must never send a request shape that a tier rejects. Which two rules should it encode? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Omit the effort parameter on Haiku routes, because that tier does not support it",
+        "why": "Correct. The models overview lists effort as not supported on the Haiku model."
+      },
+      {
+        "id": "b",
+        "text": "On Haiku routes, request thinking with type enabled and a budget_tokens value of at least 1,024",
+        "why": "Correct. Manual extended thinking is the Haiku model's only thinking mode, with a 1,024-token minimum budget."
+      },
+      {
+        "id": "c",
+        "text": "Send thinking type adaptive on every route, because all current tiers accept it",
+        "why": "The Haiku model returns a 400 for adaptive thinking, so this shape fails on one tier."
+      },
+      {
+        "id": "d",
+        "text": "Map effort by tier, sending low for Haiku, medium for Sonnet and high for Opus",
+        "why": "Looks like sensible tuning, but sending any effort value to Haiku is a shape that tier does not support."
+      },
+      {
+        "id": "e",
+        "text": "Use budget_tokens on every route, so one request shape works for all three tiers",
+        "why": "Manual budgets are deprecated on the 4.6 models and rejected on later ones, so one shared shape is not valid."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Thinking controls are not uniform across tiers: the Haiku model has no effort parameter and supports thinking only through manual budgets (minimum 1,024, below max_tokens), while current Sonnet and Opus models use adaptive thinking and effort. A single shared shape cannot be valid everywhere. Mapping effort by tier is tempting because it looks like sensible tuning, but sending effort to Haiku is exactly the unsupported shape.",
+    "cue": "must never send a request shape that a tier rejects",
+    "pattern": "must-means-deterministic",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Thinking",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking"
+      },
+      {
+        "label": "Models overview",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/overview"
+      },
+      {
+        "label": "Extended thinking",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/extended-thinking"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "model-selection-and-tradeoffs-005",
+    "objective": "model-selection-and-tradeoffs",
+    "domain": 5,
+    "subskills": [
+      "ms.tradeoffs"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An insurer extracts fields from claim emails, and each wrong extraction costs $0.60 of reviewer time to correct. On the Haiku tier a request costs $0.004 and 10% of outputs are wrong, while on the Sonnet tier a request costs $0.012 and 2% are wrong; errors are found only when a reviewer later spots them, not by any automated check. Which choice minimises cost per completed task?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The Sonnet tier, at about $0.024 per completed task against about $0.064 on Haiku",
+        "why": "Correct. $0.012 + 2% of $0.60 is $0.024, while $0.004 + 10% of $0.60 is $0.064 per completed task."
+      },
+      {
+        "id": "b",
+        "text": "The Haiku tier, since its requests cost a third of Sonnet's and volume dominates spend",
+        "why": "Ignores the correction cost: ten times more errors at $0.60 each outweighs the cheaper request."
+      },
+      {
+        "id": "c",
+        "text": "Haiku first with escalation of failed outputs to Sonnet, at roughly $0.005 per task",
+        "why": "A cascade needs machine-detectable failures to escalate, and here no automated check can flag them."
+      },
+      {
+        "id": "d",
+        "text": "The Opus tier, since its lower error rate will outweigh any difference in request price",
+        "why": "No error rate is given for Opus, so the claim is unsupported at a higher price per request."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Cost per completed task includes handling failures: Haiku is $0.004 + 10% x $0.60 = $0.064 and Sonnet is $0.012 + 2% x $0.60 = $0.024. The cascade looks cheapest, but it works only when failures are machine-detectable, and here nothing flags a bad extraction until a person finds it. The lowest price per request is the trap the numbers are built to expose.",
+    "cue": "errors are found only when a reviewer later spots them",
+    "pattern": "tradeoff",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Choosing the right model",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/choosing-a-model"
+      },
+      {
+        "label": "Pricing",
+        "url": "https://platform.claude.com/docs/en/about-claude/pricing"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "model-selection-and-tradeoffs-006",
+    "objective": "model-selection-and-tradeoffs",
+    "domain": 5,
+    "subskills": [
+      "ms.tradeoffs"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A document Q&A route on a Sonnet model passes its release evals, but finance needs its per-request cost cut this quarter. The release process treats any change of model ID as a new model that needs six weeks of re-certification. What should the team try first?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Lower effort on the same model and re-run all the existing evals at the new level",
+        "why": "Correct. Effort trades thoroughness for tokens within one model, so the model ID and its certification stay put."
+      },
+      {
+        "id": "b",
+        "text": "Move the route to the Haiku tier, which costs less per token for the same prompts",
+        "why": "A tier change is a model ID change, which triggers the six-week re-certification."
+      },
+      {
+        "id": "c",
+        "text": "Enable fast mode on the route so each request finishes and bills more quickly",
+        "why": "Fast mode charges premium per-token prices; it raises cost rather than cutting it."
+      },
+      {
+        "id": "d",
+        "text": "Cut max_tokens until the average bill per request meets the finance target",
+        "why": "A lower cap truncates answers instead of making them efficient, which will fail the evals."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Effort trades thoroughness against token spend within one model, and Anthropic notes it is often a better lever than switching models. Keeping the model ID avoids the six-week re-certification, and re-running the existing suite at the lower level confirms quality holds. Moving to Haiku is the tempting cost answer, but it is exactly the model change the release process treats as new.",
+    "cue": "treats any change of model ID as a new model",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Choosing the right model",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/choosing-a-model"
+      },
+      {
+        "label": "Effort",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/effort"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "model-selection-and-tradeoffs-007",
+    "objective": "model-selection-and-tradeoffs",
+    "domain": 5,
+    "subskills": [
+      "ms.breaking"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A ticket classifier forces JSON output by ending every request with an assistant turn that contains only an opening brace. After the model ID is moved to a newer generation, every call fails with a 400 saying the conversation must end with a user message. Which replacement keeps the output machine-parseable?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Drop the assistant turn and constrain the reply with structured outputs and a JSON schema",
+        "why": "Correct. Structured outputs are the documented replacement for format-forcing prefill and enforce the shape."
+      },
+      {
+        "id": "b",
+        "text": "Keep the assistant turn but add a stop sequence on the closing brace to end output cleanly",
+        "why": "The final assistant turn is still a prefill, so the 400 remains, and a stop sequence does not enforce JSON."
+      },
+      {
+        "id": "c",
+        "text": "Retry the failed calls with exponential backoff, since the new model is still rolling out",
+        "why": "A 400 is a validation error about request shape; it is not transient and retries fail identically."
+      },
+      {
+        "id": "d",
+        "text": "Move the brace into the system prompt as an instruction to begin every reply with it",
+        "why": "Clears the 400 but turns an enforced format into a request the model may not follow."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "From the 4.6 generation, a prefilled final assistant turn returns a 400, so the conversation has to end with a user message. Anthropic's migration advice for format-forcing prefill is structured outputs, which constrain the reply to a schema. Turning the prefill into an instruction is tempting because it clears the error, but it downgrades an enforced format to a request.",
+    "cue": "ending every request with an assistant turn",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompting best practices",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices"
+      },
+      {
+        "label": "Structured outputs",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "model-selection-and-tradeoffs-008",
+    "objective": "model-selection-and-tradeoffs",
+    "domain": 5,
+    "subskills": [
+      "ms.breaking"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A team plans to move a contract-review service from one model release to the next. The head of legal requires that review accuracy must not regress, and operations wants a fast rollback path if it does. Which two steps belong in the plan? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Re-run the review eval suite on the new model at two or three effort levels before promoting",
+        "why": "Correct. Must-not-regress makes evals the gate, and effort levels do not map one to one across releases."
+      },
+      {
+        "id": "b",
+        "text": "Pin both model IDs in configuration and canary the new one behind a flag with rollback",
+        "why": "Correct. Pinned IDs in config plus a flagged canary give operations an immediate rollback path."
+      },
+      {
+        "id": "c",
+        "text": "Point the service at a dateless alias so future releases are picked up without a deploy",
+        "why": "Older-style aliases move to newer snapshots, letting a model change reach production without the eval gate."
+      },
+      {
+        "id": "d",
+        "text": "Reuse the existing token budgets, since tokenization does not change between releases",
+        "why": "Newer generations use a tokenizer that produces about 30% more tokens, so budgets must be recounted."
+      },
+      {
+        "id": "e",
+        "text": "Retry any 400 errors during rollout with backoff, since new releases warm up gradually",
+        "why": "A 400 signals a rejected request shape on the new model, which retries cannot fix."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "'Must not regress' makes the eval suite the gate, and an effort sweep is needed because levels do not map one to one across releases. Pinning IDs in configuration and canarying behind a flag gives the rollback path. The alias option is tempting because it removes deploys, but it lets a model change reach production without passing the gate legal required.",
+    "cue": "review accuracy must not regress",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Choosing the right model",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/choosing-a-model"
+      },
+      {
+        "label": "Model IDs and versioning",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions"
+      },
+      {
+        "label": "Token counting",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/token-counting"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
   }
 ]

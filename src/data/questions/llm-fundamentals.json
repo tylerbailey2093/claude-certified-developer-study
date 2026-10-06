@@ -1,296 +1,1307 @@
 [
   {
-    "id": "legacy-038",
-    "objective": "llm-fundamentals",
-    "domain": 5,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "Which statement about tokens is correct?",
-    "options": [
-      {
-        "id": "a",
-        "text": "Token counts are identical across all Claude models",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "Token counts are model-specific and should be re-measured when migrating models",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "One token always equals one word",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "Only input text is tokenized; output is billed by character",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "Tokenization is model-specific, so counts measured against one model don't transfer. Newer models use a different tokenizer that can produce meaningfully more tokens for identical text, which changes effective cost even at a flat rate.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "legacy-039",
-    "objective": "llm-fundamentals",
-    "domain": 5,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "A team fills a 1M-token context window with retrieved documents on every request. What is the main concern?",
-    "options": [
-      {
-        "id": "a",
-        "text": "The request will be rejected for exceeding limits",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "Retrieval quality degrades in very long contexts and cost rises, so advertised context is not effective context",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "Thinking will be automatically disabled",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "The response will always hit max_tokens",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "Context is a finite resource with diminishing returns: recall degrades as the window fills and every token is billed. Filling the window because capacity exists is a design smell rather than a hard failure.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "legacy-040",
-    "objective": "llm-fundamentals",
-    "domain": 5,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "A classification task produces inconsistent output formatting. Which prompting technique most directly addresses this?",
-    "options": [
-      {
-        "id": "a",
-        "text": "Zero-shot with a longer instruction",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "Multi-shot, providing several diverse examples of the desired output format",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "Raising max_tokens to give more room for formatting",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "Increasing temperature to encourage variety",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "Few-shot examples establish format and handle edge cases more reliably than prose instruction. Diverse canonical examples beat many similar ones, and the block belongs in the cached prefix to control cost.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "legacy-041",
-    "objective": "llm-fundamentals",
-    "domain": 5,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "Which statement about thinking tokens is correct?",
-    "options": [
-      {
-        "id": "a",
-        "text": "They are free because they are not shown to the user",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "They are billed at output token rates",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "They are billed at cached input rates",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "They count toward max_tokens but are not billed",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "Thinking tokens bill at output rates even when collapsed, making them the most commonly missed line in a cost model. They also consume max_tokens before the visible answer starts, which is why a tight budget carried over from an older model causes mysterious truncation.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
-  },
-  {
     "id": "new-llm-fundamentals-01",
     "objective": "llm-fundamentals",
     "domain": 5,
-    "subskills": [],
+    "subskills": [
+      "llm.context-windows"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A team runs requests against a model with a 200,000-token context window. Their conversation history sits at 190,000 tokens, and they set max_tokens to 64,000 hoping to get a long generated report back in one call, but the response cuts off well short of 64,000 output tokens. A teammate insists this must be a bug because max_tokens should guarantee that many output tokens regardless of input length. Which explanation is correct?",
+    "stem": "A reporting assistant runs on a model with a 200,000-token context window and sets max_tokens to 64,000 so it can return a long report in one call. The conversation history sits at 190,000 tokens, and the report stops after about 10,000 tokens with stop_reason model_context_window_exceeded. Which change addresses the cause?",
     "options": [
       {
         "id": "a",
-        "text": "It is a bug: max_tokens is a fixed allocation reserved before the request starts, entirely separate from the context window.",
-        "why": ""
+        "text": "Trim, compact or summarize the history so the input leaves room for the report within the window",
+        "why": "Correct. Input and output share one window; with 190,000 tokens of history only about 10,000 remain for output, so the input has to shrink."
       },
       {
         "id": "b",
-        "text": "The cutoff means the model exceeded its training data limit, which is unrelated to context window size.",
-        "why": ""
+        "text": "Raise max_tokens toward the model's output ceiling so more of the report can be generated in one call",
+        "why": "max_tokens caps only what Claude generates this turn; the shared window is already full, so a higher cap adds no room."
       },
       {
         "id": "c",
-        "text": "max_tokens sets a ceiling, not a guarantee: input and output share one context-window budget, so once input plus generated tokens reach that shared ceiling, generation stops even if max_tokens has not been reached.",
-        "why": ""
+        "text": "Cache the conversation history with cache_control so it no longer counts against the context window",
+        "why": "Caching changes what cached tokens cost, not whether they count: cached prefixes still occupy the context window."
       },
       {
         "id": "d",
-        "text": "max_tokens only applies to text output; thinking tokens are counted separately and unlimited, so the report was truncated by a content filter instead.",
-        "why": ""
+        "text": "Stream the response so the report is delivered incrementally instead of arriving in a single block",
+        "why": "Streaming changes how output is delivered, not how many tokens fit; generation still stops at the same point."
       }
     ],
     "answer": [
-      "c"
+      "a"
     ],
-    "explanation": "Correct answer C: the context window is one shared budget covering the system prompt, messages, tool definitions, and all output for the turn, including thinking. At 190,000 tokens of input against a 200,000-token window, only 10,000 tokens of room remain regardless of what max_tokens is set to, so generation stops early. Option A is wrong because it treats max_tokens as an independent reservation rather than a ceiling within the shared budget. Option B invents an unrelated concept (training data size) that has nothing to do with the context window limit being described. Option D is wrong because thinking tokens count toward the same window and are not unlimited, and nothing in the scenario suggests a content filter.",
-    "cue": "",
+    "explanation": "Input and output share one context window, so 190,000 tokens of history leave about 10,000 for the report whatever max_tokens says. The stop_reason confirms the window, not the output cap, ended generation. Raising max_tokens is the tempting fix, but it bounds output only and cannot create room the history already occupies.",
+    "cue": "The conversation history sits at 190,000 tokens",
     "pattern": "buried-constraint",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Context windows",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+      },
+      {
+        "label": "Messages API reference",
+        "url": "https://platform.claude.com/docs/en/api/messages/create"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
   },
   {
     "id": "new-llm-fundamentals-03",
     "objective": "llm-fundamentals",
     "domain": 5,
-    "subskills": [],
+    "subskills": [
+      "llm.nondeterminism",
+      "llm.sampling"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A finance team wants an automated pipeline that must produce the exact same invoice-categorization output every single time it processes the same invoice text, byte-for-byte, so they can diff outputs across nightly runs without any manual review. An engineer proposes setting temperature to 0 on every call and calling it done. Which response correctly evaluates this proposal?",
+    "stem": "A finance team's invoice categorizer re-runs on archived invoices during quarterly audits, and auditors must see byte-identical output for the same invoice every time they check. An engineer proposes setting temperature to 0 on every call and closing the ticket. Which approach meets the audit requirement?",
     "options": [
       {
         "id": "a",
-        "text": "The proposal is sound: temperature 0 is defined as fully deterministic, so identical inputs are guaranteed to produce identical outputs on every call.",
-        "why": ""
+        "text": "Store each categorization keyed by a hash of the invoice text and return it on every re-run",
+        "why": "Correct. Generating once and replaying the stored result is the only way to promise identical bytes, because regeneration can differ."
       },
       {
         "id": "b",
-        "text": "The team should instead set top_p to 0 alongside temperature 0, since together these are documented to eliminate all output variance.",
-        "why": ""
+        "text": "Set temperature to 0, since greedy decoding makes identical inputs produce identical outputs",
+        "why": "Anthropic documents that even at temperature 0 results are not fully deterministic, so a sampling setting cannot promise byte identity."
       },
       {
         "id": "c",
-        "text": "The team should raise max_tokens to guarantee stability, since truncated responses are the only source of run-to-run variance at temperature 0.",
-        "why": ""
+        "text": "Set temperature to 0 and top_k to 1 so a single candidate token is considered at each step",
+        "why": "Still a sampling setting: it narrows the draw but identical requests can still differ, so there is no byte-level guarantee."
       },
       {
         "id": "d",
-        "text": "Temperature 0 makes decoding greedy but does not guarantee byte-identical output across calls; floating-point non-associativity and request batching can still shift results, so a hard byte-for-byte guarantee cannot come from a sampling parameter alone.",
-        "why": ""
+        "text": "Add a system prompt rule telling the model to categorize identical invoices identically",
+        "why": "An instruction is a request the model interprets; it cannot enforce byte-identical output across separate calls."
       }
     ],
     "answer": [
-      "d"
+      "a"
     ],
-    "explanation": "Correct answer D: temperature 0 selects the highest-probability token at each step (greedy decoding), but infrastructure-level effects such as GPU floating-point non-associativity and batching with other concurrent requests mean two calls with identical input and parameters are still not guaranteed to match exactly. A pipeline that must diff outputs byte-for-byte needs a deterministic check outside the sampling parameter, not a parameter tweak alone. Option A states the common misconception that temperature 0 equals a determinism guarantee. Option B fabricates a documented top_p combination that does not exist. Option C misattributes the variance to output truncation, which is not the mechanism described in the scenario.",
-    "cue": "",
+    "explanation": "The cue is byte-identical output every time. Anthropic states that even at temperature 0 results are not fully deterministic, so the guarantee has to come from code: generate once, store the result, and replay it. The temperature-0 proposal is tempting because it reduces variation, but reducing variation is not eliminating it.",
+    "cue": "auditors must see byte-identical output for the same invoice every time",
     "pattern": "must-means-deterministic",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Glossary",
+        "url": "https://platform.claude.com/docs/en/about-claude/glossary"
+      },
+      {
+        "label": "Messages API reference",
+        "url": "https://platform.claude.com/docs/en/api/messages/create"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
   },
   {
     "id": "new-llm-fundamentals-04",
     "objective": "llm-fundamentals",
     "domain": 5,
-    "subskills": [],
+    "subskills": [
+      "llm.tokens"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A team hard-codes a per-request token budget of 3,000 tokens for a summarization prompt, calibrated by counting tokens on one model during development. Six months later they migrate the same prompt template to a newer model generation with an updated tokenizer, without re-measuring anything, and the pipeline starts truncating input that used to fit comfortably. Which practice would have prevented this?",
+    "stem": "A summarization service sizes each request against a 3,000-token input budget that was measured with count_tokens on the model used at launch. After the service is moved to a newer model generation without re-measuring anything, documents that used to fit now fail the budget check. Which practice would have prevented this?",
     "options": [
       {
         "id": "a",
-        "text": "Increase max_tokens instead of re-counting, since max_tokens and input token budgets are governed by the same underlying tokenizer figure.",
-        "why": ""
+        "text": "Re-run count_tokens against the new model ID, because counts depend on that model's tokenizer",
+        "why": "Correct. count_tokens counts under the tokenizer of the model you pass, and newer generations produce more tokens for the same text."
       },
       {
         "id": "b",
-        "text": "Re-run token counting against the new model after any migration, since token counts are model-specific and a count calibrated on one model's tokenizer does not reliably transfer to another.",
-        "why": ""
+        "text": "Raise max_tokens on the new model, since input budgets and output caps share one tokenizer setting",
+        "why": "max_tokens bounds generated output; it has no effect on how input text is tokenized or whether it fits a budget."
       },
       {
         "id": "c",
-        "text": "Switch to counting words instead of tokens, since word counts are consistent across all model generations and avoid the tokenizer dependency entirely.",
-        "why": ""
+        "text": "Budget by word count instead, since words convert to tokens at a fixed ratio on every model",
+        "why": "The ratio varies with content and tokenizer; Anthropic's own pages give different characters-per-token figures."
       },
       {
         "id": "d",
-        "text": "Nothing could have prevented this: token budgets calibrated on one model are guaranteed to transfer exactly to any newer model in the same family.",
-        "why": ""
+        "text": "Keep the old counts but add a 5% margin, since tokenizers within one model family barely differ",
+        "why": "Newer Claude generations produce about 30% more tokens for the same text, so a small assumed margin still fails."
       }
     ],
     "answer": [
+      "a"
+    ],
+    "explanation": "Token counts are model-specific: count_tokens counts under the tokenizer of the model you pass, and newer Claude generations produce roughly 30% more tokens for the same text. A budget measured on the old model silently understates usage on the new one. A fixed safety margin is the tempting shortcut, but only a recount on the target model measures the actual shift.",
+    "cue": "without re-measuring anything",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Token counting",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/token-counting"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "legacy-039",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.context-windows"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A contract Q&A tool retrieves every potentially related clause and fills most of a 1M-token context window on each request. The requests succeed, but answer accuracy has fallen as the amount of retrieved text grew, and so has the bill. What is the most useful change?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Retrieve fewer, more relevant clauses, since recall degrades as context grows and every token is billed",
+        "why": "Correct. Accuracy and recall degrade as token count grows (context rot), so curating the window improves quality and cuts cost."
+      },
+      {
+        "id": "b",
+        "text": "Move to a model with an even larger context window so every related clause still fits with headroom to spare",
+        "why": "Capacity is not the problem since requests already succeed; more retrieved text adds to the context rot."
+      },
+      {
+        "id": "c",
+        "text": "Mark the retrieved clauses with cache_control so the model attends to them more reliably",
+        "why": "Caching changes the price and latency of a repeated prefix, not how well the model attends to it."
+      },
+      {
+        "id": "d",
+        "text": "Raise max_tokens so the model has more room to reason over the large retrieved context",
+        "why": "max_tokens caps generated output; it does not improve recall over the input, which already fills the window."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Context windows have diminishing returns: Anthropic notes accuracy and recall degrade as token count grows (context rot), so curation matters as much as capacity. The stem says requests succeed, which rules out a size problem. A bigger window is the tempting answer, but it only adds room for more of the same noise.",
+    "cue": "answer accuracy has fallen as the amount of retrieved text grew",
+    "pattern": "tradeoff",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Context windows",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "legacy-040",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.shot"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A ticket classifier returns the right category but formats it inconsistently: sometimes a bare label, sometimes a sentence, sometimes JSON. The prompt already has precise written format instructions and no examples. Which prompting technique most directly addresses this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Move to multi-shot prompting with three to five diverse examples of the exact output format",
+        "why": "Correct. Examples are one of the most reliable ways to steer format and structure, and the prompt has none yet."
+      },
+      {
+        "id": "b",
+        "text": "Keep the prompt zero-shot but rewrite the format instructions to be longer and more emphatic",
+        "why": "The instructions are already precise; more prose repeats the approach that is failing instead of showing the target."
+      },
+      {
+        "id": "c",
+        "text": "Lower the temperature so the model picks the most probable formatting on every response",
+        "why": "Sampling settings sharpen the token distribution but do not teach a format, and they do not make output deterministic."
+      },
+      {
+        "id": "d",
+        "text": "Raise the effort level so the model spends more reasoning on following the format rules",
+        "why": "Effort trades thoroughness for token spend; it does not show the model what the expected output looks like."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Zero-shot with precise instructions has already been tried, which is the cue. Anthropic calls examples one of the most reliable ways to steer format, tone and structure, and recommends three to five relevant, diverse examples. Lowering temperature is the tempting distractor, but it changes how tokens are sampled, not which format the model has been shown.",
+    "cue": "precise written format instructions and no examples",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompting best practices",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "legacy-041",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.extended-thinking",
+      "llm.adaptive-thinking"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A research assistant shows users only a short summary of Claude's thinking, yet finance reports billed output tokens several times larger than the visible text. The cost model the team built counts only the characters rendered in the UI. What explains the gap?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Thinking is billed as output for the full reasoning, even when only a summary is displayed",
+        "why": "Correct. You are billed for the full thinking Claude generated, not the summarized or omitted text that is returned."
+      },
+      {
+        "id": "b",
+        "text": "Thinking is billed at input rates because the model reads its own reasoning back as context",
+        "why": "Thinking generated in a turn is output and bills at output rates; it is not reclassified as input."
+      },
+      {
+        "id": "c",
+        "text": "Summarized thinking is free, so the gap must come from tool definitions billed as output",
+        "why": "Tool definitions are part of the input; the hidden output in this scenario is the full thinking."
+      },
+      {
+        "id": "d",
+        "text": "Thinking is billed at the cached-read rate because it is reused across later turns",
+        "why": "Cache reads apply to cached input prefixes; reasoning generated this turn is billed as output."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Thinking bills as output tokens at full length, whether the visible text is a summary or omitted entirely. A cost model built from rendered characters misses the reasoning and also ignores that billing is in tokens, not characters. The cache-read option is tempting because thinking blocks can be passed back, but reading earlier context is input while generating reasoning is output.",
+    "cue": "counts only the characters rendered in the UI",
+    "pattern": "diagnosis",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Steering thinking and cost",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking-steering-and-cost"
+      },
+      {
+        "label": "Extended thinking",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/extended-thinking"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-001",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.tokens"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A team builds a pre-flight check that decides, before each call, whether a request fits the Haiku or the Sonnet tier's context window and what it will cost. The check must stay accurate even though the two tiers use different tokenizers. Which two statements about the token counting endpoint should the design rely on? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "It counts the request under the tokenizer of the model ID passed in the call",
+        "why": "Correct. Counts are model-specific, so the check counts once per candidate tier and compares the results."
+      },
+      {
+        "id": "b",
+        "text": "Its result is an estimate that can differ slightly from the usage billed later",
+        "why": "Correct. Anthropic documents the count as an estimate, so the check should leave a small margin."
+      },
+      {
+        "id": "c",
+        "text": "It shares one rate limit with message creation, so pre-flight checks slow real traffic",
+        "why": "Token counting and message creation have separate, independent rate limits; counting does not consume message capacity."
+      },
+      {
+        "id": "d",
+        "text": "It applies prompt caching, so cached prefixes are reported as zero input tokens",
+        "why": "Token counting does not use caching logic, and cached prefixes still occupy the context window anyway."
+      },
+      {
+        "id": "e",
+        "text": "It returns the same count for any model, so one call can size requests for both tiers",
+        "why": "This reproduces the cross-tokenizer error the design must avoid; a count is valid only for the model it was made with."
+      }
+    ],
+    "answer": [
+      "a",
       "b"
     ],
-    "explanation": "Correct answer B: token counts depend on the specific tokenizer a model version uses, so a budget measured against one model's tokenizer is not safe to reuse unmeasured after a migration; re-counting against the new model is what prevents the silent truncation. Option A confuses two different limits: max_tokens governs output length, not the input token budget being described, so raising it does not address the input-side miscount. Option C is wrong because the token-to-word ratio itself varies by content type and by tokenizer, so word counts are not a stable substitute. Option D asserts a guarantee that directly contradicts the scenario, which demonstrates the opposite.",
-    "cue": "",
+    "explanation": "Counts come from the tokenizer of the model you pass, so the check must count once per candidate tier, and the result is documented as an estimate. Token counting has its own rate limits, independent of message creation, and does not apply caching logic. The single-count option is tempting for efficiency, but it reproduces exactly the cross-tokenizer error the design must avoid.",
+    "cue": "the two tiers use different tokenizers",
     "pattern": "buried-constraint",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Token counting",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/token-counting"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-002",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.context-windows"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A release-notes generator returns drafts that end mid-sentence, and the API reports stop_reason max_tokens on each of them. The input is a short changelog of about 2,000 tokens on a model with a large context window. Which change addresses the cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Raise max_tokens so the per-turn output cap leaves room for a complete draft",
+        "why": "Correct. stop_reason max_tokens means the output cap ended generation; the window is nowhere near full."
+      },
+      {
+        "id": "b",
+        "text": "Move to a model with a larger context window so the draft has more space",
+        "why": "The window is not close to full with a 2,000-token input; the limit that stopped generation is max_tokens."
+      },
+      {
+        "id": "c",
+        "text": "Shorten the changelog input so that more window space remains available for output",
+        "why": "The input is already small, and freeing window space does not lift the separate per-turn output cap."
+      },
+      {
+        "id": "d",
+        "text": "Add a stop sequence after the final section heading so each draft ends cleanly",
+        "why": "Stop sequences end generation early on a matching string; they cannot extend output past max_tokens."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "stop_reason max_tokens means the per-turn output cap ended generation, and a 2,000-token input in a large window rules out a window problem. max_tokens bounds only what Claude generates this turn, so raising it (or asking for less output) fixes the truncation. A bigger context window is the classic swap: it admits more input but leaves the output cap where it was.",
+    "cue": "stop_reason max_tokens",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Context windows",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+      },
+      {
+        "label": "Messages API reference",
+        "url": "https://platform.claude.com/docs/en/api/messages/create"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-003",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.sampling",
+      "llm.next-token"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A pricing analysis tool makes arithmetic slips in multi-step margin calculations, and it states each final figure in the first line of its reply. A teammate proposes lowering temperature so the model is more careful. Which assessment is correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Temperature only sharpens which token is sampled; have the model work the steps before the figure",
+        "why": "Correct. Lower temperature adds no computation, and a figure written first is committed before any working exists."
+      },
+      {
+        "id": "b",
+        "text": "Lower temperature makes the model reason more deliberately, which reduces multi-step arithmetic errors",
+        "why": "Temperature reshapes the probability distribution; it does not add reasoning steps or make the model more capable."
+      },
+      {
+        "id": "c",
+        "text": "Lower temperature makes output fully deterministic, so any remaining slip will at least repeat consistently",
+        "why": "Anthropic documents that temperature 0 is not fully deterministic, and a consistent error is still an error."
+      },
+      {
+        "id": "d",
+        "text": "Raise top_p instead, so the model considers a wider set of candidate digits before committing to one",
+        "why": "A wider nucleus adds diversity by admitting less probable tokens; it does not make arithmetic more correct."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Temperature reshapes the distribution the next token is drawn from; it does not give the model more steps to compute with. Because generation is autoregressive, a figure written in the first line is committed before any working exists, so the fix is to put the reasoning first, in the reply or in thinking. The 'more careful' framing is the trap: lower temperature means more conservative phrasing, not more reasoning.",
+    "cue": "states each final figure in the first line of its reply",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Glossary",
+        "url": "https://platform.claude.com/docs/en/about-claude/glossary"
+      },
+      {
+        "label": "Messages API reference",
+        "url": "https://platform.claude.com/docs/en/api/messages/create"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-004",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.sampling"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A platform team is writing an internal primer on decoding for engineers who maintain older integrations that still set sampling parameters. Reviewers want each statement to match what the parameters actually do to the token distribution. Which two descriptions are accurate? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Higher temperature flattens the distribution, so less probable tokens are sampled more often",
+        "why": "Correct. Higher temperature yields more diverse output; lower temperature concentrates on the most probable phrasing."
+      },
+      {
+        "id": "b",
+        "text": "top_p keeps the smallest set of tokens whose cumulative probability reaches p, then samples from it",
+        "why": "Correct. This is nucleus sampling, which trims the long tail of unlikely tokens at each step."
+      },
+      {
+        "id": "c",
+        "text": "top_k sets how many complete candidate responses are generated before the best one is returned",
+        "why": "top_k restricts each step to the k most likely next tokens; it does not generate whole candidate responses."
+      },
+      {
+        "id": "d",
+        "text": "Temperature 0 makes generation fully deterministic, so repeated calls always return identical text",
+        "why": "The API reference states that even at temperature 0.0 results will not be fully deterministic."
+      },
+      {
+        "id": "e",
+        "text": "Lower temperature lets the model read more of the context window before choosing each token",
+        "why": "Temperature reshapes token probabilities; it has no effect on how much of the context the model reads."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Sampling parameters act on the probability distribution for each next token: temperature sharpens or flattens it, top_p keeps a nucleus by cumulative probability, and top_k keeps the k most likely tokens. None of them changes what the model reads or makes output reproducible. The temperature-0 statement is the familiar trap, contradicted directly by the API reference.",
+    "cue": "what the parameters actually do to the token distribution",
+    "pattern": "scope-boundary",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Messages API reference",
+        "url": "https://platform.claude.com/docs/en/api/messages/create"
+      },
+      {
+        "label": "Glossary",
+        "url": "https://platform.claude.com/docs/en/about-claude/glossary"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-005",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.nondeterminism"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A compliance team replays a logged request against the same pinned model ID with temperature 0 and gets a differently worded answer than the one in the log. Nothing in the request, the code or the configured model ID has changed since the original call. Which two explanations are consistent with Anthropic's documentation? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Even at temperature 0, identical inputs are documented as able to produce different outputs",
+        "why": "Correct. The glossary and API reference both state that temperature 0 is not fully deterministic."
+      },
+      {
+        "id": "b",
+        "text": "Serving infrastructure such as routing and sampling logic can change while the ID's weights stay fixed",
+        "why": "Correct. The model IDs page says infrastructure updates can produce minor differences under an unchanged ID."
+      },
+      {
+        "id": "c",
+        "text": "The pinned ID was silently repointed to newer weights, since dateless IDs track the latest release",
+        "why": "From the 4.6 generation, a dateless ID is a fixed snapshot; updated versions ship under new IDs."
+      },
+      {
+        "id": "d",
+        "text": "Prompt caching served a stored response from the earlier call instead of generating a new one",
+        "why": "Prompt caching stores prompt prefixes, not responses; every call still generates its output fresh."
+      },
+      {
+        "id": "e",
+        "text": "The request silently overflowed the context window, so the model dropped part of the input",
+        "why": "An input that exceeds the window returns a 400 'prompt is too long'; input is never silently dropped."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Temperature 0 is documented as not fully deterministic, and the model IDs page says serving infrastructure (router, safety classifiers, sampling logic) can shift observable behaviour even when weights are fixed. The repointed-ID option is tempting, but from the 4.6 generation a dateless ID is a fixed snapshot and updates ship under new IDs. Non-determinism is something to engineer around with stored outputs and pass-rate evals, not a bug to chase in the request.",
+    "cue": "Nothing in the request, the code or the configured model ID has changed",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Glossary",
+        "url": "https://platform.claude.com/docs/en/about-claude/glossary"
+      },
+      {
+        "label": "Model IDs and versioning",
+        "url": "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions"
+      },
+      {
+        "label": "Context windows",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-006",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.next-token"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A code-review bot is told to give its verdict, APPROVE or REJECT, on the first line and then justify it. Reviewers notice that wrong verdicts come with fluent justifications that defend them instead of catching the mistake. Thinking is not enabled on this route. Which change best addresses the cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Ask for the analysis first and the verdict last, so the verdict is conditioned on the reasoning",
+        "why": "Correct. Each token conditions what follows, so reasoning written before the verdict can actually inform it."
+      },
+      {
+        "id": "b",
+        "text": "Lower the temperature so the first-line verdict is drawn from the most probable tokens",
+        "why": "More probable is not more correct, and the verdict is still committed before any analysis exists."
+      },
+      {
+        "id": "c",
+        "text": "Move to a model with a larger context window so the whole diff is weighed before answering",
+        "why": "The model already reads the whole input before generating; the problem is the order of the output."
+      },
+      {
+        "id": "d",
+        "text": "Add a stop sequence after the first line so the bot returns the verdict without a defence",
+        "why": "This hides the rationalisation but leaves an unreasoned verdict, so accuracy does not improve."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Generation is autoregressive: each token conditions everything after it, and nothing already emitted is revised. A verdict on the first line is committed before any analysis, so the justification can only rationalise it. Putting the reasoning first, or enabling thinking, gives the verdict something to be conditioned on; a bigger context window is tempting, but the model already reads the whole input.",
+    "cue": "on the first line and then justify it",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Glossary",
+        "url": "https://platform.claude.com/docs/en/about-claude/glossary"
+      },
+      {
+        "label": "Prompting best practices",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-007",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.next-token"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A triage service returns a 1,500-token narrative assessment for each alert, and the on-call team wants faster responses at no extra cost. Profiling shows most of the wait comes after the first token arrives, while the 6,000-token prompt is processed quickly. Which change most reduces response time?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Ask for a short structured verdict instead of a narrative, cutting the number of output tokens",
+        "why": "Correct. Output tokens are generated one after another, so fewer of them directly shortens the wait after the first token."
+      },
+      {
+        "id": "b",
+        "text": "Cache the 6,000-token prompt prefix so repeated alerts skip reprocessing the instructions",
+        "why": "Caching speeds processing of a repeated prefix, which improves time to first token; the profile shows that part is already fast."
+      },
+      {
+        "id": "c",
+        "text": "Halve the prompt by removing its examples, since input length drives total generation time",
+        "why": "Input is processed up front and the profile shows it is quick; removing examples also risks quality."
+      },
+      {
+        "id": "d",
+        "text": "Stream the response so the on-call engineer sees tokens as soon as they are produced",
+        "why": "Streaming improves perceived latency, but the full assessment still takes just as long to finish."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Output tokens are produced sequentially, so when the wait sits after the first token the lever is output length. Anthropic's latency guidance is to minimise tokens in both the prompt and the expected output and to ask for shorter responses. Prompt caching is the tempting option, but it accelerates processing of a repeated prefix, which the profile shows is already fast.",
+    "cue": "most of the wait comes after the first token arrives",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Reducing latency",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-latency"
+      },
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-008",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.fast-mode"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team generates long incident post-mortems on an Opus model at its default settings, and the drafts already pass the team's eval suite. Responses stream and the first words appear quickly, but full drafts take too long to finish, and the budget owner has approved a higher per-request price. Which change fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Enable fast mode on the existing requests, keeping the model, prompts and effort unchanged",
+        "why": "Correct. Fast mode runs the same weights at higher output speed for a premium, so evaluated quality carries over."
+      },
+      {
+        "id": "b",
+        "text": "Move the drafts to the Haiku tier, which generates output faster and at a lower price",
+        "why": "A different model: the approved quality and every eval result no longer describe production."
+      },
+      {
+        "id": "c",
+        "text": "Lower effort so the model writes and reasons less before each draft is complete",
+        "why": "Effort changes how much the model reasons and writes, which is the behaviour the evals approved."
+      },
+      {
+        "id": "d",
+        "text": "Enable prompt caching on the incident timeline so each draft starts generating sooner",
+        "why": "Caching improves time to first token for a repeated prefix; the first words already appear quickly."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Fast mode runs the same model weights at up to 2.5x output tokens per second for a premium price, so evaluated quality carries over. The cue rules out the alternatives: the first words are already quick, so time-to-first-token fixes miss, and the evals passed, so model or effort changes risk regressions. Lower effort is tempting because it shortens drafts, but it changes the behaviour the evals approved.",
+    "cue": "the first words appear quickly, but full drafts take too long to finish",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Fast mode",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/fast-mode"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-009",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.fast-mode",
+      "llm.next-token"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Users of a policy assistant complain that answers take several seconds to start appearing, though once text begins it streams at a comfortable pace. Every request begins with the same 150,000-token policy manual, and a teammate proposes enabling fast mode. Which change better targets the complaint?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Cache the policy manual prefix, which improves time to first token for long repeated documents",
+        "why": "Correct. The delay is processing a long, identical prefix on every call; caching lets repeated requests skip that work."
+      },
+      {
+        "id": "b",
+        "text": "Enable fast mode as proposed, since it speeds up every phase of a request including the first token",
+        "why": "Fast mode raises output tokens per second, not time to first token, and output speed is already fine here."
+      },
+      {
+        "id": "c",
+        "text": "Raise max_tokens so the model can begin emitting text before it finishes reading the manual",
+        "why": "max_tokens caps output length; the input is processed before generation starts regardless of the cap."
+      },
+      {
+        "id": "d",
+        "text": "Request a higher output-tokens-per-minute rate limit so responses are not queued before generation",
+        "why": "Rate limits surface as 429 errors, not slow starts; the delay comes from processing a long uncached prefix."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The complaint is time to first token, and the cause is a 150,000-token prefix processed on every call. Prompt caching lets repeated prefixes skip reprocessing, and Anthropic notes improved time to first token for long documents. Fast mode is the tempting answer, but its benefit is output tokens per second, not time to first token, and output speed is already fine here.",
+    "cue": "Every request begins with the same 150,000-token policy manual",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Fast mode",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/fast-mode"
+      },
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-010",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.fast-mode"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "An engineering manager is deciding whether to enable fast mode for a coding agent that already runs on a supported Opus model. The agent's quality has been certified through evals, and the manager wants to know what will and will not change. Which two statements about fast mode are accurate? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "It runs the same model weights, so the certified quality is unchanged",
+        "why": "Correct. Fast mode is a faster inference configuration of the same model, with no change to intelligence."
+      },
+      {
+        "id": "b",
+        "text": "It is billed at premium per-token pricing above standard speed",
+        "why": "Correct. The speed gain is paid for with higher per-token prices than standard speed."
+      },
+      {
+        "id": "c",
+        "text": "Its main benefit is a shorter time to first token on long prompts",
+        "why": "Anthropic states the benefit is output tokens per second, not time to first token."
+      },
+      {
+        "id": "d",
+        "text": "It swaps in a smaller distilled model that trades accuracy for speed",
+        "why": "Fast mode keeps the same weights and behaviour; a smaller model would void the certified evals."
+      },
+      {
+        "id": "e",
+        "text": "It can be combined with the Batch API to stack speed and discount",
+        "why": "Fast mode is not available with the Batch API, and batch is asynchronous anyway."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Fast mode is the same model with a faster inference configuration: up to 2.5x output tokens per second at premium pricing, with no change to intelligence. Its gain is in output throughput, not time to first token, and it is not available with the Batch API. The distilled-model option is tempting because faster usually means smaller, but that would void the certified evals.",
+    "cue": "The agent's quality has been certified through evals",
+    "pattern": "tradeoff",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Fast mode",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/fast-mode"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-011",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.extended-thinking"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team enables manual extended thinking on the Haiku tier for a contract-checking route. They set budget_tokens to 8,000 and max_tokens to 4,000, and every request returns a 400 validation error. What is the cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "budget_tokens must be below max_tokens, because thinking counts toward the max_tokens limit",
+        "why": "Correct. Thinking is part of the turn's output, so the budget has to leave room inside max_tokens for the answer."
+      },
+      {
+        "id": "b",
+        "text": "budget_tokens must be at least 16,000 on this tier before thinking can be enabled at all",
+        "why": "The documented minimum is 1,024 tokens; 16,000 is a suggested start for complex tasks, not a floor."
+      },
+      {
+        "id": "c",
+        "text": "The Haiku tier supports only adaptive thinking, so a manual budget is rejected outright",
+        "why": "Backwards: the Haiku model supports only manual budgets and is the tier that rejects adaptive thinking."
+      },
+      {
+        "id": "d",
+        "text": "max_tokens must be at least half the context window whenever thinking is enabled",
+        "why": "There is no such rule; the documented constraints are the 1,024 minimum and budget below max_tokens."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "In manual mode, budget_tokens has a minimum of 1,024 and must be less than max_tokens, because thinking tokens count toward max_tokens (interleaved thinking is the exception). An 8,000 budget under a 4,000 cap cannot validate. The adaptive-only option is tempting but backwards: Haiku uses manual budgets and is the tier that rejects adaptive thinking.",
+    "cue": "budget_tokens to 8,000 and max_tokens to 4,000",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Extended thinking",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/extended-thinking"
+      },
+      {
+        "label": "Thinking",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-012",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.extended-thinking",
+      "llm.effort"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A legal research tool runs manual extended thinking with budget_tokens set to 6,000, and finance has ruled that no single request may ever generate more than 10,000 output tokens. The team currently relies on the thinking budget plus an instruction to keep answers brief. Which control enforces the ceiling?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Set max_tokens to 10,000, the hard limit on thinking plus response text for the turn",
+        "why": "Correct. max_tokens is enforced by the API and covers thinking and visible text together."
+      },
+      {
+        "id": "b",
+        "text": "Lower budget_tokens to 4,000, leaving the remaining 6,000 tokens for the visible answer",
+        "why": "The budget is documented as a target, not a strict cap, and it does not bound the visible text at all."
+      },
+      {
+        "id": "c",
+        "text": "Set effort to low, which caps total output at a fixed fraction of the thinking budget",
+        "why": "Effort is a behavioural signal, not a token budget; Claude can still spend heavily on hard problems."
+      },
+      {
+        "id": "d",
+        "text": "Add a system prompt rule limiting the full response, thinking included, to 10,000 tokens",
+        "why": "An instruction is a request the model interprets; it cannot enforce a token ceiling on every request."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "When a limit must hold every time, the answer is the parameter the API enforces. max_tokens is the hard ceiling on total output, thinking included, while budget_tokens is documented as a target and effort as a behavioural signal. Lowering the budget is tempting because it looks like a number, but it only steers thinking and leaves the total unbounded.",
+    "cue": "no single request may ever generate more than 10,000 output tokens",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Extended thinking",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/extended-thinking"
+      },
+      {
+        "label": "Effort",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/effort"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-013",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.adaptive-thinking"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "After a chat backend switches from manual thinking to adaptive thinking, its response parser starts failing intermittently. The parser reads content[0] as the thinking block and content[1] as the answer, and the failures cluster on short, simple questions. What is the right fix?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Iterate the content blocks and select them by type, since a turn may carry no thinking block",
+        "why": "Correct. With adaptive thinking Claude decides per request whether to think, and a turn without thinking has no thinking block."
+      },
+      {
+        "id": "b",
+        "text": "Set effort to max so that Claude produces a thinking block on every request it receives",
+        "why": "No effort level guarantees a thinking block; simple requests can skip thinking even at the highest levels."
+      },
+      {
+        "id": "c",
+        "text": "Add a small budget_tokens value alongside the adaptive setting so thinking always runs first",
+        "why": "budget_tokens belongs to manual mode; it does not force adaptive thinking to produce a block."
+      },
+      {
+        "id": "d",
+        "text": "Set the thinking display to summarized so simple turns return an empty thinking block",
+        "why": "Display controls how thinking text is returned when Claude thinks; a skipped turn produces no block regardless."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Adaptive thinking lets Claude decide per request whether to think, and Anthropic warns that a turn where it chose not to think contains no thinking block. Short, simple questions are exactly those turns, so positional parsing breaks. Raising effort to max is tempting, but the docs state no level guarantees a thinking block on every request.",
+    "cue": "the failures cluster on short, simple questions",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Steering thinking and cost",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking-steering-and-cost"
+      },
+      {
+        "label": "Thinking",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-014",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.adaptive-thinking",
+      "llm.effort"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A support assistant answers a mix of one-line account questions and multi-step billing disputes, and it currently runs manual thinking with a 16,000-token budget on every request. Costs are high on the easy questions, and the team wants reasoning depth to scale with each request's difficulty. Which two changes fit, on a model that supports adaptive thinking? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Replace the manual budget with adaptive thinking so Claude decides per request whether to think",
+        "why": "Correct. Adaptive thinking scales reasoning with each request, skipping it on simple questions."
+      },
+      {
+        "id": "b",
+        "text": "Use the effort parameter to steer how much Claude tends to reason and write overall",
+        "why": "Correct. Effort is the primary lever for steering adaptive thinking depth and overall token spend."
+      },
+      {
+        "id": "c",
+        "text": "Lower budget_tokens to the 1,024 minimum on every request so easy questions stay cheap",
+        "why": "Still a fixed budget for every request: it cuts cost on easy questions but starves the hard disputes."
+      },
+      {
+        "id": "d",
+        "text": "Disable thinking and add 'think step by step' to the system prompt for every question",
+        "why": "This asks for the same visible reasoning on every request, so depth still does not scale with difficulty."
+      },
+      {
+        "id": "e",
+        "text": "Raise max_tokens so the 16,000-token budget is spent only when a question needs it",
+        "why": "max_tokens is a ceiling on output; it does not change how a fixed manual budget is applied."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "A fixed budget thinks on every request whatever its difficulty, which is why easy questions are expensive. Adaptive thinking lets Claude decide per request whether and how much to think, and effort is the primary lever for steering that depth. Dropping the budget to the minimum is tempting for cost, but it starves the hard disputes and trades one fixed setting for another.",
+    "cue": "reasoning depth to scale with each request's difficulty",
+    "pattern": "tradeoff",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Steering thinking and cost",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking-steering-and-cost"
+      },
+      {
+        "label": "Effort",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/effort"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-015",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.adaptive-thinking",
+      "llm.context-windows"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team turns on adaptive thinking for a planning assistant but keeps max_tokens at 1,024, the value sized for its old short replies. Some responses now arrive with stop_reason max_tokens and little or no visible text. Which change is the right first step?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Raise max_tokens so it covers thinking plus the reply, since both count toward the cap",
+        "why": "Correct. Thinking consumes max_tokens before any text is written, so a cap sized for short replies runs out."
+      },
+      {
+        "id": "b",
+        "text": "Move to a model with a larger context window so thinking stops competing with the reply",
+        "why": "The window is not the binding limit; the per-turn output cap is what stopped generation."
+      },
+      {
+        "id": "c",
+        "text": "Add budget_tokens of 512 so adaptive thinking stays well inside the existing cap",
+        "why": "budget_tokens belongs to manual mode, and its documented minimum is 1,024, so 512 is not even valid."
+      },
+      {
+        "id": "d",
+        "text": "Lower the temperature so the model reaches its answer in fewer sampled tokens",
+        "why": "Temperature changes how tokens are sampled, not how much the model reasons before answering."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Thinking tokens count toward max_tokens, so a cap sized for a no-thinking reply can be used up by reasoning before any text is written; stop_reason max_tokens with little visible text is the signature. Raise the cap, or lower effort if the reasoning was not needed. A larger context window is tempting, but it changes total capacity, not the per-turn output cap.",
+    "cue": "keeps max_tokens at 1,024, the value sized for its old short replies",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Steering thinking and cost",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking-steering-and-cost"
+      },
+      {
+        "label": "Extended thinking",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/extended-thinking"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-016",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.effort"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A data-cleanup subagent makes many small, verbose tool calls and pads them with commentary, which slows the parent agent. Thinking is already disabled on this route, and the team wants fewer and terser tool calls without changing the model. Which setting addresses this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Lower the effort level, which shapes all output tokens, tool calls included, with or without thinking",
+        "why": "Correct. Effort applies to every output token and works without thinking; lower effort means fewer, terser tool calls."
+      },
+      {
+        "id": "b",
+        "text": "Set a small budget_tokens value so the subagent spends less reasoning on each tool decision",
+        "why": "A thinking budget only bounds thinking, which is already disabled here, so it has nothing to act on."
+      },
+      {
+        "id": "c",
+        "text": "Lower max_tokens so each turn has less room for commentary around the tool calls",
+        "why": "A hard cap truncates output mid-turn; it does not make the subagent plan fewer or terser calls."
+      },
+      {
+        "id": "d",
+        "text": "Lower the temperature so the subagent picks the most probable tool call at each step",
+        "why": "Sampling sharpness does not change how many tool calls the subagent makes or how verbose they are."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Effort affects every output token, including text, tool calls and thinking, and works whether or not thinking is enabled; lower effort means fewer and terser tool calls. Because thinking is already off, any thinking-budget control has nothing to act on. A lower max_tokens is tempting because it shortens output, but it truncates rather than changing how the subagent works.",
+    "cue": "Thinking is already disabled on this route",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Effort",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/effort"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-017",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.effort"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A long-running analyst chat relies on prompt caching of its growing history and changes the top-level effort setting between turns, depending on how hard each question looks. Cache reads collapsed after this change shipped, although the system prompt and tool definitions are identical. What is the most likely cause, and the fix?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Changing top-level effort invalidates cached prefixes, so hold one level for the conversation",
+        "why": "Correct. Top-level effort shapes the rendered prompt, so changing it between requests breaks earlier cached prefixes."
+      },
+      {
+        "id": "b",
+        "text": "The 5-minute cache entries expired between turns, so switch the breakpoints to a 1-hour TTL",
+        "why": "Expiry is real but does not explain a collapse tied to the effort change; a longer TTL cannot prevent invalidation."
+      },
+      {
+        "id": "c",
+        "text": "Earlier thinking blocks were stripped from the history, so pass every block back unchanged",
+        "why": "Passing thinking blocks back matters for reasoning continuity, but the stem ties the miss to effort changes."
+      },
+      {
+        "id": "d",
+        "text": "Express effort as a system-prompt instruction instead, so the cached prefix stays identical",
+        "why": "Changing system prompt text per turn also changes the prefix, invalidating the cache from that point on."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Top-level effort shapes the rendered prompt, so changing it between requests means cached prefixes from earlier turns no longer match. The documented practice is to pick one level per cached conversation and vary effort across workloads instead. Moving the setting into system-prompt text is tempting, but any change to the system prompt also invalidates the cache from that point on.",
+    "cue": "changes the top-level effort setting between turns",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Effort",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/effort"
+      },
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
+  },
+  {
+    "id": "llm-fundamentals-018",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "llm.shot"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A product-description generator includes exactly one example in its prompt, a description of a red waterproof jacket. Generated descriptions for kettles and desk lamps now open with a colour and a weather claim, mirroring that example. Which change most directly fixes this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Replace the single example with three to five diverse examples that span product types",
+        "why": "Correct. Diverse examples show what varies and what is fixed, so Claude stops copying one example's surface details."
+      },
+      {
+        "id": "b",
+        "text": "Remove the example entirely and describe the desired style in zero-shot instructions",
+        "why": "This removes the copying but also discards the most reliable signal for format and tone."
+      },
+      {
+        "id": "c",
+        "text": "Lower the temperature so the model stops adding improbable details to each product",
+        "why": "The copied details are the probable continuation given one example; lower temperature reinforces them."
+      },
+      {
+        "id": "d",
+        "text": "Raise effort so the model reasons about which features of the example apply to each product",
+        "why": "Effort changes token spend; it does not supply the contrast that shows which features should vary."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "With a single example there is nothing to contrast it with, so Claude treats its surface features as part of the format. Anthropic recommends examples that are relevant and diverse, covering edge cases so Claude does not pick up unintended patterns, typically three to five. Going zero-shot is tempting because it removes the copied features, but it also discards the most reliable way to steer format and tone.",
+    "cue": "includes exactly one example in its prompt",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompting best practices",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-llm-models",
+    "status": "active"
   }
 ]

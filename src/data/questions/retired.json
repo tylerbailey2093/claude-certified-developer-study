@@ -484,5 +484,137 @@
     "sources": [],
     "author": "legacy",
     "status": "retired"
+  },
+  {
+    "id": "new-software-engineering-foundations-03",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A nightly reconciliation script kicks off at 1 AM and immediately submits all 900 of the day's transaction records to Claude for anomaly review at once, using asyncio.gather with no concurrency cap. Within the first thirty seconds most requests fail with 429 responses, and the on-call engineer's instinct is to just add a longer fixed delay before each retry. What is the more durable fix?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Bound concurrency with a semaphore or queue and ramp the request rate up gradually instead of firing all 900 at once",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Keep the current fan-out pattern but add a longer fixed delay before each retry",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Switch the reconciliation job to a larger, higher-throughput model so more requests succeed per second",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Disable the SDK's built-in retry behavior so failed requests fail fast instead of queuing",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The root cause is unbounded fan-out, not slow retries — bounding concurrency and ramping traffic gradually is what actually keeps the request rate under the limit. A longer fixed delay treats the symptom on each failed call but the next batch still fires all 900 at once and trips the same limit. Model tier does not change organization-level rate limits, so a larger model doesn't help. Disabling the SDK's own retry/backoff removes a mechanism that was already helping and makes the failure mode worse, not better.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicate of legacy-021 (unbounded fan-out then 429s, semaphore fix); the 1 AM bulk-job framing also drifts toward the published Sample 1 skeleton."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-software-engineering-foundations-07",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A three-line change to a repository's settings.json disables a permission rule that had been blocking a Claude Code agent from running shell commands as root, and it gets merged straight to main because 'it's just a config tweak, not real code.' Two weeks later the same agent runs an unreviewed destructive command in a teammate's branch. Which practice would most directly have prevented this outcome?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Require CLAUDE.md and settings.json changes to go through the same pull-request review and CI gates as source code, since they govern what the system is allowed to do",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Add a system-prompt instruction telling the agent never to run destructive commands",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Rotate the API key used by the agent on a monthly schedule",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Move the permission setting into a code comment inside CLAUDE.md instead of settings.json",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "settings.json and CLAUDE.md are versioned configuration artifacts that determine what the system is allowed to do, and gating them through the same review and CI pipeline as source code is what would have caught the permission change before merge. A system-prompt instruction is a request the agent can still fail to follow; a permission rule is the deterministic control the prompt instruction can't replace. Key rotation is a credential-hygiene practice unrelated to a permission bypass. Moving the setting into a comment removes its enforcement entirely, making the problem worse.",
+    "cue": "",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [
+      "retired:Out of scope for Software Engineering Foundations: reviewing settings.json permission changes is Configuration Management / Claude Code Operation, and the scenario (a rule blocking root shell commands) was implausible."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-software-engineering-foundations-08",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A team asks Claude Code to migrate a 40,000-line billing module from a deprecated ORM to its replacement. Partway through, the agent proposes finishing the whole migration in one sweeping commit that also fixes several unrelated bugs it noticed along the way, reasoning that touching each file only once saves review time. The team is under a hard deadline and finds the one-pass approach tempting. What should they require instead?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Approve the single large commit, since touching each file only once reduces total review overhead",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Let the agent proceed as proposed, but add a longer QA cycle at the very end to catch any issues",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Split the migration into bounded increments with tests passing between each step, and keep the unrelated bug fixes in separate changes",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Postpone the migration until after the deadline, since large-scale refactors are inherently too risky to attempt under time pressure",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "The correct discipline for large-scale refactoring is bounded increments with tests green between each step, and never mixing a refactor with a behavior change in the same commit — the unrelated bug fixes are behavior changes and must be split out. Approving the single sweep trades safety for review convenience and mixes concerns. Deferring all verification to one QA pass at the end loses the between-step safety net, making any failure hard to attribute to a specific change. Large-scale refactoring is explicitly in scope and doable under deadline pressure; the fix is incremental discipline, not avoidance.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicate of legacy-023 (big-bang refactor mixed with unrelated bug fixes); merged into the repaired legacy-023."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
   }
 ]
