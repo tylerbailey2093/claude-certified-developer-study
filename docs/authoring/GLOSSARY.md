@@ -29,6 +29,7 @@ Several facts are taught in more than one objective. They must be stated the sam
 - **stop_reason** values (`end_turn`, `max_tokens`, `stop_sequence`, `tool_use`, `pause_turn`, `refusal`) arrive on an HTTP 200. None is an HTTP error. `refusal` carries `stop_details`.
 - **Streaming** uses server-sent events (SSE), not WebSockets. Final usage arrives in `message_delta`. An `error` event can arrive after the 200.
 - **SDK retries**: default 2 retries with backoff on connection errors, 408, 409, 429 and 5xx. Default timeout 10 minutes. (`facts.json` `sdkDefaults`.)
+- **Retry safety depends on idempotency**: GET, HEAD, OPTIONS, PUT, DELETE are idempotent; POST is not, so a timeout on a POST is an unknown outcome and needs an idempotency key before retrying. Because SDK timeouts are retried, worst-case wall clock is about timeout x (max_retries + 1).
 - **Hooks (Claude Code)**: `PreToolUse` can block a tool call. Exit code 2 blocks and feeds stderr back to Claude; other non-zero exit codes are non-blocking errors (the action proceeds). *verify* event names and exit-code semantics on code.claude.com/docs/en/hooks before teaching details.
 - **Permission evaluation**: deny rules beat allow rules; hooks run before permission rules and can deny even an allowed call. *verify* the exact order on the permissions page.
 - **CLAUDE.md hierarchy**: enterprise/managed policy, user (`~/.claude/CLAUDE.md`), project (`./CLAUDE.md` or `./.claude/CLAUDE.md`), local overrides, plus nested directory files loaded on demand. *verify* names and precedence on the memory page.
