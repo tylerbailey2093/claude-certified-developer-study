@@ -385,6 +385,7 @@ export const TOOLS: Anthropic.Tool[] = [
 ```python
 import json
 import os
+import urllib.error
 import urllib.request
 
 JOBS_API = os.environ.get("JOBS_API_URL", "https://jobs.internal.example/api")
@@ -403,7 +404,11 @@ def call_jobs_api(method: str, path: str, body: dict | None = None, idempotency_
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:
             return json.load(r)
-    except TimeoutError:
+    except urllib.error.HTTPError as e:   # 4xx/5xx: say what to fix
+        raise ToolFailure(f"Jobs API returned HTTP {e.code} for {path}. Check the run ID (run-NNNN form).")
+    except (TimeoutError, urllib.error.URLError) as e:
+        if isinstance(e, urllib.error.URLError) and not isinstance(e.reason, TimeoutError):
+            raise ToolFailure(f"Jobs API unreachable ({e.reason}). Tell the user; retrying now will not help.")
         raise ToolFailure(f"Jobs API did not answer within {TIMEOUT_S}s. The outcome is unknown: "
                           "call jobs_get_run to check before retrying.")
 
@@ -435,8 +440,10 @@ async function callJobsApi(method: string, path: string, body?: object, idempote
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
+    if (!res.ok) throw new ToolFailure(`Jobs API returned HTTP ${res.status} for ${path}. Check the run ID (run-NNNN form).`);
     return await res.json();
   } catch (e) {
+    if (e instanceof ToolFailure) throw e;
     if ((e as Error).name === "TimeoutError") {
       throw new ToolFailure(
         `Jobs API did not answer within ${TIMEOUT_MS / 1000}s. The outcome is unknown: ` +

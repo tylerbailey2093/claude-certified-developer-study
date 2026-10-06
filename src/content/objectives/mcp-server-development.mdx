@@ -6,6 +6,9 @@ name: "MCP Server Development"
 weight: 2.1
 tier: 3
 hot: false
+summary: "Building and connecting MCP servers: the Python and TypeScript SDKs, local stdio versus remote Streamable HTTP deployment, optional OAuth-based authorization, how Claude Code, Claude Desktop and the Messages API connector attach a server, who controls tools, resources and prompts, and the host, client and server roles with capability negotiation."
+subskills: ["mcp.authoring", "mcp.deployment", "mcp.integration", "mcp.primitives", "mcp.transports", "mcp.client-server"]
+related: ["agentic-customization", "tool-implementation", "claude-api-mechanics", "claude-code-operation", "configuration-management", "ai-application-security", "technical-fundamentals"]
 scope:
   - "server authoring"
   - "deployment"
@@ -13,116 +16,385 @@ scope:
   - "resources, tools, prompts"
   - "communication patterns: stdio, sockets, client vs server"
 traps:
-  - "tools are MODEL-controlled, resources are APPLICATION-controlled, prompts are USER-controlled"
-  - "command to run = stdio; URL = Streamable HTTP; HTTP+SSE is deprecated"
+  - name: "Tools are model-controlled, resources application-controlled, prompts user-controlled"
+    looksRight: "The model reasons about everything in the conversation, so it seems to be the one invoking all three primitives."
+    failsBecause: "The specification assigns a different controller to each: the model decides to call tools, the host application decides which resources to attach as context, and the user explicitly picks a prompt (for example as a slash command)."
+    cue: "The stem describes who decides to use the capability ('the user selects', 'the app attaches', 'Claude decides when') and asks which primitive fits."
+  - name: "Command means stdio, URL means Streamable HTTP, and HTTP+SSE is deprecated"
+    looksRight: "SSE appears in many older MCP tutorials and in the Claude Code CLI, so it reads like the current remote transport."
+    failsBecause: "The two standard transports are stdio (the client launches the server as a subprocess) and Streamable HTTP (each message is a POST to one endpoint, replies as JSON or a request-scoped SSE stream). The two-endpoint HTTP+SSE transport has been deprecated since protocol revision 2025-03-26."
+    cue: "A config with command and args versus one with a url; or an option offering 'the SSE transport' for a new remote server."
+  - name: "MCP requires OAuth"
+    looksRight: "Remote servers use OAuth 2.1 flows, so authorization looks like a protocol requirement."
+    failsBecause: "Authorization is OPTIONAL in the specification. When used over HTTP it follows an OAuth 2.1-based flow with the server as a resource server; stdio servers should not use it and take credentials from the environment. A remote server should still authenticate its callers."
+    cue: "An option says a local stdio server 'must implement OAuth', or that MCP 'mandates OAuth 2.1' for every server."
+  - name: "The Messages API connector reaches any MCP server"
+    looksRight: "If Claude Code can use a server, the API's MCP connector should be able to as well."
+    failsBecause: "The connector (beta) only connects to servers exposed over HTTPS (Streamable HTTP or SSE), supports only tool calls, and needs both an mcp_servers entry and a matching mcp_toolset entry in tools. A local stdio server cannot be attached directly."
+    cue: "Stem pairs the Messages API with a local or command-launched server, or shows mcp_servers without an mcp_toolset."
+  - name: "A print() in a stdio server"
+    looksRight: "Printing debug output is harmless in any other program."
+    failsBecause: "On stdio, stdout carries only newline-delimited JSON-RPC messages. Any other output corrupts the stream, so the server connects and then fails. Logs go to stderr."
+    cue: "A server 'connects then immediately errors' or 'works when run by hand but fails in the host'."
 sources:
-  - label: "MCP spec"
-    url: "https://modelcontextprotocol.io"
-  - label: "MCP connector"
-    url: "https://platform.claude.com/docs/en/agents-and-tools/mcp-connector"
+  - { label: "MCP specification 2026-07-28: Architecture", url: "https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/architecture/index.mdx", kind: "spec", verified: "2026-10-06" }
+  - { label: "MCP specification 2026-07-28: Server features overview", url: "https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/server/index.mdx", kind: "spec", verified: "2026-10-06" }
+  - { label: "MCP specification 2026-07-28: Transports", url: "https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/basic/transports/index.mdx", kind: "spec", verified: "2026-10-06" }
+  - { label: "MCP specification 2026-07-28: stdio", url: "https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/basic/transports/stdio.mdx", kind: "spec", verified: "2026-10-06" }
+  - { label: "MCP specification 2026-07-28: Streamable HTTP", url: "https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/basic/transports/streamable-http.mdx", kind: "spec", verified: "2026-10-06" }
+  - { label: "MCP specification 2026-07-28: Key changes", url: "https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/changelog.mdx", kind: "spec", verified: "2026-10-06" }
+  - { label: "MCP specification 2025-11-25: Lifecycle (initialize)", url: "https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2025-11-25/basic/lifecycle.mdx", kind: "spec", verified: "2026-10-06" }
+  - { label: "MCP specification 2025-11-25: Authorization", url: "https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2025-11-25/basic/authorization.mdx", kind: "spec", verified: "2026-10-06" }
+  - { label: "MCP specification 2025-11-25: Tools", url: "https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2025-11-25/server/tools.mdx", kind: "spec", verified: "2026-10-06" }
+  - { label: "Claude Code: Connect to tools via MCP", url: "https://code.claude.com/docs/en/mcp", kind: "docs", verified: "2026-10-06" }
+  - { label: "MCP connector (Messages API)", url: "https://platform.claude.com/docs/en/agents-and-tools/mcp-connector", kind: "docs", verified: "2026-10-06" }
+  - { label: "Local MCP servers on Claude Desktop", url: "https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop", kind: "docs", verified: "2026-10-06" }
+  - { label: "MCP Python SDK README", url: "https://github.com/modelcontextprotocol/python-sdk/blob/main/README.md", kind: "docs", verified: "2026-10-06" }
+  - { label: "MCP TypeScript SDK README", url: "https://github.com/modelcontextprotocol/typescript-sdk/blob/main/README.md", kind: "docs", verified: "2026-10-06" }
+lastReviewed: "2026-10-06"
 authored: true
 ---
 
-## What this objective actually tests
+## Concept
 
-MCP is the "build once, connect to many clients" answer whenever a stem needs a capability that's reusable across Claude applications and maintained independently of any one of them. Beyond that headline pattern, this objective tests two finer distinctions that carry most of its item weight: which party controls invocation of each of the three primitives, and which transport fits a given deployment shape (local subprocess vs. networked service).
+The Model Context Protocol lets one server expose capabilities to any MCP host: Claude Code, Claude Desktop, the Messages API connector, or your own application. This objective tests the mechanics: which role each component plays, which primitive a capability should be, which transport a deployment implies, and how each Claude surface attaches a server. At 2.1% it is about one item; aim for fast, certain recognition.
+
+**Scope boundary.** Whether to build an MCP server at all, rather than a tool or a Skill: <ObjLink id="agentic-customization" />. Descriptions, errors and approval for its tools: <ObjLink id="tool-implementation" />. Sharing `.mcp.json` and plugin packaging: <ObjLink id="configuration-management" />.
+
+Not this:
+
+- Prompt injection through tool results and vetting third-party servers as a security programme: <ObjLink id="ai-application-security" />.
+- WebSockets versus SSE for your own app: <ObjLink id="technical-fundamentals" />.
+
+<Callout type="key" title="The one idea">
+Two lookups answer most MCP items. Who decides to use it names the primitive: the model (tool), the application (resource), the user (prompt). How the client reaches it names the transport: a command to run is stdio, a URL is Streamable HTTP. Everything else is detail around those two.
+</Callout>
 
 ## Mechanism
 
-**The three primitives, and who controls invocation** — this is the single most-tested distinction in this objective:
+### Server authoring
 
-| Primitive | Controlled by | What it is |
+<SubskillAnchor id="mcp.authoring" />
+
+The official SDKs turn functions into primitives so you never hand-write JSON-RPC.
+
+- **Python** (`mcp` 2.x): `MCPServer` with `@mcp.tool()`, `@mcp.resource("scheme://{param}")` and `@mcp.prompt()`. Type hints become the input schema and the docstring becomes the description [Certain, executed]. In 2.x `FastMCP` was renamed `MCPServer`; `from mcp.server.fastmcp import FastMCP` raises `ModuleNotFoundError`, so pin `mcp>=2.3,<3` or `mcp<2` deliberately [Certain, executed 2026-10-06].
+- **TypeScript**: v2 splits into `@modelcontextprotocol/server` and `/client`; `McpServer.registerTool`, `registerResource` and `registerPrompt` take Zod v4 or other Standard Schema validators. v1 (`@modelcontextprotocol/sdk`) still gets fixes [Certain, drifting].
+
+Rules that transfer to stems: the docstring is a prompt; raise `ToolError` (Python) or return `isError: true` (TypeScript) for failures the model can fix; never write to stdout from a stdio server; give the server `instructions`, which Claude Code uses to decide when to search for its tools [Certain].
+
+**Exam angle:** cue words "FastMCP import fails", "decorator", "registerTool". The distractor confuses an MCP server with a Skill file or hand-builds the protocol.
+
+### Deployment
+
+<SubskillAnchor id="mcp.deployment" />
+
+| | Local server | Remote server |
 |---|---|---|
-| **Tools** | The **model** | Actions — the LLM discovers and decides to invoke them based on context |
-| **Resources** | The **application/client** | Read-only data the app pulls into context, like a GET endpoint |
-| **Prompts** | The **user** | Reusable templates, invoked explicitly, never triggered automatically |
+| Transport | stdio, spawned by the host | Streamable HTTP at an `https://` URL |
+| Runs as | The user, on their machine | A service you operate |
+| Credentials | From the environment (the auth spec says stdio SHOULD NOT use it) | Authorization is OPTIONAL in the spec; when used, an OAuth 2.1-based flow with the server as resource server |
+| Distribution | A package plus a command (`npx`, `uvx`, a path); Claude Desktop `.mcpb` extensions | A URL, often behind your gateway |
+| Main risk | Supply chain: the server runs arbitrary code with your privileges | Network exposure: DNS rebinding, unauthenticated callers |
 
-The common trap swaps two of these — e.g., calling a resource "model-invoked" because a model can request it, when the client is what actually decides whether and when to fetch it into context.
+[Certain on the authorization and transport pages.] Streamable HTTP servers MUST validate the `Origin` header (403 if invalid), SHOULD bind to 127.0.0.1 when local, and SHOULD authenticate every connection; all servers MUST validate tool inputs, enforce access control, rate limit and sanitize outputs [Certain]. For local servers, pin versions and install only from trusted sources.
 
-**Transports** — per the current MCP spec, there are exactly two standard bindings:
+**Exam angle:** cue words "OAuth", "localhost", "0.0.0.0", "third-party server". The usual distractor claims OAuth is mandatory, or exposes a local HTTP server on all interfaces.
 
-- **stdio** — the client launches the server as a **local subprocess** and both sides exchange newline-delimited JSON-RPC over standard input/output. No network involved. This is the default for a server that runs on the developer's own machine.
-- **Streamable HTTP** — the current standard for a **remote/networked server**: each message is an HTTP POST to a single MCP endpoint, with replies as a JSON object or a request-scoped SSE stream. This **superseded** the older HTTP+SSE (two-endpoint) transport, which is legacy — a stem describing a standalone SSE endpoint is describing the deprecated shape, not the current one. [Verified against the MCP spec's transports page, 2026-07-28 revision.]
+### Integration with Claude applications
 
-**Server authoring and deployment**: a server declares its capabilities (`tools`, `resources`, `prompts`) at initialization, responds to `*/list` and `*/call` (or `*/read`, `*/get`) requests, and is versioned and deployed like any other service — packaged, given a stable interface, and integrated into a client's config (a command for stdio, a URL for Streamable HTTP) rather than baked into one specific application.
+<SubskillAnchor id="mcp.integration" />
+
+| Surface | How a server is attached | Notes |
+|---|---|---|
+| Claude Code | `claude mcp add name -- command args` (stdio); `claude mcp add --transport http name url` | Scopes: local (default) and user in `~/.claude.json`, project in a committed `.mcp.json` that prompts for approval in interactive sessions; precedence local, project, user. `/mcp` for OAuth login. Tools appear as `mcp__server__tool` [Certain] |
+| Claude Desktop | Desktop extensions (`.mcpb`) from Settings, Extensions, or `mcpServers` in `claude_desktop_config.json` | Sensitive manifest fields stored in the OS keychain; Team and Enterprise owners can allowlist extensions [Certain] |
+| Messages API | MCP connector (beta `mcp-client-2025-11-20`): `mcp_servers` entry with `type: "url"` plus an `mcp_toolset` in `tools` | Remote HTTPS only, tools only; you obtain and refresh the OAuth token; allowlist or denylist per tool; not on Bedrock or Google Cloud [Certain] |
+| Your own app | An MCP client from the SDK; convert listed tools into client tools | Full control, including local stdio servers |
+
+In Claude Code all three primitives surface: Claude calls tools under permission rules, resources attach with `@server:scheme://path`, prompts run as `/mcp__server__prompt` [Certain]. MCP tool search is on by default [Certain].
+
+<PostGuide since="2026-09">
+The connector's `mcp-client-2026-09-15` beta records each server's tool list in an `mcp_tool_listing` block and lets you pin it in the toolset, so a server that changes its tools mid-conversation does not change what Claude sees.
+</PostGuide>
+
+**Exam angle:** cue words "share with the team", "Messages API", "local server", ".mcp.json". Distractors attach a stdio server to the API connector, or omit the `mcp_toolset` entry.
+
+### Resources, tools and prompts
+
+<SubskillAnchor id="mcp.primitives" />
+
+| Primitive | Controlled by | What it is | Spec examples |
+|---|---|---|---|
+| Tools | Model | Functions the LLM calls to act or fetch | API POST requests, file writing |
+| Resources | Application | Context data the client attaches and manages, addressed by URI | File contents, git history |
+| Prompts | User | Templates invoked by explicit user choice | Slash commands, menu options |
+
+[Certain, server overview.] The control column is the exam's favourite question: context the app attaches without the model asking is a resource; a workflow the user picks is a prompt; anything with side effects, or that the model decides to call, is a tool. Sampling, elicitation and roots are client features, not server primitives. Clients MUST treat tool annotations such as "read-only" as untrusted unless the server is trusted [Certain].
+
+**Exam angle:** cue words "user selects", "attached automatically", "model decides". The distractor calls a resource "model-invoked" because the model reads it.
+
+### Communication: stdio, sockets and HTTP
+
+<SubskillAnchor id="mcp.transports" />
+
+MCP messages are UTF-8 JSON-RPC 2.0 on every transport; a transport only defines framing and delivery [Certain].
+
+- **stdio.** The client launches the server as a subprocess. One JSON-RPC message per line on stdin and stdout; stdout carries only MCP messages; stderr is for logs [Certain].
+- **Streamable HTTP.** Each client message is an HTTP POST to a single MCP endpoint; the reply is a JSON object or a request-scoped SSE stream [Certain]. This is the remote transport.
+- **HTTP+SSE** (separate SSE and POST endpoints) is deprecated since 2025-03-26 [Certain]. Claude Code still accepts `--transport sse` and labels it deprecated.
+
+The guide's word **"sockets"** is not a third standard transport. Custom transports are allowed, and those over Unix domain sockets or TCP SHOULD reuse the stdio framing [Certain]; there is no standard WebSocket transport. Read "sockets" as the channel question: local process or byte stream versus networked HTTP endpoint [Likely interpretation].
+
+**Exam angle:** cue words "spawned by the client", "reachable by URL", "SSE endpoint", "socket". Distractors offer HTTP+SSE as current or invent a WebSocket transport.
+
+### Client versus server roles
+
+<SubskillAnchor id="mcp.client-server" />
+
+- **Host**: the application the user runs (Claude Desktop, Claude Code, your agent). It creates clients, enforces consent and security policy, holds the conversation, and coordinates the LLM [Certain].
+- **Client**: created by the host, one per server, 1:1 [Certain].
+- **Server**: exposes primitives, local or remote, and should not be able to read the whole conversation or see into other servers [Certain].
+
+Roles are positions, not products: `claude mcp serve` runs Claude Code as an MCP server for another host, which must then supply its own approval prompts [Certain].
+
+Under revision 2025-11-25 (current when the guide was written) every connection starts with a handshake: the client sends `initialize` with `protocolVersion`, its capabilities (sampling, elicitation, roots) and `clientInfo`; the server answers with its capabilities (tools, resources, prompts, `listChanged`) and `serverInfo`; the client sends `notifications/initialized`. Both sides then use only negotiated capabilities [Certain].
+
+<Sequence title="Host, client and server: stdio connection (2025-11-25)" actors={["Host", "MCP client", "MCP server"]}
+  messages={[["Host", "MCP client", "create client for configured server"],
+             ["MCP client", "MCP server", "spawn subprocess, initialize (version, capabilities)"],
+             ["MCP server", "MCP client", "capabilities: tools, resources, prompts", "reply"],
+             ["MCP client", "MCP server", "notifications/initialized, tools/list"],
+             ["Host", "MCP client", "model chose a tool: tools/call"],
+             ["MCP client", "MCP server", "tools/call jobs_get_run"],
+             ["MCP server", "MCP client", "result (isError false or true)", "reply"],
+             ["MCP client", "Host", "result into the model's context", "reply"]]} />
+
+<PostGuide since="2026-07">
+Revision 2026-07-28 makes MCP stateless: no `initialize` handshake or `Mcp-Session-Id`; each request carries version and capabilities in `_meta`; servers implement `server/discover`; Roots, Sampling and Logging are deprecated. Lab 08 negotiated this revision. Primitives and transports are unchanged; answer exam items with the handshake model.
+</PostGuide>
+
+**Exam angle:** cue words "host", "one client per server", "capability negotiation", "initialize". Distractors let one client talk to many servers, or let a server read the full conversation.
 
 ## Decision table
 
-| When the stem says... | ...the answer is |
-|---|---|
-| "Reusable across several Claude applications, maintained independently" | Build an MCP server — not a hard-coded integration inside one app |
-| The model should decide when to invoke a capability | A **tool** |
-| The client/app should decide when to pull in read-only data | A **resource** |
-| A user explicitly selects a reusable template or workflow | A **prompt** |
-| "Runs on the developer's own machine, spawned by the client, no network" | **stdio** transport |
-| "A URL the client connects to," a remote/hosted server | **Streamable HTTP** |
-| A stem describes a standalone SSE endpoint as "the current standard" | Wrong — that's the deprecated HTTP+SSE transport, superseded by Streamable HTTP |
+| If the stem says... | Choose | Why the runner-up loses |
+|---|---|---|
+| The user picks a saved "incident triage" workflow from a menu | A prompt | A tool is invoked by the model, not chosen by the user |
+| The app should attach the on-call runbook as context automatically | A resource | Making it a tool hands the decision to the model |
+| Claude should decide when to re-run a failed job | A tool | Resources are read-only context, not actions |
+| The server ships as `npx` or `uvx` and is launched by the host | stdio | Streamable HTTP needs a URL and a listening service |
+| A shared service the whole company reaches at an https URL | Streamable HTTP with authentication | HTTP+SSE is deprecated; stdio cannot cross the network |
+| Backend on the Messages API must use the team's local stdio server | Host it as a remote Streamable HTTP server for the connector, or run an MCP client in the backend | The connector reaches only public HTTPS servers |
+| Connector request rejected with only `mcp_servers` set | Add an `mcp_toolset` entry naming that server | Each server must be referenced by exactly one toolset |
+| A local stdio server connects, then fails on the first call | Move logging from stdout to stderr | Restarting or switching transport does not stop stdout pollution |
+| The team wants a server config committed for everyone | `claude mcp add --scope project` (writes `.mcp.json`) | Local and user scopes live in `~/.claude.json` and are not shared |
+| "Does MCP require OAuth 2.1?" | No: authorization is optional; HTTP servers should authenticate, stdio uses the environment | "Always OAuth" misreads an optional, HTTP-only specification |
 
-## Code examples
+## Worked walkthrough
+
+<Walkthrough title="Scenario: a laptop MCP server and a backend service">
+
+<Step title="Read the scenario">
+An analytics team built `lineage-mcp`, a Python server answering "what feeds this table?". Engineers run it in Claude Code via `claude mcp add lineage -- uvx lineage-mcp`. A product team wants their backend, which calls the Messages API, to use the same tools; their request with `mcp_servers` pointing at `stdio://lineage-mcp` is rejected. What should they do?
+</Step>
+
+<Step title="Find the constraint">
+"Messages API" plus a server launched by command. With the connector, Anthropic connects to your server over the network: `https://` URLs only, tools only. A stdio subprocess on a laptop has no reachable address.
+</Step>
+
+<Step title="Eliminate the distractors">
+- "Add the missing `mcp_toolset` entry." Necessary for any connector call, but the URL still is not reachable.
+- "Switch the server to HTTP+SSE." The connector would accept it, but it is the deprecated transport and still needs public hosting, which is the real change.
+- "Paste the server's Python functions into the backend's system prompt." A prompt cannot execute code; tools need a definition and an executor.
+</Step>
+
+<Step title="Choose">
+Run `lineage-mcp` as a remote Streamable HTTP service at an `https://` URL that validates `Origin` and authenticates callers. Point `mcp_servers` at it with an `authorization_token`, add the matching `mcp_toolset`, and allowlist the read tools. If it cannot be exposed, the backend runs its own MCP client and passes the tools to Claude as client tools.
+</Step>
+
+<Step title="The deciding cue">
+"Messages API" next to "launched by a command". A connector needs a reachable HTTPS URL; a command implies stdio and a local host process.
+</Step>
+
+</Walkthrough>
+
+## Code
+
+**One server, three primitives, three controllers.** Python executed with `mcp` 2.3.0 (Lab 08's API); `ToolError` becomes an `isError` result.
 
 ```python
-# pip install mcp
-from mcp.server.fastmcp import FastMCP
+# pip install "mcp>=2.3,<3"   (2.x renamed FastMCP to MCPServer)
+from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
-mcp = FastMCP("inventory-server")
+mcp = MCPServer("pipeline-ops", instructions="Look up nightly ELT job runs and their runbooks.")
 
-@mcp.tool()                              # MODEL-controlled: an action
-def check_stock(sku: str) -> int:
-    """Return current stock level for a SKU."""
-    return db.stock(sku)
+RUNS = {"run-8812": ("orders_daily", "FAILED", "schema drift on column order_ts"),
+        "run-8813": ("customers_scd2", "SUCCEEDED", None)}
+RUNBOOKS = {"orders_daily": "1. Check upstream schema registry. 2. Re-run from bronze."}
 
-@mcp.resource("catalog://{category}")    # APP-controlled: read-only data
-def catalog(category: str) -> str:
-    return db.catalog(category)
+@mcp.tool()                                # MODEL decides when to call it
+def jobs_get_run(run_id: str) -> str:
+    """Return status and failure reason for ONE job run. Use when the user
+    names a run ID (format run-NNNN) or asks why a specific run failed.
+    Do NOT use to list runs or to re-run anything; this tool is read-only."""
+    if run_id not in RUNS:
+        raise ToolError(f"Unknown run_id {run_id!r}. Expected format run-NNNN, "
+                        f"for example {next(iter(RUNS))}.")
+    job, status, reason = RUNS[run_id]
+    return f"{run_id} job={job} status={status} reason={reason or 'n/a'}"
 
-@mcp.prompt()                            # USER-controlled: a template
-def restock_review(sku: str) -> str:
-    return f"Review restocking needs for {sku}"
+@mcp.resource("runbook://{job}")           # APPLICATION decides when to attach it
+def runbook(job: str) -> str:
+    """On-call runbook for a job, as read-only reference text."""
+    return RUNBOOKS.get(job, "No runbook on file.")
+
+@mcp.prompt()                              # USER picks it, e.g. as a slash command
+def triage_failed_run(run_id: str) -> str:
+    """Template: triage a failed run end to end."""
+    return f"Triage {run_id}: get the run, read its job's runbook, propose a fix."
 
 if __name__ == "__main__":
-    mcp.run()                            # stdio by default (local, no network)
-    # mcp.run(transport="streamable-http", host="0.0.0.0", port=8000)
+    mcp.run()                              # stdio: the host spawns this process
+    # mcp.run(transport="streamable-http")  # remote: serves /mcp on 127.0.0.1:8000
 ```
 
 ```typescript
-// npm install @modelcontextprotocol/sdk
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
+// npm install @modelcontextprotocol/server zod   (SDK v2; v1 was @modelcontextprotocol/sdk)
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/server";
+import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
+import * as z from "zod/v4";
 
-const server = new McpServer({ name: "inventory-server", version: "1.0.0" });
+const server = new McpServer({ name: "pipeline-ops", version: "1.0.0" });
 
-server.tool(                                     // MODEL-controlled: an action
-  "check_stock",
-  { sku: z.string() },
-  async ({ sku }) => ({ content: [{ type: "text", text: String(await db.stock(sku)) }] }),
+const RUNS: Record<string, [string, string, string | null]> = {
+  "run-8812": ["orders_daily", "FAILED", "schema drift on column order_ts"],
+  "run-8813": ["customers_scd2", "SUCCEEDED", null],
+};
+const RUNBOOKS: Record<string, string> = {
+  orders_daily: "1. Check upstream schema registry. 2. Re-run from bronze.",
+};
+
+server.registerTool( // MODEL decides when to call it
+  "jobs_get_run",
+  {
+    description:
+      "Return status and failure reason for ONE job run. Use when the user names a run ID " +
+      "(format run-NNNN) or asks why a specific run failed. Do NOT use to list runs or to " +
+      "re-run anything; this tool is read-only.",
+    inputSchema: z.object({ run_id: z.string() }),
+  },
+  async ({ run_id }) => {
+    const run = RUNS[run_id];
+    if (!run) {
+      return { isError: true, content: [{ type: "text", text: `Unknown run_id '${run_id}'. Expected format run-NNNN, for example run-8812.` }] };
+    }
+    const [job, status, reason] = run;
+    return { content: [{ type: "text", text: `${run_id} job=${job} status=${status} reason=${reason ?? "n/a"}` }] };
+  },
 );
 
-server.resource(                                 // APP-controlled: read-only data
-  "catalog",
-  "catalog://{category}",
-  async (uri) => ({ contents: [{ uri: uri.href, text: await db.catalog(uri) }] }),
+server.registerResource( // APPLICATION decides when to attach it
+  "runbook",
+  new ResourceTemplate("runbook://{job}", { list: undefined }),
+  { description: "On-call runbook for a job, as read-only reference text.", mimeType: "text/plain" },
+  async (uri, { job }) => ({
+    contents: [{ uri: uri.href, text: RUNBOOKS[String(job)] ?? "No runbook on file." }],
+  }),
 );
 
-server.prompt(                                   // USER-controlled: a template
-  "restock_review",
-  { sku: z.string() },
-  ({ sku }) => ({ messages: [{ role: "user", content: { type: "text", text: `Review restocking needs for ${sku}` } }] }),
+server.registerPrompt( // USER picks it, e.g. as a slash command
+  "triage_failed_run",
+  { description: "Template: triage a failed run end to end.", argsSchema: z.object({ run_id: z.string() }) },
+  ({ run_id }) => ({
+    messages: [{ role: "user", content: { type: "text", text: `Triage ${run_id}: get the run, read its job's runbook, propose a fix.` } }],
+  }),
 );
 
-await server.connect(new StdioServerTransport());  // local subprocess, no network
+await server.connect(new StdioServerTransport()); // stdio: the host spawns this process
 ```
 
-## Named traps, expanded
+The SDK's client driving it over stdio, as a host does:
 
-**"Tools are MODEL-controlled, resources are APPLICATION-controlled, prompts are USER-controlled."** This is attractive to get backwards because all three primitives are "invoked" in some loose sense, and it's easy to assume the model is in the loop for all of them since it's the thing reasoning about the conversation. It's wrong because the protocol explicitly assigns a different controlling party to each: the model decides tool calls autonomously, the client application decides what resource data to surface, and only the user explicitly triggers a prompt template. Recognize this trap whenever a stem asks "which primitive fits" for a capability and describes who is deciding to use it — that description is naming the primitive.
+<Output kind="executed" date="2026-10-06">
+protocol : 2026-07-28
+tools    : ['jobs_get_run']
+templates: ['runbook://\{job\}']
+prompts  : ['triage_failed_run']
+ok   -> run-8812 job=orders_daily status=FAILED reason=schema drift on column order_ts | is_error: False
+bad  -> Error executing tool jobs_get_run: Unknown run_id '8812'. Expected format run-NNNN, for example run-8812. | is_error: True
+read -> 1. Check upstream schema registry. 2. Re-run from bronze.
+</Output>
 
-**"Command to run = stdio; URL = Streamable HTTP; HTTP+SSE is deprecated."** This is attractive because SSE is still a familiar term from older MCP tutorials and blog posts, and a stem can describe a legitimate streaming need without naming the transport directly. It's wrong to pick HTTP+SSE as "the current remote transport" because the spec has moved to a single-endpoint Streamable HTTP design; the two-endpoint SSE transport is the superseded, legacy shape. Recognize this trap whenever a stem's deployment detail is "local machine, spawned by client" (→ stdio) versus "networked/remote, reachable by URL" (→ Streamable HTTP) — and treat any option naming bare "SSE" as the older answer.
+**Attaching it in Claude Code.** `--` separates Claude's options from the server command; `--scope project` writes the shared `.mcp.json`.
+
+```bash
+claude mcp add pipeline-ops -- python /abs/path/pipeline_ops.py            # stdio, local scope
+claude mcp add --scope project --transport http pipeline-ops https://mcp.example.internal/mcp
+claude mcp list                                                           # or /mcp inside a session
+```
+
+**The Messages API connector (beta).** Both halves are required; only the read tool is enabled.
+
+```python
+import os
+import anthropic
+
+client = anthropic.Anthropic()
+resp = client.beta.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=2048,
+    betas=["mcp-client-2025-11-20"],
+    mcp_servers=[{"type": "url", "url": "https://mcp.example.internal/mcp", "name": "pipeline-ops",
+                  "authorization_token": os.environ["PIPELINE_OPS_TOKEN"]}],
+    tools=[{"type": "mcp_toolset", "mcp_server_name": "pipeline-ops",
+            "default_config": {"enabled": False},                  # allowlist mode
+            "configs": {"jobs_get_run": {"enabled": True}}}],
+    messages=[{"role": "user", "content": "Why did run-8812 fail?"}],
+)
+for block in resp.content:  # mcp_tool_use / mcp_tool_result blocks precede the answer
+    if block.type == "text":
+        print(block.text)
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+const resp = await client.beta.messages.create({
+  model: "claude-sonnet-5-5",
+  max_tokens: 2048,
+  betas: ["mcp-client-2025-11-20"],
+  mcp_servers: [{ type: "url", url: "https://mcp.example.internal/mcp", name: "pipeline-ops",
+                  authorization_token: process.env.PIPELINE_OPS_TOKEN }],
+  tools: [{ type: "mcp_toolset", mcp_server_name: "pipeline-ops",
+            default_config: { enabled: false },                    // allowlist mode
+            configs: { jobs_get_run: { enabled: true } } }],
+  messages: [{ role: "user", content: "Why did run-8812 fail?" }],
+});
+for (const block of resp.content) if (block.type === "text") console.log(block.text);
+```
 
 ## Recall checks
 
-- A server exposes a read-only product catalog the client should pull into context without the model deciding to. Which primitive, and who controls it?
-- A server must run locally with zero network exposure, spawned directly by the client process. Which transport?
-- Why is "HTTP with Server-Sent Events" the wrong choice for "the current standard remote transport"?
-- Which MCP primitive is invoked only by explicit user action, never automatically by the model?
-- A team wants a capability reusable across three separate Claude applications, maintained independently of any of them. What's the architectural answer, and why not a shared internal library instead?
+<Recall q="Name the three MCP server primitives and who controls each.">
+Tools are model-controlled: Claude decides when to call them. Resources are application-controlled: the host decides what context to attach. Prompts are user-controlled: templates the user picks, often as slash commands.
+</Recall>
+
+<Recall q="A server's docs give you a URL, another gives you an npx command. Which transport is each, and which one is deprecated?">
+The URL is Streamable HTTP (POSTs to one endpoint, JSON or request-scoped SSE replies); the command is stdio (the host spawns a subprocess). The older two-endpoint HTTP+SSE transport is the deprecated one.
+</Recall>
+
+<Recall q="Is authorization required by the MCP specification?">
+No, it is optional. HTTP servers that use it follow an OAuth 2.1-based flow as a resource server; stdio servers should take credentials from the environment instead. Remote servers should still authenticate callers and validate the Origin header.
+</Recall>
+
+<Recall q="What two things does a Messages API request need to use an MCP server, and what kind of server can it reach?">
+An mcp_servers entry (type url, https URL, name, optional authorization_token) plus an mcp_toolset in tools naming it, with the beta header. It reaches only remote HTTPS servers, and only their tools.
+</Recall>
+
+<Recall q="What do the host, the client and the server each do, and what happens in the 2025-11-25 initialize handshake?">
+The host runs the conversation, creates one client per server and enforces consent; each client talks to one server; the server exposes primitives without seeing the conversation. The client sends initialize with version and capabilities, the server replies with its own, the client sends notifications/initialized.
+</Recall>
+
