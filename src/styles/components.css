@@ -750,3 +750,203 @@ input[type='checkbox'] {
 .pager .pg-t {
   font-weight: 600;
 }
+
+/* ------------------------------------------------- MDX teaching blocks -- */
+.recall {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--d6, var(--primary));
+  border-radius: var(--r-2);
+  background: var(--surface-1);
+  padding: 10px 14px;
+  margin: 0 0 10px;
+}
+.recall > summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style-position: outside;
+}
+.recall-tag,
+.subskill-tag {
+  font: 500 10.5px/1 var(--font-mono);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-right: 6px;
+}
+.recall-a {
+  margin-top: 10px;
+  color: var(--text-1);
+}
+.recall-a > :last-child {
+  margin-bottom: 0;
+}
+.subskill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--accent-text);
+  margin: -6px 0 10px;
+  scroll-margin-top: calc(var(--top-h) + 60px);
+}
+.objlink {
+  text-decoration-style: dotted;
+}
+.objlink::after {
+  content: ' ↗';
+  font-size: 0.8em;
+  color: var(--text-3);
+}
+.walkthrough {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-3);
+  background: var(--surface-1);
+  padding: 16px 18px 6px;
+  margin: 0 0 1.6em;
+}
+.walkthrough-title {
+  font-weight: 650;
+  margin: 0 0 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.steps {
+  list-style: none;
+  counter-reset: step;
+  padding: 0 !important;
+  margin: 0;
+}
+.step {
+  counter-increment: step;
+  position: relative;
+  padding: 0 0 12px 40px !important;
+  margin: 0 !important;
+  border-left: 2px solid var(--border);
+  margin-left: 12px !important;
+}
+.step:last-child {
+  border-left-color: transparent;
+}
+.step::before {
+  content: counter(step);
+  position: absolute;
+  left: -14px;
+  top: -2px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font: 500 12px var(--font-mono);
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  color: var(--text-1);
+}
+.step:last-child::before {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.step-title {
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+.step-body > :last-child {
+  margin-bottom: 4px;
+}
+.diagram {
+  margin: 0 0 1.6em;
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  background: var(--surface-1);
+  padding: 14px;
+  overflow-x: auto;
+}
+.diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+.diagram-scroll svg {
+  max-width: none;
+}
+.diagram-title {
+  font: 500 11.5px var(--font-mono);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 10px;
+}
+.diagram-caption {
+  font-size: 13px;
+  color: var(--text-2);
+  margin-top: 10px;
+}
+.diagram .node rect,
+.diagram .actor {
+  fill: var(--surface-2);
+  stroke: var(--border-strong);
+  stroke-width: 1.2;
+}
+.diagram .node-api rect,
+.diagram .node-model rect {
+  stroke: var(--d2);
+}
+.diagram .node-tool rect {
+  stroke: var(--d8);
+}
+.diagram .node-guard rect {
+  stroke: var(--d7);
+}
+.diagram .node-decision rect {
+  stroke: var(--accent);
+}
+.diagram .node-store rect {
+  stroke: var(--d5);
+}
+.diagram .node-label {
+  font: 600 12.5px var(--font-sans);
+  fill: var(--text-1);
+}
+.diagram .node-note,
+.diagram .msg-label {
+  font: 500 11px var(--font-mono);
+  fill: var(--text-2);
+}
+.diagram .edge,
+.diagram .msg {
+  stroke: var(--text-3);
+  stroke-width: 1.4;
+}
+.diagram .msg.reply {
+  stroke-dasharray: 5 4;
+}
+.diagram .lifeline {
+  stroke: var(--border-strong);
+  stroke-dasharray: 3 4;
+}
+.diagram .note {
+  fill: var(--warn-bg);
+  stroke: color-mix(in srgb, var(--warn) 50%, transparent);
+}
+.diagram .arrowhead {
+  fill: var(--text-3);
+}
+.output-cell {
+  margin-top: -1em;
+}
+.guide-quote {
+  margin: 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--surface-2);
+  border-radius: 0 var(--r-2) var(--r-2) 0;
+  font-size: 14.5px;
+  color: var(--text-1);
+}
+.trap-card p {
+  margin: 0 0 8px;
+}

@@ -7,6 +7,8 @@ export type BPObjective = {
   name: string;
   weight: number;
   domain: number;
+  guide: string;
+  subskills: { id: string; label: string }[];
   scope: string[];
   traps: string[];
 };
@@ -20,7 +22,15 @@ export function slug(name: string): string {
     .replace(/^-|-$/g, '');
 }
 
-type RawObjective = { id?: string; name: string; weight: number; scope?: string[]; traps?: string[] };
+type RawObjective = {
+  id?: string;
+  name: string;
+  weight: number;
+  guide?: string;
+  subskills?: { id: string; label: string }[];
+  scope?: string[];
+  traps?: string[];
+};
 type RawDomain = { n: number; name: string; weight: number; approx_items: number; objectives: RawObjective[] };
 
 export const DOMAINS: BPDomain[] = (raw as unknown as { domains: RawDomain[] }).domains.map((d) => ({
@@ -33,6 +43,8 @@ export const DOMAINS: BPDomain[] = (raw as unknown as { domains: RawDomain[] }).
     name: o.name,
     weight: o.weight,
     domain: d.n,
+    guide: o.guide ?? '',
+    subskills: o.subskills ?? [],
     scope: o.scope ?? [],
     traps: o.traps ?? [],
   })),
@@ -54,3 +66,7 @@ export const EXAM = { items: 53, minutes: 120, cut: 720 } as const;
 export function domainName(n: number): string {
   return DOMAINS.find((d) => d.n === n)?.name ?? `Domain ${n}`;
 }
+
+export const SUBSKILL_BY_ID = new Map(
+  OBJECTIVES.flatMap((o) => o.subskills.map((s) => [s.id, { ...s, objective: o.id }] as const))
+);

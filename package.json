@@ -9,12 +9,16 @@
     "check": "astro check",
     "coverage": "tsx scripts/check_coverage.ts",
     "originality": "python3 scripts/check_originality.py src/data/questions --root .",
-    "verify": "npm run check && npm run test:unit && npm run coverage && npm run lint:questions && npm run originality && npm run build && npm run links",
+    "verify": "npm run check && npm run test:unit && npm run check:blueprint && npm run lint:code && npm run labs:check && npm run coverage && npm run lint:questions && npm run originality && npm run build && npm run links",
     "links": "node scripts/check_links.mjs \"${BASE_PATH:-/}\"",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "lint:questions": "tsx scripts/lint_questions.ts",
-    "verify:full": "npm run verify && npm run test:e2e"
+    "verify:full": "npm run verify && npm run test:e2e",
+    "check:blueprint": "tsx scripts/check_blueprint.ts",
+    "lint:code": "tsx scripts/lint_code.ts",
+    "labs:build": "tsx scripts/build_labs.ts",
+    "labs:check": "tsx scripts/build_labs.ts --check"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.10",
@@ -29,6 +33,7 @@
     "@types/node": "^22.20.5",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "esbuild": "^0.28.2",
     "happy-dom": "^15.11.7",
     "pagefind": "^1.5.2",
     "tsx": "^4.23.15",

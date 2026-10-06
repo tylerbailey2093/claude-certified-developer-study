@@ -1,47 +1,5 @@
 [
   {
-    "id": "legacy-009",
-    "objective": "understanding-requirements",
-    "domain": 2,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "A nightly job must classify 80,000 records. Results are reviewed the next business morning. Cost is the main concern. Which approach fits?",
-    "options": [
-      {
-        "id": "a",
-        "text": "Synchronous Messages API calls issued in parallel",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "The Message Batches API, which processes asynchronous workloads at reduced cost",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "Streaming requests to reduce total wall-clock time",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "Reducing max_tokens on synchronous calls",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "Nothing consumes results until morning, the signal for batch and its 50% discount. Parallel synchronous calls don't lower per-token cost, streaming optimizes a dimension nobody measures here, and trimming max_tokens ignores the realtime-versus-batch tradeoff.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
-  },
-  {
     "id": "legacy-010",
     "objective": "understanding-requirements",
     "domain": 2,
@@ -200,7 +158,7 @@
     "answer": [
       "c"
     ],
-    "explanation": "Functional requirements describe what the system does (draft a personalized email); infrastructure requirements describe the non-functional envelope it must operate within (a throughput and latency constraint under concurrent load). Calling both statements infrastructure ignores that drafting the email is itself the capability being built, not a constraint on it. Calling both functional, on the reasoning that neither names a vendor or region, misses that a capacity/performance ceiling is the textbook definition of an infrastructure requirement regardless of vendor mention. Labeling the latency statement functional conflates user-experienced quality with the feature itself — latency-under-load is a quality attribute, not a capability.",
+    "explanation": "Functional requirements describe what the system does (draft a personalized email); infrastructure requirements describe the non-functional envelope it must operate within (a throughput and latency constraint under concurrent load). Calling both statements infrastructure ignores that drafting the email is itself the capability being built, not a constraint on it. Calling both functional, on the reasoning that neither names a vendor or region, misses that a capacity/performance ceiling is the textbook definition of an infrastructure requirement regardless of vendor mention. Labeling the latency statement functional conflates user-experienced quality with the feature itself \u2014 latency-under-load is a quality attribute, not a capability.",
     "cue": "",
     "pattern": "buried-constraint",
     "difficulty": 2,

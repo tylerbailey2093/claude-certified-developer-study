@@ -1,0 +1,23 @@
+---
+// <Output kind="illustrative|executed" date="2026-10-06">text</Output>
+// Expected output of the code cell above it, revealed by Run. "illustrative"
+// output was written to show the shape of a real response, not captured.
+interface Props {
+  kind?: 'illustrative' | 'executed';
+  date?: string;
+  label?: string;
+}
+const { kind = 'illustrative', date, label = 'Output' } = Astro.props;
+const id = `out-${Math.random().toString(36).slice(2, 9)}`;
+---
+<div class="cell output-cell">
+  <div class="cell-bar">
+    <span class="cell-n">Out</span>
+    <span class={`tag ${kind === 'executed' ? 'tag-ok' : 'tag-warn'}`}>{kind === 'executed' ? `executed${date ? ` ${date}` : ''}` : 'illustrative'}</span>
+    <span class="cell-actions"><button type="button" class="run" data-run aria-controls={id} aria-expanded="false">▶ run</button></span>
+  </div>
+  <div class="cell-out" id={id} hidden>
+    <div class="cell-out-label">{label}</div>
+    <slot />
+  </div>
+</div>

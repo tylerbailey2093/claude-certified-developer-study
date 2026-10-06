@@ -1,0 +1,16 @@
+---
+// <ObjLink id="claude-hooks">optional text</ObjLink>
+// Cross-link to another objective. An unknown id fails the build, so links
+// can never rot silently.
+import { OBJECTIVE_BY_ID } from '../../lib/blueprint';
+interface Props {
+  id: string;
+  hash?: string;
+}
+const { id, hash } = Astro.props;
+const o = OBJECTIVE_BY_ID.get(id);
+if (!o) throw new Error(`<ObjLink id="${id}">: no such objective in blueprint.json`);
+const base = import.meta.env.BASE_URL;
+const has = Astro.slots.has('default');
+---
+<a class="objlink" href={`${base}objective/${id}/${hash ? `#${hash}` : ''}`} data-d={o.domain} title={`${o.name} · D${o.domain} · ${o.weight}%`}>{has ? <slot /> : o.name}</a>

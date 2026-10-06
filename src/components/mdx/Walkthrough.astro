@@ -1,0 +1,12 @@
+---
+// <Walkthrough title="Scenario: ..."> <Step title="...">...</Step> ... </Walkthrough>
+// A worked example, read top to bottom, ending with the deciding cue.
+interface Props {
+  title: string;
+}
+const { title } = Astro.props;
+---
+<section class="walkthrough">
+  <p class="walkthrough-title"><span class="tag tag-accent">walkthrough</span> {title}</p>
+  <ol class="steps"><slot /></ol>
+</section>

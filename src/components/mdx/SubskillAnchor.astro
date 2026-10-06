@@ -1,0 +1,17 @@
+---
+// <SubskillAnchor id="pe.few-shot" />  placed directly under the H3 that
+// teaches a guide sub-skill. Renders the guide's label as a tag and an anchor
+// target. Unknown ids fail the build.
+import blueprint from '../../../blueprint.json';
+interface Props {
+  id: string;
+}
+const { id } = Astro.props;
+type O = { subskills?: { id: string; label: string }[] };
+const all = (blueprint as unknown as { domains: { objectives: O[] }[] }).domains.flatMap((d) =>
+  d.objectives.flatMap((o) => o.subskills ?? [])
+);
+const s = all.find((x) => x.id === id);
+if (!s) throw new Error(`<SubskillAnchor id="${id}">: not a blueprint subskill`);
+---
+<span class="subskill" id={`ss-${id.replace(/\./g, '-')}`}><span class="subskill-tag">guide sub-skill</span> {s.label}</span>

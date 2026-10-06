@@ -27,6 +27,11 @@ const bp = OBJECTIVE_BY_ID.get(data.id);
 const toc = headings.filter((h) => h.depth === 2);
 const rank = [...DOMAINS.flatMap((d) => d.objectives)].sort((a, b) => b.weight - a.weight).findIndex((o) => o.id === data.id) + 1;
 const multi = items.filter((q) => q.type === 'multi').length;
+type Trap = string | { name: string; looksRight: string; failsBecause: string; cue: string };
+const traps = (data.traps as Trap[]).map((t) =>
+  typeof t === 'string' ? { name: t, looksRight: '', failsBecause: '', cue: '' } : t
+);
+const subskills = bp?.subskills ?? [];
 
 function hostOf(url: string) {
   try {
@@ -39,7 +44,7 @@ const tabs = [
   { key: 'overview', label: 'Overview' },
   { key: 'learn', label: 'Learn', count: toc.length || undefined },
   { key: 'practice', label: 'Practice', count: items.length },
-  { key: 'traps', label: 'Traps', count: data.traps.length },
+  { key: 'traps', label: 'Traps', count: traps.length },
   { key: 'sources', label: 'Sources', count: data.sources.length },
   { key: 'progress', label: 'Progress' },
 ];
@@ -75,9 +80,13 @@ const tabs = [
     <h2 class="tabpanel-title">Overview</h2>
     <div class="split">
       <div class="panel">
-        <div class="panel-head"><h3>What the guide says this covers</h3></div>
+        <div class="panel-head"><h3>What the guide says</h3><span class="faint">Exam Guide v1.0 §6</span></div>
+        {bp?.guide && <blockquote class="guide-quote">{bp.guide}</blockquote>}
+        <p class="eyebrow" style="margin-top:14px">Sub-skills items are written against</p>
         <ul style="margin:0;padding-left:18px">
-          {(bp?.scope ?? data.scope).map((s: string) => <li style="margin:5px 0">{s}</li>)}
+          {subskills.length
+            ? subskills.map((s) => <li style="margin:5px 0"><a href={`#ss-${s.id.replace(/\./g, '-')}`}>{s.label}</a></li>)
+            : (bp?.scope ?? data.scope).map((s: string) => <li style="margin:5px 0">{s}</li>)}
         </ul>
       </div>
       <div class="panel">
@@ -93,10 +102,10 @@ const tabs = [
         </div>
       </div>
     </div>
-    {data.traps.length > 0 && (
+    {traps.length > 0 && (
       <div class="callout callout-trap" style="margin-top:16px">
         <p class="callout-title">The trap most likely to cost you</p>
-        <p>{data.traps[0]}</p>
+        <p><strong>{traps[0].name}</strong>{traps[0].failsBecause && <> {traps[0].failsBecause}</>}</p>
       </div>
     )}
   </section>
@@ -117,9 +126,17 @@ const tabs = [
   <section id="panel-traps" role="tabpanel" aria-labelledby="tab-traps" hidden>
     <h2 class="tabpanel-title">Traps</h2>
     <p class="muted">Each trap is a real mechanism used in the wrong place, which is how most distractors are built.</p>
-    <ol class="prose" style="padding-left:20px">
-      {data.traps.map((t: string) => <li style="margin:10px 0">{t}</li>)}
-    </ol>
+    <div class="stack">
+      {traps.map((t, i) => (
+        <div class="panel trap-card">
+          <p class="eyebrow">Trap {i + 1}</p>
+          <h3 style="margin-top:0">{t.name}</h3>
+          {t.looksRight && <p><span class="tag tag-warn">looks right because</span> {t.looksRight}</p>}
+          {t.failsBecause && <p><span class="tag tag-bad">fails because</span> {t.failsBecause}</p>}
+          {t.cue && <p style="margin-bottom:0"><span class="tag tag-ok">the cue</span> {t.cue}</p>}
+        </div>
+      ))}
+    </div>
   </section>
 
   <section id="panel-sources" role="tabpanel" aria-labelledby="tab-sources" hidden>

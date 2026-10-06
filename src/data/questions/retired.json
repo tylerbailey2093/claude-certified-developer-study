@@ -43,5 +43,49 @@
     "sources": [],
     "author": "v1-new",
     "status": "retired"
+  },
+  {
+    "id": "legacy-009",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A nightly job must classify 80,000 records. Results are reviewed the next business morning. Cost is the main concern. Which approach fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Synchronous Messages API calls issued in parallel",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "The Message Batches API, which processes asynchronous workloads at reduced cost",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Streaming requests to reduce total wall-clock time",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Reducing max_tokens on synchronous calls",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Nothing consumes results until morning, the signal for batch and its 50% discount. Parallel synchronous calls don't lower per-token cost, streaming optimizes a dimension nobody measures here, and trimming max_tokens ignores the realtime-versus-batch tradeoff.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [
+      "retired:Reskin of published Sample 1 (overnight cost-driven batch job; same distractor set). Semantic copying of a published item."
+    ],
+    "sources": [],
+    "author": "legacy",
+    "status": "retired"
   }
 ]

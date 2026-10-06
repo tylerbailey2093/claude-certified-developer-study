@@ -18,7 +18,7 @@ scope:
   - "effort levels"
   - "zero-shot, single-shot, multi-shot prompting"
 traps:
-  - "few-shot prompting is scored HERE, not in Domain 6"
+  - "the shot taxonomy (zero/single/multi-shot) is scored here; building and placing few-shot examples is ALSO scored in D6 Prompt Engineering (guide p7)"
   - "context window and max output tokens are different limits"
   - "token counts are model-specific and do not transfer across a migration"
 sources:
@@ -37,7 +37,7 @@ authored: true
 
 ## What this objective actually tests
 
-This objective checks whether you understand LLM mechanics well enough to reason about cost, latency, and consistency trade-offs — not whether you can recite parameter names. The exam separates limits the model imposes on you (context window, non-determinism) from dials you actively set (effort, thinking mode, example count). It also checks one placement fact: zero/single/multi-shot prompting is scored here, in Model Selection and Optimization, not in Prompt and Context Engineering — counterintuitive on first read, which is exactly why it's a trap.
+This objective checks whether you understand LLM mechanics well enough to reason about cost, latency, and consistency trade-offs — not whether you can recite parameter names. The exam separates limits the model imposes on you (context window, non-determinism) from dials you actively set (effort, thinking mode, example count). It also covers the zero/single/multi-shot taxonomy. Note the split in the guide: the taxonomy (what each term means, why more examples usually help) is listed here in Domain 5, while building and placing few-shot examples is listed under Prompt Engineering in Domain 6. Expect example questions from both angles.
 
 ## Mechanism
 
@@ -68,7 +68,7 @@ The **`effort` parameter** is the live dial that steers adaptive thinking and, m
 
 ### Zero-shot, single-shot, and multi-shot prompting
 
-These are prompt-construction techniques scored in **Domain 5**, not Domain 6 — the single most-tested placement trap in this objective.
+The guide lists this taxonomy here in **Domain 5**. Building and placing the examples (diversity, `<example>` tags, where they sit in the prompt) is listed separately under Prompt Engineering in **Domain 6**, so both domains can ask about examples.
 
 - **Zero-shot** — instructions only, no worked examples. Cheapest per call, fastest to write, often sufficient for tasks the model already handles well.
 - **Single-shot (one-shot)** — exactly one worked example. Useful when the task is simple enough that one example fully disambiguates format, but format isn't obvious from instructions alone.
@@ -90,7 +90,7 @@ Every example in a multi-shot prompt costs input tokens on every call — exactl
 <tbody>
 <tr>
 <td>Examples improve output format/tone/structure consistency</td>
-<td>Multi-shot (few-shot) prompting — <strong>Domain 5</strong></td>
+<td>Multi-shot (few-shot) prompting: taxonomy in <strong>Domain 5</strong>, example construction in <strong>Domain 6</strong></td>
 <td>Example-count technique selection is scored in Model Selection and Optimization, not Prompt and Context Engineering</td>
 </tr>
 <tr>
@@ -221,9 +221,9 @@ const response = await client.messages.create({
 
 ## Named traps, expanded
 
-> **Few-shot prompting is scored in Domain 5, not Domain 6**
-> 
-> It reads like a pure prompt-writing technique, which makes Domain 6 (Prompt and Context Engineering) the intuitive — and wrong — guess. The blueprint places zero/single/multi-shot prompting inside Model Selection and Optimization alongside effort and thinking, framing it as getting more out of a given model rather than as a context-structuring technique like XML tags (which do stay in Domain 6). When a stem's only content is "how many examples should this prompt include," resist routing it to context engineering by feel.
+> **Few-shot examples appear in both Domain 5 and Domain 6**
+>
+> An earlier version of this guide claimed few-shot is scored only in Domain 5. That was wrong. Exam Guide v1.0 p7 lists "zero-shot, single-shot, multi-shot" under LLM Fundamentals (D5) **and** "few-shot examples" under Prompt Engineering (D6). Read the stem: if it asks what the techniques are or why more examples help, think D5; if it asks how to build, diversify or place examples in a prompt, think D6. Either way the content you need is the same.
 
 > **Context window and max output tokens are different limits**
 > 
@@ -238,5 +238,5 @@ const response = await client.messages.create({
 1. State the difference between the context window and `max_tokens` in one sentence each, without looking back.
 2. Name the two eras of "how much should Claude think" controls and which parameter belongs to each.
 3. Why does `temperature: 0` reduce output variance without guaranteeing byte-identical output across calls?
-4. Which domain scores zero/single/multi-shot prompting, and why does that placement feel counterintuitive?
+4. How does the guide split few-shot material between Domain 5 and Domain 6?
 5. List the effort levels from lowest to highest and state which one is the API default.

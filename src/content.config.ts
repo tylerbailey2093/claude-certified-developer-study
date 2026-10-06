@@ -21,9 +21,23 @@ const objectives = defineCollection({
       subskills: z.array(z.string()).default([]),
       related: z.array(z.string()).default([]),
       scope: z.array(z.string()),
-      traps: z.array(z.string()),
+      // v1 traps are one-liners; v2 traps say why the wrong answer looks right
+      // and the exact cue that rules it out.
+      traps: z.array(
+        z.union([
+          z.string(),
+          z.object({ name: z.string(), looksRight: z.string(), failsBecause: z.string(), cue: z.string() }),
+        ])
+      ),
       sources: z
-        .array(z.object({ label: z.string(), url: z.string().url(), verified: z.string().optional() }))
+        .array(
+          z.object({
+            label: z.string(),
+            url: z.string().url(),
+            kind: z.enum(['docs', 'guide', 'engineering', 'spec', 'swe-ref', 'course']).optional(),
+            verified: z.string().optional(),
+          })
+        )
         .default([]),
       lastReviewed: z.string().optional(),
       authored: z.boolean().default(true),

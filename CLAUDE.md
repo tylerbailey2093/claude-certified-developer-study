@@ -66,7 +66,7 @@ content worth two items.
   management. It is **not** workflow pattern selection — that's Domain 1.
 - **Technical Fundamentals (6.1%)** is narrow: SDKs wrapping REST APIs, and
   websockets. Not context-window theory, not rate-limit mechanics.
-- **Zero/single/multi-shot prompting** is scored in **Domain 5**, not Domain 6.
+- **Few-shot is split across two domains.** Guide p7 lists the zero/single/multi-shot taxonomy under D5 LLM Fundamentals and "few-shot examples" under D6 Prompt Engineering. (An earlier version of this file said D5 only; that was wrong.)
 - **Batch API** is scored in **Domain 2** API Mechanics, not Domain 5 Cost.
 - **Secrets management** is **Domain 7**, not Domain 2 Configuration Management.
 - **Systems Life Cycle** is generic IT lifecycle including named frameworks
