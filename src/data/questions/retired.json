@@ -263,5 +263,226 @@
     "sources": [],
     "author": "v1-new",
     "status": "retired"
+  },
+  {
+    "id": "new-technical-fundamentals-01",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A team is building an internal tool in a language with no official Anthropic SDK, so they call the Messages API directly over HTTPS. Midway through planning, someone notes that network calls occasionally time out under load and the client must recover without surfacing an error to the user. What have they taken on that the SDK would have handled for them?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Nothing — raw HTTP calls behave identically to SDK calls in every respect",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Retry-with-backoff logic, SSE event parsing, and typed response handling",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "A different pricing tier reserved for raw REST access",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "A separate authentication scheme required only for non-SDK clients",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Correct: the SDKs wrap the same REST API but add retries with backoff, SSE assembly, and typed models — none of that exists over raw HTTP unless you build it. (A) is wrong because raw HTTP and SDK calls hit the identical endpoint but the SDK adds real behavior on top; they are not equivalent. (C) is wrong because pricing is per-token and identical regardless of transport. (D) is wrong because authentication (the API key) is unchanged whether you use an SDK or call REST directly.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [
+      "retired:duplicate: same concept as legacy-043 (what raw REST takes on vs the SDK); folded into its repair"
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-technical-fundamentals-03",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A support engineer is troubleshooting a chat app where the context window fills up mid-conversation, forcing older turns to be dropped. Separately, the app needs to display Claude's reply token-by-token as it's generated. Which mechanism does the Claude API itself use to deliver those tokens to the caller?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A persistent WebSocket connection opened by the SDK to api.anthropic.com",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Long polling, with the client re-requesting the endpoint every 500ms",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "A gRPC bidirectional stream negotiated during authentication",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Server-Sent Events (SSE), one-way from the API to the caller",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "Correct: the context-window detail is scenery — the actual question is which transport delivers streamed tokens, and the Messages API only ever streams over SSE, one-way server to client. (A) is the classic bait: 'streaming' primes people toward websockets, but Anthropic hosts no websocket endpoint. (B) and (C) are real transports elsewhere in software but neither is what `stream: true` actually uses on this API.",
+    "cue": "",
+    "pattern": "scope-boundary",
+    "difficulty": 2,
+    "tags": [
+      "retired:duplicate: same concept as legacy-042 (Claude streams over SSE); stem padded with irrelevant context-window scenery"
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-technical-fundamentals-06",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "During a traffic spike, a client starts receiving 429 responses and the team debates how to handle it. Which part of that debate is actually decided by SDK and websocket mechanics — this objective — rather than by rate-limit or token-budget reasoning tested elsewhere?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The exact backoff curve to use once a 429 is received",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "How many tokens per minute the account's rate limit allows",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Whether the SDK's default retry configuration already retries 429s automatically, versus a raw HTTP call needing that logic written by hand",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Whether truncating conversation history would reduce the 429 rate",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "Correct: 'does the SDK already handle this, or do I have to write it myself for a raw HTTP call' is exactly the SDK-vs-REST mechanics this objective covers. (A) is backoff-curve tuning and (B) is rate-limit capacity planning — both real questions, but they live in Applications & Integration / LLM Fundamentals, not here. (D) is a token-budget mitigation strategy, also outside this objective's narrow scope.",
+    "cue": "",
+    "pattern": "scope-boundary",
+    "difficulty": 2,
+    "tags": [
+      "retired:meta question about which objective owns a topic; tests the site's taxonomy rather than an exam competency"
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-claude-api-mechanics-02",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [],
+    "type": "multi",
+    "select": 2,
+    "stem": "A data team submits 40,000 documents to the Message Batches API for classification, expecting the batch to finish well inside their six-hour reporting window. To save engineering time, they write the results-processing code to zip the downloaded results directly against the original 40,000-item input list by array position, and they build no handling for a batch that doesn't fully complete. Which two of the following are real risks in this design? (Select two.)",
+    "options": [
+      {
+        "id": "a",
+        "text": "Results can return in a different order than requests were submitted, so a positional zip can silently pair a result with the wrong input document",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "A batch that hasn't finished processing within 24 hours expires, losing whatever requests are still unfinished, so a design with no fallback for that case can silently lose data",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "The Batches API only applies its cost discount to requests that finish within the first hour, so slower requests are billed at full synchronous price",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "A single batch submission is capped at 1,000 requests, so the 40,000-document submission would be rejected outright",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Correct (both): batch requests are processed independently and concurrently, so completion order carries no relationship to submission order -- only a custom_id join is safe, making a positional zip a real data-integrity bug; separately, a batch that has not finished within 24 hours expires and drops unfinished requests, so skipping fallback handling for that case risks silent data loss even though most batches finish in under an hour. Option C fails because the batch discount is a flat percentage off standard pricing applied to all usage in the batch, not a time-boxed promotion tied to how fast a given request completes. Option D fails because the per-batch request ceiling is far larger than 1,000 -- the number is fabricated and would not cause 40,000 documents to be rejected at submission.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicates legacy-014 (positional join of unordered batch results); its distractors rested on fabricated limits. Expiry and errored-result handling now live in claude-api-mechanics-018."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "legacy-038",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "Which statement about tokens is correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Token counts are identical across all Claude models",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Token counts are model-specific and should be re-measured when migrating models",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "One token always equals one word",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Only input text is tokenized; output is billed by character",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Tokenization is model-specific, so counts measured against one model don't transfer. Newer models use a different tokenizer that can produce meaningfully more tokens for identical text, which changes effective cost even at a flat rate.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicative recall item (\"which statement about tokens is correct\"); the model-specific token count concept is covered by scenario items new-llm-fundamentals-04 and llm-fundamentals-001."
+    ],
+    "sources": [],
+    "author": "legacy",
+    "status": "retired"
   }
 ]

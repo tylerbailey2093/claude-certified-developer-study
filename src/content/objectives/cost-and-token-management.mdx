@@ -47,6 +47,7 @@ sources:
   - { label: "Task budgets", url: "https://platform.claude.com/docs/en/build-with-claude/task-budgets", kind: "docs", verified: "2026-10-06" }
   - { label: "Rate limits", url: "https://platform.claude.com/docs/en/api/rate-limits", kind: "docs", verified: "2026-10-06" }
   - { label: "Thinking", url: "https://platform.claude.com/docs/en/build-with-claude/thinking", kind: "docs", verified: "2026-10-06" }
+  - { label: "Thinking: steering and cost", url: "https://platform.claude.com/docs/en/build-with-claude/thinking-steering-and-cost", kind: "docs", verified: "2026-10-06" }
   - { label: "Context windows", url: "https://platform.claude.com/docs/en/build-with-claude/context-windows", kind: "docs", verified: "2026-10-06" }
 lastReviewed: "2026-10-06"
 authored: true
@@ -112,7 +113,7 @@ Budgets exist at three scopes, and each has a different enforcement mechanism.
 | `server_tool_use.web_search_requests` | Server tool calls billed per use | $10 per 1,000 searches [Certain] |
 | `iterations` (compaction) | Per-iteration usage when server compaction runs | sum them; top level excludes compaction |
 
-Total input is `input_tokens + cache_creation_input_tokens + cache_read_input_tokens` [Certain]. Thinking is billed as output at full length even when `display` is `"omitted"` or summarized, so billed `output_tokens` will not match the text you see [Certain]. No current page I read documents a separate thinking-token usage field, so do not design around one [Likely].
+Total input is `input_tokens + cache_creation_input_tokens + cache_read_input_tokens` [Certain]. Thinking is billed as output at full length even when `display` is `"omitted"` or summarized, so billed `output_tokens` will not match the text you see [Certain]. The thinking cost page documents a breakdown, `usage.output_tokens_details.thinking_tokens`, which is always at most `output_tokens`; when streaming it appears only on the final `message_delta` [Certain, likely post-guide]. Use it for dashboards, but the exam-safe fact is that thinking is inside `output_tokens` at the output rate.
 
 Log every field per request, tagged with feature, tenant, model and effort, and alert on **cache hit ratio** (reads over total input) and **cost per completed task**. A silent cache regression shows up as `cache_read_input_tokens` dropping to zero. Cached reads also do not count toward ITPM on most models [Certain], so a cache regression can surface as 429s before it shows on the invoice.
 
@@ -198,7 +199,7 @@ Source: prompt caching page [Certain]. Also invalidating: any byte change upstre
 | Each request carries a unique document read once | Do not cache that document; trim or retrieve less | A write premium with no later read costs more than no caching |
 | Must reject requests that would exceed a per-request input budget before spending anything | `count_tokens` pre-check, then refuse or trim | Reading `usage` afterward is too late; the tokens are already billed |
 | Agent loop should wind down gracefully near a token target | Task budget (advisory) plus a sane `max_tokens` (hard cap) | `max_tokens` alone truncates mid-action; a task budget alone is not enforced |
-| Team wants to know how much reasoning costs | Track `output_tokens` per feature and effort level; thinking is inside it at the output rate | There is no cheaper thinking rate to report separately |
+| Team wants to know how much reasoning costs | Read `usage.output_tokens_details.thinking_tokens` (inside `output_tokens`, billed at the output rate) per feature and effort level | There is no cheaper thinking rate to report separately |
 | Cached answers are cheap now but output dominates each call | Step effort down or tighten the answer format | Model downgrade comes last; effort keeps the same model |
 
 ## Worked walkthrough
