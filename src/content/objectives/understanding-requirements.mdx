@@ -6,180 +6,438 @@ name: "Understanding Requirements"
 weight: 3.4
 tier: 2
 hot: false
+summary: "Turn a business ask into testable functional requirements, a non-functional envelope (latency, throughput, residency, retention, cost) and the least complex Claude architecture that satisfies both. One buried constraint usually decides the answer."
+subskills: ["ur.functional", "ur.infrastructure", "ur.business", "ur.architecture"]
+related: ["claude-application-design", "agent-patterns-and-frameworks", "claude-api-mechanics", "model-selection-and-tradeoffs", "systems-life-cycle"]
 scope:
+  - "derived from business requirements"
   - "functional requirements"
   - "infrastructure requirements"
   - "solution architecture"
 traps:
-  - "one buried constraint in the stem decides the answer"
+  - name: "One buried constraint decides the answer"
+    looksRight: "All four options are sound engineering, so the most thorough or most modern one seems safest."
+    failsBecause: "Three options answer a constraint the stem never stated. Only one answers the clause that would flip the answer if it changed (who is waiting, where data may go, what may be stored, what must always happen)."
+    cue: "A single mid-stem clause such as 'while the agent is on the call', 'must not leave US infrastructure' or 'no prompts may be retained'. Find it before reading the options."
+  - name: "A prompt instruction is not a requirement control"
+    looksRight: "Telling Claude in the system prompt to never exceed a limit or always include a field is quick and usually works."
+    failsBecause: "A system prompt is a request. A requirement phrased as must, never or always needs an enforced mechanism: a schema, a code check, a workspace setting, a permission rule or a human approval step."
+    cue: "Stem says 'must', 'never', 'always' or 'guaranteed', and one option moves the rule into code or configuration."
+  - name: "Treating a non-functional requirement as a prompt problem"
+    looksRight: "Users say responses feel slow, so rewrite the prompt to ask for better answers."
+    failsBecause: "Latency, throughput and cost are envelope requirements. They are met by model tier, streaming, output length, caching and request routing, not by prompt quality."
+    cue: "Complaint is about time, volume, region or spend, while the content itself is described as fine."
+  - name: "Reaching for an agent when the path is fixed"
+    looksRight: "An autonomous agent with tools is the most capable design and handles anything the business might add later."
+    failsBecause: "When the steps are known and always the same, a workflow or single call is cheaper, faster, more predictable and easier to audit. Autonomy is a cost you pay only when the path cannot be known in advance."
+    cue: "'Every request follows the same steps', 'auditors must be able to trace each decision', or a fixed rule table."
+  - name: "Choosing a stateful feature under a no-retention requirement"
+    looksRight: "The Message Batches API halves the price, and the workload does not need instant answers."
+    failsBecause: "Under a zero data retention arrangement, stateful features such as batch jobs and stored files are not covered: Anthropic documents Batch as not ZDR-eligible because jobs must be stored. [Likely: eligibility lists drift]"
+    cue: "'Zero data retention', 'the vendor may not store prompts or outputs' alongside a cost-saving option."
+  - name: "Taking stakeholder adjectives at face value"
+    looksRight: "The sponsor said 'real-time', so design for sub-second streaming."
+    failsBecause: "Business language is not a specification. 'Real-time' may mean 'before the morning stand-up'. Requirements come from how the output is consumed, stated as a number."
+    cue: "The stem describes when and by whom the output is actually used, and that contradicts the adjective."
 sources:
-  - label: "Choosing a model"
-    url: "https://platform.claude.com/docs/en/about-claude/models/choosing-a-model"
-  - label: "Pricing"
-    url: "https://platform.claude.com/docs/en/about-claude/pricing"
+  - { label: "Define success criteria and build evaluations", url: "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests", kind: "docs", verified: "2026-10-06" }
+  - { label: "Reducing latency", url: "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-latency", kind: "docs", verified: "2026-10-06" }
+  - { label: "Rate limits", url: "https://platform.claude.com/docs/en/api/rate-limits", kind: "docs", verified: "2026-10-06" }
+  - { label: "Data residency", url: "https://platform.claude.com/docs/en/manage-claude/data-residency", kind: "docs", verified: "2026-10-06" }
+  - { label: "API and data retention", url: "https://platform.claude.com/docs/en/manage-claude/api-and-data-retention", kind: "docs", verified: "2026-10-06" }
+  - { label: "Structured outputs", url: "https://platform.claude.com/docs/en/build-with-claude/structured-outputs", kind: "docs", verified: "2026-10-06" }
+  - { label: "Models overview", url: "https://platform.claude.com/docs/en/models/overview", kind: "docs", verified: "2026-10-06" }
+lastReviewed: "2026-10-06"
 authored: true
 ---
 
-## What this objective actually tests
+## Concept
 
-This objective tests whether you can take a business-level ask — often written by
-someone who has never touched an API — and split it cleanly into **functional**
-requirements (what the system must do), **infrastructure** requirements (the
-non-functional envelope it must do it within: latency, throughput, availability,
-residency, retention, cost), and a **solution architecture** that satisfies both.
-The exam does not ask you to write requirements documents; it gives you a stem
-already containing the requirement and asks you to name the architectural
-consequence. The skill being tested is *requirement-to-decision translation*, not
-requirements-gathering ceremony.
+The guide asks for "functional and infrastructure requirements based on business requirements and solution architecture." In practice that is one skill: translating a business ask into decisions. A sponsor says what outcome they want. You turn that into **functional requirements** (what the system must do, stated so it can be tested), **infrastructure requirements** (the envelope it must do it within: latency, throughput, availability, residency, retention, security, cost), and a **solution architecture** that satisfies both with the least machinery.
+
+Items rarely ask you to write a requirements document. They hand you a 2 to 4 sentence scenario that already contains the requirement, usually buried mid-stem, and ask for the architectural consequence. Three options are defensible engineering in general. One answers the constraint actually stated. This objective has no home module in the official course, so the cue-reading habit has to come from practice.
+
+**Scope boundary.** This objective decides *which* shape the solution takes and *why*. The mechanics of each shape live elsewhere.
+
+Not this:
+- How to build chains, routers and agent loops: <ObjLink id="agent-patterns-and-frameworks"/> (Domain 1).
+- Where an instruction lives, content boundaries and schema field design: <ObjLink id="claude-application-design"/>.
+- Request parameters, streaming events and batch mechanics: <ObjLink id="claude-api-mechanics"/>.
+- Picking a tier on capability and price alone: <ObjLink id="model-selection-and-tradeoffs"/>.
+- How the delivered system is built, released and maintained: <ObjLink id="systems-life-cycle"/>.
+
+<Callout type="key" title="The point-winning idea">
+Before reading the options, find the one clause that would change the answer if it changed. Then pick the option that meets it with an enforced mechanism (schema, configuration, code, approval step), not a hope written into a prompt.
+</Callout>
 
 ## Mechanism
 
-**Functional vs. infrastructure is a categorization exercise, and the exam relies
-on you doing it fast.** A functional requirement describes a capability: "draft a
-reply," "classify a ticket," "summarize a call." An infrastructure requirement
-describes a constraint the capability must operate inside: a latency budget, a
-concurrency ceiling, a residency boundary, a retention window, an availability
-target, or a cost ceiling. The two are graded by different failure modes — a
-functional gap means the feature doesn't exist; an infrastructure gap means the
-feature exists but violates a promise made to the business (SLA breach, compliance
-violation, budget overrun). Stems test this distinction by pairing one of each in
-the same sentence and asking you to identify which is which, or by burying an
-infrastructure constraint inside what reads like a feature description.
+<Flow title="From business ask to buildable design" steps={[{label: "Business requirement", kind: "client", note: "outcome + metric"}, {label: "Functional reqs", kind: "decision", note: "testable behaviour"}, {label: "Infrastructure reqs", kind: "guard", note: "latency, region, retention, cost"}, {label: "Solution architecture", kind: "model", note: "least complex shape"}, {label: "Evals + config", kind: "store", note: "criteria become checks"}]} caption="Each layer narrows the next. Acceptance criteria become eval cases; envelope requirements become configuration." />
 
-**Solution architecture is the bridge artifact.** Given a functional requirement
-and its infrastructure envelope, solution architecture answers: what components
-exist, and how do they connect? For a Claude-based system that means naming, at
-minimum: which model tier serves the request (cost/latency/capability tradeoff),
-whether the call pattern is realtime or batched, where tool calls and MCP servers
-sit relative to the model, where untrusted or user-supplied content enters the
-pipeline, where a human review gate sits if one is required, and which datastore
-holds session or long-lived memory state. A stem that asks "which component" or
-"where should this live" is a solution-architecture question dressed as a trivia
-question — it is really asking whether you can place a box on a diagram correctly.
+### Functional requirements
 
-**The exam's dominant mechanism: one buried constraint decides the answer.**
-Stems are two to four sentences of scenario texture wrapping a single deciding
-detail — a deadline, a location, a party who is or isn't waiting, a downstream
-consumer. Everything else in the stem is plausible-sounding noise. The practiced
-move is to read the stem once for the scenario, then again hunting specifically
-for the clause that would change the answer if it were altered. If you can flip
-one detail (deadline moves from "next quarter" to "the user is on the line") and
-the correct option changes, you've found the constraint the question is actually
-testing.
+<SubskillAnchor id="ur.functional" />
 
-**Common infrastructure dimensions and their default architectural answer:**
+A functional requirement states a capability: classify the ticket, extract the claim fields, draft the reply, answer from the policy library. For an LLM feature it is incomplete until it also states:
 
-- **Latency budget** — is a human waiting synchronously, or can this run
-  unattended? Decides sync Messages API + streaming vs. the async Batch API.
-- **Throughput / concurrency** — how many requests arrive at once, and does the
-  workload need to fan out? Decides whether the architecture needs client-side
-  concurrency control, queuing, or straightforward batch submission.
-- **Availability / SLA** — what happens if one region is down? Decides whether the
-  architecture needs multi-region failover or a single regional pin is acceptable.
-- **Data residency / sovereignty** — must data stay inside a jurisdiction, even in
-  transit? Decides regional API endpoints (or a vendor with in-region hosting)
-  over a global, dynamically-routed endpoint. [Verified: platform.claude.com/docs/en/about-claude/pricing describes regional vs. global endpoint tradeoffs at a pricing/availability level; residency guarantees are the correct answer for any stem naming a jurisdiction.]
-- **Retention** — how long must inputs, outputs, or session state be kept (or how
-  fast must they be deleted)? Decides logging/storage configuration independent of
-  the model call itself.
-- **Cost ceiling** — is there a hard budget, and is the workload deferrable?
-  Decides batch discount, model-tier downgrade, or prompt-length reduction, in
-  that order of likely intent.
-- **Compliance / stakes** — is the domain regulated, or are the consequences of an
-  error high (medical, legal, financial)? Decides a human-in-the-loop review gate
-  and audit logging as first-class architecture components, not afterthoughts.
+- **Inputs and their variety**: which document types, languages, lengths, image or text.
+- **Output contract**: free text for a person, or structured data for a machine.
+- **Edge behaviour**: what happens when the answer is not in the source. "Return null and flag" is a requirement; silence is how fabrication gets shipped.
+- **Acceptance criteria** that a test can check.
 
-A requirement rarely states the architectural answer directly. It states the
-constraint, and the constraint has exactly one architecturally correct response
-among the options — which is why distractors in this objective are built to be
-*plausible engineering practice in general* while being wrong for *this specific
-constraint*.
+Anthropic's success-criteria guidance asks for criteria that are specific, measurable, achievable and relevant, and contrasts "the model should classify sentiments well" with an F1 target on a named held-out set against a baseline. **[Certain]** It lists common dimensions: task fidelity, consistency, relevance and coherence, tone, privacy preservation, context utilization, latency and price. **[Certain]** The useful split for design is between two kinds of acceptance criteria:
+
+| Requirement phrasing | Testable form | Verified by |
+|---|---|---|
+| "Output must be valid JSON with these fields" | Every response parses against the schema | Structured outputs (enforced) plus a code check |
+| "Never invent an order number" | When the source has none, field is null in 100% of labelled cases | Nullable schema field plus code-graded eval |
+| "Payout cannot exceed the table amount" | Computed amount equals table lookup | Code, not the model (schema numeric limits are not supported) |
+| "Category matches a human label" | At least 95% exact match on 500 labelled tickets | Code-graded eval with threshold |
+| "Reply is polite and on-brand" | Mean rubric score of 4 or more out of 5 | LLM-graded eval, spot-checked by humans |
+
+Structural rules can be guaranteed. Quality rules can only be measured. The structured outputs page lists numeric constraints such as `minimum` and `maximum` as unsupported **[Certain]**, so a numeric business rule belongs in code even when the rest of the output is schema-enforced. Write each criterion so it becomes an eval case on day one; that eval suite is what later lets you change prompts or models safely.
+
+Give each criterion an identifier and keep the chain visible: business metric, functional requirement, acceptance criterion, eval case. That traceability is what lets a reviewer answer "which requirement does this failing test protect?" and what makes a later model migration a measured change rather than a guess. The release side of that chain belongs to <ObjLink id="systems-life-cycle"/>.
+
+**Exam angle:** "must be machine-readable", "must not fabricate", "measurable accuracy" point here. The usual distractor is a prompt instruction ("tell Claude to be accurate") offered instead of a schema or an eval threshold.
+
+### Infrastructure requirements
+
+<SubskillAnchor id="ur.infrastructure" />
+
+Infrastructure (non-functional) requirements do not change what the feature does. They change which configuration and which architecture are legal. Each dimension maps to a specific Claude design lever:
+
+| Dimension | Question to ask | Claude design lever | Verified detail |
+|---|---|---|---|
+| Latency | Is a person waiting on this output? | Streaming, faster tier, shorter output, `max_tokens` | Docs separate baseline latency from time to first token; streaming improves perceived responsiveness **[Certain]** |
+| Throughput | Peak requests and tokens per minute? | Request queueing, prompt caching, spreading load across models, async processing | Limits are RPM, ITPM and OTPM per model, token bucket replenishment, 429 with `retry-after` **[Certain]** |
+| Availability | What happens when a call fails? | SDK retries, timeouts, fallback model or provider, degrade gracefully | Global routing is the default "for optimal performance and availability" **[Certain]** |
+| Data residency | Where may inference run? | `inference_geo`, workspace allowed geos, or regional endpoints on Bedrock and Google Cloud | `"us"` or `"global"`; US-only priced at 1.1x on 4.6+ models **[Certain]**, values drift **[Likely]** |
+| Retention | May the vendor store prompts or outputs, and for how long? | ZDR arrangement; avoid stateful features | Batch and Files are stateful and not ZDR-eligible **[Certain]** |
+| Security | Which data classes, which identities, which actions? | Least-privilege tools, key handling, input separation | See Domain 7 |
+| Cost ceiling | Per-unit or monthly limit? | Tier choice, caching, batching, output length, workspace spend limits | Spend caps return errors when hit, so a ceiling is enforceable **[Certain]** |
+
+Three details here are worth knowing as engineering facts, even though the guide tests the concepts rather than parameter names:
+
+- **Cached reads raise effective throughput.** For most current models only uncached input tokens count toward ITPM, so a high cache hit rate multiplies usable input volume without a limit increase. **[Certain]**
+- **Residency can eliminate a model.** `inference_geo` is supported on Claude 4.6 and later; sending it to Haiku 4.5 or earlier returns a 400. **[Certain]** A "US-only inference" requirement on the first-party API therefore rules out the cheapest tier until a supported fast model exists. Workspace `allowed_inference_geos` turns the requirement into an enforced setting rather than a per-request convention.
+- **Retention can eliminate a feature or a model.** ZDR covers the Messages and token counting endpoints for eligible features. Batch carries 29-day retention because jobs are stored. **[Certain]**
+- **Cost ceilings fail loudly, and retries do not help.** When an organization reaches its tier spend cap, requests return a 429 `rate_limit_error` with no `retry-after` header and an `enforced_spend_limit_reached` code, and automatic retries keep failing until access resumes. A spend limit you set yourself returns a 400. **[Certain]** An availability requirement therefore needs spend alerting well before the cap, not a longer retry policy.
+
+<PostGuide>
+The data retention page lists the Fable 5 family as requiring 30-day retention and as unavailable under ZDR unless expressly authorized. These models postdate the guide, so treat this as engineering knowledge, not exam content.
+</PostGuide>
+
+**Exam angle:** "the user is waiting", "peak of N requests", "must stay in region", "may not be stored" and "budget of" each name one lever. The distractor is a lever for a different dimension, usually a cheaper or more capable model offered against a residency or retention constraint.
+
+### Deriving requirements from business requirements
+
+<SubskillAnchor id="ur.business" />
+
+A business requirement states an outcome and, ideally, a metric: cut average handle time by 20%, clear the claims backlog within a quarter, let members self-serve policy questions. It almost never states latency, residency or schema. You derive those by asking how the output is consumed:
+
+1. **Who or what consumes the output, and when?** A person mid-conversation implies a latency budget. A downstream system implies a schema. A weekly report implies neither urgency nor streaming.
+2. **What does a wrong answer cost?** Inconvenience implies an eval threshold. Money moved, a legal statement or a medical claim implies a human approval step and audit logging.
+3. **What data flows in, and from where?** Personal or regulated data implies residency, retention and access requirements. Untrusted documents imply content separation.
+4. **What volume and what budget?** Volume and unit cost decide caching, batching and tier together.
+
+Stakeholder language hides requirements in adjectives. Decode them into numbers before designing:
+
+| Stakeholder says | Requirement it hides | Ask for |
+|---|---|---|
+| "Real-time" | A latency budget, or nothing at all | Who waits, and how many seconds before they give up |
+| "Accurate" | An acceptance threshold | Error rate tolerated, on which labelled set |
+| "Secure" or "compliant" | Data classes, residency, retention, audit | Which regulation, which data, where it may go |
+| "The AI must never..." | An enforced control | Which layer enforces it if the model disagrees |
+| "Scalable" | Peak throughput | Peak per minute and growth, not averages |
+| "Cheap" | A unit cost ceiling | Cost per document or per conversation |
+
+Two requirements often conflict: the fastest tier may not meet the accuracy threshold; US-only processing costs more. Resolve conflicts by separating **hard constraints** (must, legally required, contractual) from **preferences** (cheaper, faster, nicer). Hard constraints filter the options; preferences rank what survives. Anthropic's latency guidance makes the same point about order: get a prompt that works first, then apply latency reductions. **[Certain]**
+
+**Exam angle:** stems where the sponsor's adjective and the described usage disagree. The usage wins. Distractors optimize the adjective.
+
+### Solution architecture
+
+<SubskillAnchor id="ur.architecture" />
+
+Architecture is the smallest set of components that meets the hard requirements. Climb this ladder only as far as a requirement forces you:
+
+| Rung | Use when | Cost of climbing past it |
+|---|---|---|
+| No LLM | The rule is deterministic: a lookup, a formula, a regex | Non-determinism and spend on a solved problem |
+| Single call | One transformation of one input | None, this is the baseline |
+| Workflow | Known steps in a known order, possibly branching or parallel | Small: more calls, more code |
+| Agent | The path depends on what is discovered and cannot be scripted | Latency, cost, variance, harder audit |
+
+Around whichever rung you choose, place four kinds of component:
+
+- **Retrieval** when knowledge is large, private or changes often. It keeps the prompt focused and the source current.
+- **Integration points**: tools for actions on other systems; an MCP server when the same capability must be reused across applications; structured output when another system consumes the result.
+- **Deterministic guards**: schema validation, business-rule checks in code, rate and spend limits.
+- **Human review** before any irreversible or regulated action, placed so the reviewer sees the proposed action and its evidence.
+
+Also mark where untrusted content enters: customer uploads, emails, retrieved pages and tool results. Those entry points are where the architecture needs content separation and validation, and they are the first place a security reviewer will look. Drawing them on the diagram during requirements work is cheaper than retrofitting them after a penetration test.
+
+<Sequence title="Claims assistant with a review gate" actors={["Rep UI", "App", "Claude API", "Rules (code)", "Supervisor"]}
+  messages={[["Rep UI", "App", "claim form + photos"],
+             ["App", "Claude API", "extract fields (json_schema)"],
+             ["Claude API", "App", "structured claim", "reply"],
+             ["App", "Rules (code)", "lookup shipment, compute payout"],
+             ["Rules (code)", "App", "amount + policy rule", "reply"],
+             ["App", "Supervisor", "approve if over limit"],
+             ["App", "Claude API", "draft reply (stream)"],
+             ["Claude API", "Rep UI", "streamed draft", "reply"]]}
+  caption="The model reads and writes language; code applies the rule; a person approves the irreversible step." />
+
+**Exam angle:** "every request follows the same steps" points to a workflow; "reusable across applications" to an MCP server; "feeds another system" to structured output; "irreversible" or "regulated" to a review gate. The distractor is nearly always one rung too high on the ladder.
 
 ## Decision table
 
-| When the stem says… | The answer is… |
-|---|---|
-| "not needed until tomorrow" / no one is waiting on the result | Batch API |
-| "the user is waiting" / interactive session | Streaming, synchronous call, latency-optimized model tier |
-| "must stay in region X" / "must not leave the country" | Regional endpoints (or a vendor offering in-region hosting) |
-| "feeds another system" / "another service consumes this automatically" | Structured output + schema validation, not free-text |
-| "regulated" / "high-stakes" / "irreversible if wrong" | Human review gate + audit logging as architecture components |
-| "deterministic rule" / "always computed the same way from the same inputs" | Don't use an LLM at all — plain code |
-| "reusable across applications" / "maintained independently of any one app" | A separate service exposed through a defined tool interface (an MCP server), not logic embedded in one app |
-| "must happen every time, no exceptions" | A hook or a deterministic gate, not a prompt instruction |
-| A sentence mixes "what it does" and "how fast/where/how long" in the same breath | Split it — the "what" is functional, the "how fast/where/how long" is infrastructure |
-| "which component should own this" / "where should this live" | A solution-architecture question — place the box, don't debug the code |
+| If the stem says... | Choose | Why the runner-up loses |
+|---|---|---|
+| A rep or customer is waiting on the output | Synchronous call with streaming, faster tier if the eval passes | Async or batch processing is cheaper but nobody can wait for it |
+| Output is "reviewed at the weekly meeting" despite a "real-time" request | Asynchronous processing sized to the real deadline | Streaming optimizes the adjective, not the usage |
+| "Inference must not leave US infrastructure" | Enforced geo setting (`inference_geo` with workspace allowed geos, or a regional cloud endpoint) | A prompt instruction or contract clause alone does not route requests |
+| "The vendor may not retain prompts or outputs" | ZDR arrangement with only eligible, stateless features | Batch or file storage is cheaper or easier but stores data |
+| Output is consumed by another service | Structured outputs plus code validation | A prompt asking for JSON is not a guarantee |
+| "Payout must follow the published table" | Compute in code, let Claude explain it | The model can do arithmetic but cannot guarantee a rule |
+| "Every case follows the same four steps" | Workflow with fixed steps | An agent adds autonomy nobody asked for |
+| "Approval required before money moves" | Human review gate in the flow | A system prompt telling the model to ask first is unenforced |
+| "Same lookup needed by three internal apps" | MCP server exposing the capability | Copying a tool definition into each app duplicates and drifts |
+| Peak traffic hits 429s with a large repeated prefix | Prompt caching on the prefix, plus queueing | Raising `max_tokens` or switching to a bigger model does nothing for ITPM |
 
-## Code examples
+## Worked walkthrough
 
-Requirements decomposition itself isn't code, but it becomes code the moment a
-functional requirement turns into an output contract and an infrastructure
-requirement turns into client configuration. A functional requirement ("classify
-the ticket and extract the account ID") becomes a schema; an infrastructure
-requirement ("must not hang the UI past 3 seconds, must not silently drop a
-degraded response") becomes explicit timeout and error handling — not something
-left to a system-prompt instruction.
+<Walkthrough title="Scenario: the damaged-shipment claims assistant">
+
+<Step title="Read the scenario">
+A logistics company's operations director asks for "an AI agent that handles damaged-shipment claims." In discovery you learn that every claim follows the same four steps: read the customer's form and photos, look up the shipment, apply the published reimbursement table, and draft a reply. The reply is read aloud by a service rep who is on the phone with the customer, and payouts above a threshold must be approved by a claims supervisor. Which design best meets the requirements?
+</Step>
+
+<Step title="Find the constraint">
+The sponsor's word is "agent". The requirements say otherwise: a fixed four-step path (workflow), a published table (deterministic rule), a rep on the phone (latency), and "must be approved" (enforced gate). The clause that decides the shape is "every claim follows the same four steps". If the steps varied by claim, an agent would be defensible; they do not.
+</Step>
+
+<Step title="Eliminate the autonomous agent">
+Option: an agent with tools for shipment lookup, payout and email, told in its system prompt to ask a supervisor above the threshold. It fails twice. Autonomy buys nothing when the path is fixed, and costs latency while the customer waits. The approval rule lives in a prompt, which is a request, not a control.
+</Step>
+
+<Step title="Eliminate the other two">
+Option: put claims on an asynchronous queue and return drafts later at lower cost. It fails because a rep is on the phone now. Option: put the reimbursement table in the prompt and let Claude compute the payout. It fails because a published rule must be applied exactly every time, and that is code's job.
+</Step>
+
+<Step title="Choose">
+A fixed workflow: Claude extracts the claim into a schema, code looks up the shipment and computes the payout from the table, payouts above the threshold go to a supervisor queue in code, and Claude streams a draft reply to the rep. Each requirement maps to one enforced component.
+</Step>
+
+<Step title="The deciding cue">
+"Every claim follows the same four steps." Fixed steps mean workflow, not agent. The supporting cues, "on the phone" and "must be approved", eliminate the asynchronous option and the prompt-only approval.
+</Step>
+
+</Walkthrough>
+
+## Code
+
+**Acceptance criteria become an eval check.** The functional requirement "extract the claim; never invent an order number" turns into a nullable schema field (enforced) and a labelled pass-rate threshold (measured).
 
 ```python
-from anthropic import Anthropic
+import json
+import anthropic
 
-client = Anthropic(timeout=3.0)  # infra requirement: latency budget, enforced by the client
+client = anthropic.Anthropic()
 
-tool = {
-    "name": "classify_ticket",
-    "description": "Classify a support ticket and extract the account id.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "category": {"type": "string", "enum": ["billing", "bug", "access", "other"]},
-            "account_id": {"type": ["string", "null"]},  # functional req: don't fabricate one
-        },
-        "required": ["category", "account_id"],
+CLAIM_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "order_id": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "damage_type": {"type": "string", "enum": ["crushed", "wet", "missing_item", "other"]},
     },
-    "strict": True,  # functional req becomes a schema guarantee, not a hope
+    "required": ["order_id", "damage_type"],
+    "additionalProperties": False,
 }
+
+# Acceptance criteria written as labelled cases (the requirement, made testable).
+CASES = [
+    {"text": "Order 88123 arrived soaked through.", "order_id": "88123", "damage_type": "wet"},
+    {"text": "Box was flattened, I lost the receipt.", "order_id": None, "damage_type": "crushed"},
+]
+THRESHOLD = 0.95  # from the requirement: at least 95% of cases fully correct
+
+
+def text_of(resp) -> str:
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+
+def extract(text: str) -> dict:
+    resp = client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=256,
+        messages=[{"role": "user", "content": f"Extract the claim fields.\n\n{text}"}],
+        output_config={"format": {"type": "json_schema", "schema": CLAIM_SCHEMA}},
+    )
+    return json.loads(text_of(resp))
+
+
+passed = sum(
+    extract(c["text"]) == {"order_id": c["order_id"], "damage_type": c["damage_type"]}
+    for c in CASES
+)
+rate = passed / len(CASES)
+print(f"pass rate {rate:.0%} (threshold {THRESHOLD:.0%})")
+assert rate >= THRESHOLD, "acceptance criterion not met: block the release"
 ```
 
 ```typescript
 import Anthropic from "@anthropic-ai/sdk";
 
-const client = new Anthropic({ timeout: 3000 }); // infra requirement enforced at the client
+const client = new Anthropic();
 
-const tool = {
-  name: "classify_ticket",
-  description: "Classify a support ticket and extract the account id.",
-  input_schema: {
-    type: "object",
-    properties: {
-      category: { type: "string", enum: ["billing", "bug", "access", "other"] },
-      account_id: { type: ["string", "null"] }, // nullable: let it decline, don't fabricate
-    },
-    required: ["category", "account_id"],
+const CLAIM_SCHEMA = {
+  type: "object",
+  properties: {
+    order_id: { anyOf: [{ type: "string" }, { type: "null" }] },
+    damage_type: { type: "string", enum: ["crushed", "wet", "missing_item", "other"] },
   },
-  strict: true,
+  required: ["order_id", "damage_type"],
+  additionalProperties: false,
 };
+
+const CASES = [
+  { text: "Order 88123 arrived soaked through.", order_id: "88123", damage_type: "wet" },
+  { text: "Box was flattened, I lost the receipt.", order_id: null, damage_type: "crushed" },
+];
+const THRESHOLD = 0.95;
+
+function textOf(resp: Anthropic.Message): string {
+  return resp.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+}
+
+async function extract(text: string): Promise<{ order_id: string | null; damage_type: string }> {
+  const resp = await client.messages.create({
+    model: "claude-haiku-4-5",
+    max_tokens: 256,
+    messages: [{ role: "user", content: `Extract the claim fields.\n\n${text}` }],
+    output_config: { format: { type: "json_schema", schema: CLAIM_SCHEMA } },
+  });
+  return JSON.parse(textOf(resp));
+}
+
+let passed = 0;
+for (const c of CASES) {
+  const got = await extract(c.text);
+  if (got.order_id === c.order_id && got.damage_type === c.damage_type) passed++;
+}
+const rate = passed / CASES.length;
+console.log(`pass rate ${(rate * 100).toFixed(0)}% (threshold ${THRESHOLD * 100}%)`);
+if (rate < THRESHOLD) throw new Error("acceptance criterion not met: block the release");
 ```
 
-## Named traps, expanded
+<Output kind="illustrative">
+pass rate 100% (threshold 95%)
+</Output>
 
-**One buried constraint in the stem decides the answer.** This is the whole
-objective's exam mechanic, not just a tip. Three of the four options in a typical
-item are defensible general engineering practice — they just don't answer the
-specific constraint the stem is testing. Treat every stem as containing exactly
-one load-bearing clause; find it before you evaluate options, because evaluating
-options first makes all four look plausible in isolation.
+**Infrastructure requirements become configuration, checked before any request.** A residency requirement plus a latency requirement select request settings, and an impossible combination fails at startup instead of as a 400 in production.
+
+```python
+from dataclasses import dataclass
+import anthropic
+
+GEO_CAPABLE = {"claude-sonnet-5-5", "claude-opus-5-5"}  # 4.6+ models accept inference_geo
+
+
+@dataclass(frozen=True)
+class Envelope:
+    user_waiting: bool
+    us_only_inference: bool
+    max_output_tokens: int
+
+
+def request_settings(env: Envelope) -> dict:
+    """Map envelope requirements to request settings. Hard constraints win over preferences."""
+    model = "claude-haiku-4-5" if env.user_waiting else "claude-sonnet-5-5"
+    settings = {"model": model}
+    if env.us_only_inference:
+        if model not in GEO_CAPABLE:
+            settings["model"] = "claude-sonnet-5-5"  # residency is hard; speed is a preference
+        settings["inference_geo"] = "us"
+    return settings
+
+
+env = Envelope(user_waiting=True, us_only_inference=True, max_output_tokens=400)
+cfg = request_settings(env)
+client = anthropic.Anthropic(timeout=30.0)
+with client.messages.stream(
+    **cfg,
+    max_tokens=env.max_output_tokens,
+    messages=[{"role": "user", "content": "Draft a two-sentence reply confirming the claim."}],
+) as stream:
+    for chunk in stream.text_stream:
+        print(chunk, end="", flush=True)
+    print("\ninference ran in:", stream.get_final_message().usage.inference_geo)
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const GEO_CAPABLE = new Set(["claude-sonnet-5-5", "claude-opus-5-5"]);
+
+interface Envelope {
+  userWaiting: boolean;
+  usOnlyInference: boolean;
+  maxOutputTokens: number;
+}
+
+function requestSettings(env: Envelope): { model: string; inference_geo?: string } {
+  let model = env.userWaiting ? "claude-haiku-4-5" : "claude-sonnet-5-5";
+  if (env.usOnlyInference && !GEO_CAPABLE.has(model)) {
+    model = "claude-sonnet-5-5"; // residency is hard; speed is a preference
+  }
+  return env.usOnlyInference ? { model, inference_geo: "us" } : { model };
+}
+
+const env: Envelope = { userWaiting: true, usOnlyInference: true, maxOutputTokens: 400 };
+const client = new Anthropic({ timeout: 30_000 });
+const stream = client.messages.stream({
+  ...requestSettings(env),
+  max_tokens: env.maxOutputTokens,
+  messages: [{ role: "user", content: "Draft a two-sentence reply confirming the claim." }],
+});
+stream.on("text", (t) => process.stdout.write(t));
+const final = await stream.finalMessage();
+console.log("\ninference ran in:", final.usage.inference_geo);
+```
+
+<Output kind="illustrative">
+Thanks for your patience. We've confirmed your claim and a specialist will follow up within two business days.
+inference ran in: us
+</Output>
 
 ## Recall checks
 
-1. A stem describes a feature and, in the same sentence, a numeric SLA. Without
-   solving the item, name which half is functional and which is infrastructure.
-2. Give the architectural answer for a workload that is deferrable, high-volume,
-   and cost-sensitive — and name the wrong answer it's most often confused with.
-3. A requirement says an extracted field must never be invented when it isn't
-   present in the source text. What schema-level decision satisfies that, and why
-   is a system-prompt instruction alone not sufficient?
-4. Explain, in one sentence, why "reusable across applications" points at a
-   separate service rather than a well-written function inside one app.
-5. Practice the two-pass read: pick any decision-table row above, write a two
-   sentence stem for it, then identify your own buried constraint before checking
-   it against the row.
+<Recall q="A requirement says an extracted invoice total must never exceed the purchase-order amount. Where does that rule live, and why?">
+In code after extraction. Structured outputs enforce shape but not numeric limits (minimum and maximum are unsupported), and a prompt instruction is only a request, so a must-never rule needs a deterministic check.
+</Recall>
+
+<Recall q="Turn 'the classifier should be accurate' into an acceptance criterion.">
+State a measurable threshold on a named set, for example at least 95% exact match on 500 labelled tickets, compared with the current baseline. That form becomes a code-graded eval case and a release gate.
+</Recall>
+
+<Recall q="A team gets 429s at peak. Every request repeats a large policy document. Which infrastructure lever helps most, and why?">
+Prompt caching on the repeated prefix. For most current models cached reads do not count toward input tokens per minute, so effective throughput rises without a limit increase.
+</Recall>
+
+<Recall q="A requirement says inference must stay on US infrastructure, and the prototype runs on the cheapest tier. What changes?">
+Set the geo in an enforced way (per-request inference_geo backed by workspace allowed geos, or a regional cloud endpoint). On the first-party API the parameter is supported on 4.6 and later models only, so the tier may have to change; residency is a hard constraint and price is a preference.
+</Recall>
+
+<Recall q="The sponsor asks for 'real-time insights', but the stem says the output feeds a monthly board pack. What do you design for?">
+The monthly deadline. Requirements come from how output is consumed, so asynchronous processing is fine and streaming or a faster tier would optimize an adjective rather than the usage.
+</Recall>
+
+<Recall q="When does an agent beat a workflow for a business process?">
+Only when the path cannot be known in advance because each step depends on what the previous one discovers. If the steps are fixed, a workflow is cheaper, faster, more predictable and easier to audit.
+</Recall>
+
+<Recall q="Why is a cheaper Batch design wrong for an organization whose policy is zero data retention?">
+Batch is stateful: jobs and results are stored, so it sits outside a ZDR arrangement. The retention constraint is hard and filters it out before cost is considered.
+</Recall>
