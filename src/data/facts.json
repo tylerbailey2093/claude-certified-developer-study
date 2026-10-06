@@ -246,5 +246,28 @@
   "tokenizer": {
     "note": "Claude 4.7 and later use a tokenizer that produces about 30% more tokens for the same text; recount with count_tokens when migrating",
     "source": "https://platform.claude.com/docs/en/build-with-claude/token-counting"
+  },
+  "caching": {
+    "write5m": 1.25,
+    "write1h": 2.0,
+    "readDefault": 0.1,
+    "readOverrides": {
+      "claude-opus-5-5": 0.05,
+      "claude-fable-5-1": 0.025
+    },
+    "minimumCacheableTokens": {
+      "claude-opus-5-5": 512,
+      "claude-sonnet-5-5": 512,
+      "claude-opus-5": 512,
+      "claude-opus-4-8": 1024,
+      "claude-sonnet-5": 1024,
+      "claude-sonnet-4-6": 1024,
+      "claude-haiku-4-5": 4096
+    },
+    "maxBreakpoints": 4,
+    "lookbackBlocks": 20,
+    "examRule": "teach 0.1x reads and 1.25x / 2x writes; per-model read overrides are post-guide",
+    "invalidation": "tool definitions invalidate tools, system and messages; tool_choice and image changes invalidate only messages",
+    "source": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
   }
 }

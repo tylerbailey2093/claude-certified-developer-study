@@ -6,87 +6,430 @@ name: "Context Engineering"
 weight: 3.8
 tier: 2
 hot: false
+summary: "Decide what persists outside the window (memory), what enters it (budgeting, pruning), what leaves it (clearing, compaction), and what never enters it (subagent isolation), and match the fix to drift or bloat."
+subskills: ["ctx.memory", "ctx.window", "ctx.drift-bloat", "ctx.pruning", "ctx.compaction", "ctx.isolation"]
+related: ["agent-patterns-and-frameworks", "claude-api-mechanics", "prompt-engineering", "claude-application-design", "cost-and-token-management", "claude-code-operation"]
 scope:
+  - "memory management"
   - "context window management"
   - "preventing context drift"
   - "preventing bloat via tool output pruning and compaction"
   - "context isolation through subagents or multi-step workflows"
 traps:
-  - "tool output pruning is usually the largest single source of bloat"
-  - "compaction is LOSSY - what survives is a design decision"
+  - name: "Tool output is usually the largest source of bloat"
+    looksRight: "Compaction or a larger window sounds like the sophisticated fix for a context that fills up."
+    failsBecause: "In tool-using agents one verbose result (full logs, unfiltered search, whole API payloads) routinely outweighs everything else, and it re-enters with every call. Pruning at the source removes the cause; compaction only summarizes the symptom later."
+    cue: "The stem names a tool that 'returns the full' log, file, record set or page, and options include compaction or a bigger context window."
+  - name: "Compaction is lossy"
+    looksRight: "Summarize old turns, keep going; nothing important should be lost."
+    failsBecause: "A summary drops detail by design. A constraint stated once in conversation, an exact ID or an error string can vanish, and the later failure is hard to trace back to the compaction. What survives is a design decision: custom instructions, memory files, and rules kept in the system prompt or CLAUDE.md."
+    cue: "After compaction or /compact the agent 'forgot' a rule or detail given earlier in the conversation."
+  - name: "A bigger context window fixes context problems"
+    looksRight: "If the window is filling, buy more window."
+    failsBecause: "Recall degrades as token count grows (context rot) well before the limit. More room lets bloat grow and dilutes instructions further, which worsens drift."
+    cue: "The agent degrades while still far from its limit, and one option is 'move to a model with a larger context window'."
+  - name: "Drift is fixed by compaction"
+    looksRight: "Long session, worse behaviour, so shrink the session."
+    failsBecause: "Drift is instruction dilution or contradiction. Compaction can summarize the original instruction away. The fix is re-anchoring: durable rules in the system prompt or CLAUDE.md, restated at decision points, plus a hook when it must always hold."
+    cue: "The agent followed a rule early and ignores it later, with no sign of the window being near full."
+  - name: "The memory tool stores data for you"
+    looksRight: "It is an Anthropic-provided tool with a fixed type string, so storage must be managed server-side."
+    failsBecause: "memory_20250818 is client-side. Claude requests view, create, str_replace, insert, delete or rename under /memories; your handler executes them against your storage and must block path traversal."
+    cue: "Options about where memory data lives, who enforces access, or a path like /memories/../secrets."
+  - name: "Caching shrinks the context"
+    looksRight: "Cached tokens are cheap, so they must take less room."
+    failsBecause: "Cached prefixes still occupy the window. Caching changes the price of tokens, not how many there are or how much attention they consume."
+    cue: "An option proposes prompt caching to stop a context-length error or a quality decline."
 sources:
-  - label: "Context engineering"
-    url: "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
-  - label: "Context windows"
-    url: "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+  - { label: "Effective context engineering for AI agents", url: "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents", kind: "engineering", verified: "2026-10-06" }
+  - { label: "Context windows", url: "https://platform.claude.com/docs/en/build-with-claude/context-windows", kind: "docs", verified: "2026-10-06" }
+  - { label: "Context editing", url: "https://platform.claude.com/docs/en/build-with-claude/context-editing", kind: "docs", verified: "2026-10-06" }
+  - { label: "Compaction overview", url: "https://platform.claude.com/docs/en/build-with-claude/compaction", kind: "docs", verified: "2026-10-06" }
+  - { label: "Compaction at a token threshold", url: "https://platform.claude.com/docs/en/build-with-claude/compaction-threshold", kind: "docs", verified: "2026-10-06" }
+  - { label: "Memory tool", url: "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool", kind: "docs", verified: "2026-10-06" }
+  - { label: "How Claude remembers your project (Claude Code memory)", url: "https://code.claude.com/docs/en/memory", kind: "docs", verified: "2026-10-06" }
+  - { label: "Explore the context window (Claude Code)", url: "https://code.claude.com/docs/en/context-window", kind: "docs", verified: "2026-10-06" }
+lastReviewed: "2026-10-06"
 authored: true
 ---
 
-## What this objective actually tests
+## Concept
 
-This objective tests whether you can diagnose *why* an agent's context degraded and pick the fix that matches the failure mode — not recite what a context window is (Domain 5). Context is a curated, finite resource across a multi-step agentic workflow, and a fix aimed at the wrong failure mode doesn't work: summarizing history doesn't repair contradictory instructions, and restating a rule doesn't shrink a 40K-token tool dump.
+The guide frames this objective as **context and memory management**: what Claude can see on this call, what it can get back later, and what you deliberately keep out. Anthropic's engineering team defines the goal as finding "the smallest possible set of high-signal tokens that maximize the likelihood of some desired outcome". Every token spends a finite attention budget, and recall degrades as the window fills, a gradient the docs call context rot, not a cliff at the limit.
+
+Items here are diagnostic. A stem describes a symptom (forgets a rule, re-does work, gets vaguer, hits a limit, loses state between sessions) and four plausible fixes. Each fix works only on its own failure mode: summarizing history does not repair a diluted instruction, restating a rule does not shrink a 50,000-token tool dump, and a bigger window makes both worse. Learn the symptom-to-lever map and the lightest lever that solves each one.
+
+**Scope boundary.** How to word an instruction belongs to <ObjLink id="prompt-engineering" />. How Claude interprets instructions across surfaces and session hygiene as a design concern belong to <ObjLink id="claude-application-design" />. Which workflow pattern to choose (orchestrator-workers, chaining, routing) is <ObjLink id="agent-patterns-and-frameworks" />; here only their effect on context matters. Request shapes, beta headers and `stop_reason` handling are <ObjLink id="claude-api-mechanics" />. What tokens cost is <ObjLink id="cost-and-token-management" />.
+
+Not this:
+- Choosing an agent pattern for its control flow
+- Prompt caching economics
+- Writing clearer instructions in isolation
+
+<Callout type="key" title="Match the lever to the failure">
+**Drift** (a rule fades): re-anchor it in the system prompt or CLAUDE.md, restate it at decision points, enforce it with code if it must hold. **Bloat** (low-value tokens pile up): prune at the source first, clear old tool results second, compact third. **Volume** (exploration would flood the window): isolate it in a subagent. **Continuity** (state must outlive the window): persist it in memory.
+</Callout>
 
 ## Mechanism
 
-### Context as a finite, curated resource
+<Flow title="Bloat levers, lightest first" steps={[{label: "Prune at source", kind: "tool", note: "tool returns fields + pointer"}, {label: "Clear old tool results", kind: "api", note: "context editing"}, {label: "Compact", kind: "model", note: "lossy summary"}, {label: "Isolate or restart", kind: "client", note: "subagent, or new session from memory"}]} caption="Each step to the right loses more detail. Reach for the leftmost lever that removes the cause." />
 
-Every token draws on the same finite attention budget; recall quality degrades as the window fills — a gradient, not a cliff, sometimes called context rot. The design question is "what's the marginal value of this token," across system prompt, tool definitions, retrieved content, history, and reserved output space, which all compete for the same budget.
+### Memory management
 
-### Drift vs. bloat — distinct failure modes, distinct fixes
+<SubskillAnchor id="ctx.memory" />
 
-**Drift** is behavior degrading as originally clear instructions get diluted, restated inconsistently, or contradicted by later turns — an agent that honored a rule at turn 3 quietly stops by turn 40, not because the rule left the window but because newer content crowds it out. Fix with **session hygiene**: durable rules in the stable system layer rather than repeated ad hoc in user turns, key constraints restated at decision points, and a fresh session at natural task boundaries rather than one indefinitely long run.
+Memory is anything that persists **outside** the context window and comes back in on demand. Three forms appear in the docs.
 
-**Bloat** is the window filling with low-value tokens — verbose tool output, redundant history — with nothing actually contradictory. Three named fixes:
+**1. The memory tool (API).** Add `{"type": "memory_20250818", "name": "memory"}` to `tools`; no input schema and no beta header for the tool itself [Certain]. It is **client-side**: Claude requests `view`, `create`, `str_replace`, `insert`, `delete` or `rename` on paths under `/memories`, and your handler executes them against storage you control (files, a database, per-user keys) [Certain]. When the tool is present, the API adds a system prompt instruction to view the memory directory before anything else and to assume the context window may be reset at any moment [Certain]. Your handler owns security: validate every path to block traversal such as `/memories/../../secrets.env`, cap file sizes, expire stale files, and strip sensitive data [Certain]. It is available on all Claude 4 and later models [Certain].
 
-- **Tool output pruning** — filter, summarize, or clear verbose results before or after they're used. Usually the single largest source of bloat in agentic systems; a 40K-token API response reduced to a 200-token extract is typical.
-- **Compaction** — summarize older turns and replace them so a long session stays within budget. It is **lossy**: over-aggressive compaction discards subtle but critical context, so recall comes first (keep anything that might matter), precision second (trim what's confirmed superfluous). What survives — usually decisions and outcomes, not transcript detail — is a design decision, not automatic.
-- **Context isolation via subagents** — push exploratory or high-volume work into a subagent with its own clean window; only a condensed result (roughly 1,000–2,000 tokens) returns. The parent never sees the raw exploration — stronger than pruning after the fact.
+**2. Claude Code memory files.** CLAUDE.md is what **you** write: managed policy, user (`~/.claude/CLAUDE.md`), project (`./CLAUDE.md` or `./.claude/CLAUDE.md`) and local (`./CLAUDE.local.md`) scopes load at launch; subdirectory files load on demand; `@path` imports expand at launch, up to four hops deep [Certain]. The docs recommend under 200 lines per file, because longer files consume context and reduce adherence [Certain]. Auto memory is what **Claude** writes: a per-repository `MEMORY.md` index whose first 200 lines or 25KB load every session, plus topic files read on demand [Certain]. Both are context, not enforcement: to block an action regardless of what Claude decides, use a PreToolUse hook [Certain]. Configuration details sit in <ObjLink id="claude-code-operation" />.
 
-### Right altitude for system prompts
+**3. External memory and retrieval.** A vector store, a database table, or files the agent reads by path. Prefer **just-in-time** retrieval: keep lightweight identifiers (file paths, stored queries, links) in context and load the data when needed, rather than pre-loading everything up front.
 
-Effective system prompts sit between brittle, exhaustively enumerated if-else logic and vague guidance with no concrete signal. The right altitude gives strong heuristics and concrete output signal while leaving room for judgment on unforeseen cases — the same instruction-design principle Claude Application Design applies generally, here at the system-prompt layer of an agentic loop.
+**Persist versus recompute.**
+
+| Persist | Recompute or re-fetch |
+|---|---|
+| Decisions and the reason for them | File contents, table rows, prices: anything with a source of truth that can change |
+| User constraints and preferences stated once | Raw tool output |
+| Task progress, checklists, what was verified | Anything cheaper to re-derive than to store and keep fresh |
+| Pointers (paths, IDs, query text) | The payload those pointers resolve to |
+
+The rule: persist conclusions and pointers, not payloads. A stored copy of a mutable fact goes stale silently.
+
+**Exam angle:** cues are "across sessions", "next run", "survive a restart", "after compaction". The distractor puts the state in a longer system prompt or a bigger window instead of memory.
+
+### Context window management
+
+<SubskillAnchor id="ctx.window" />
+
+Everything counts toward the window: system prompt, tool definitions, every message including tool results, images and documents, and the output Claude generates for the turn, including thinking [Certain]. Cached tokens count too [Certain]. On current Opus, Sonnet and Fable models previous thinking blocks are **kept** and count as input; on Haiku and earlier Opus and Sonnet models the API strips them [Certain].
+
+| Fact | Value |
+|---|---|
+| Window, Opus 4.6 and later, Sonnet 4.6 and later, Fable | 1M tokens, standard pricing [Certain] |
+| Window, Haiku 4.5 and Sonnet 4.5 | 200k tokens [Certain] |
+| Max output per request on 1M models | 128k (`max_tokens`) [Certain] |
+| Input alone over the window | 400 `invalid_request_error`, "prompt is too long" [Certain] |
+| Input plus `max_tokens` over the window (4.5 and later) | Accepted; stops with `stop_reason: "model_context_window_exceeded"` [Certain] |
+
+**Budget the window like memory in a Spark executor.** Reserve output and thinking headroom, measure input with `count_tokens` before sending, and keep tool definitions lean (deferred loading through tool search exists for large tool sets [Certain]). Sonnet 4.5, Sonnet 4.6, Sonnet 5 and Haiku 4.5 receive injected budget tags showing remaining context; Opus 4.7 and later, Sonnet 5.5 and Fable do not, and use task budgets instead [Certain].
+
+Size is not quality. A 1M window does not stop context rot; it gives bloat more room and dilutes instructions further.
+
+**Exam angle:** cues are "prompt is too long", "how much room is left", "reserve space for the answer". The distractor is a larger-window model when the stem shows degradation far below the limit.
+
+### Preventing context drift and bloat
+
+<SubskillAnchor id="ctx.drift-bloat" />
+
+| | Drift | Bloat |
+|---|---|---|
+| Definition | Behaviour moves away from the original instructions or goal as the session grows | The window fills with low-value tokens |
+| Typical cause | A rule stated once is diluted by volume, contradicted by later turns, or summarized away | Raw tool output, redundant history, stale thinking, unused tool definitions |
+| Symptom | Followed the rule at turn 3, ignores it at turn 40 | Slower, costlier, vaguer; re-reads or re-does work; nears the limit |
+| Fix | Durable rules in the system prompt or CLAUDE.md; restate key constraints at decision points; goal and plan in memory, re-read each step; fresh session at task boundaries; a hook when it must always hold | Prune at the source, clear old tool results, compact, isolate |
+| Wrong fix | Compaction (may delete the rule) or a bigger window (more dilution) | Restating instructions (adds tokens, removes none) |
+
+They compound. Bloat makes each instruction a smaller fraction of the window, which accelerates drift. That is why an agent drowning in tool output also starts ignoring rules: fix the bloat first, then check whether the drift remains.
+
+A durable rule placed where Claude Code re-injects it after compaction (system prompt, project-root CLAUDE.md, auto memory) survives `/compact`; one given only in conversation does not [Certain].
+
+**Exam angle:** "ignores a rule it followed earlier" means drift; "returns the full", "dump", "re-reads" means bloat. The distractor applies the other failure's fix.
+
+### Tool output pruning
+
+<SubskillAnchor id="ctx.pruning" />
+
+Prune in two places.
+
+**At the source (strongest).** The tool returns only what the next decision needs: selected fields, error lines rather than whole logs, a page of results with a cursor, and a pointer to the full artifact. Server tools have equivalents, such as `max_content_tokens` on web fetch [Certain]. This is a tool design responsibility (see <ObjLink id="tool-implementation" />), and it pays on every call because the bulk never enters the window.
+
+**After use (context editing).** Tool result clearing removes old results server-side once input passes a threshold. Beta header `context-management-2025-06-27`, strategy `clear_tool_uses_20250919` [Certain]:
+
+| Parameter | Default | Purpose |
+|---|---|---|
+| `trigger` | 100,000 input tokens | When clearing starts |
+| `keep` | 3 tool uses | Most recent tool pairs kept intact |
+| `clear_at_least` | none | Minimum tokens cleared, so the cache rewrite is worth it |
+| `exclude_tools` | none | Tools never cleared (for example `memory`) |
+| `clear_tool_inputs` | false | Also clear the tool call parameters |
+
+Cleared results become placeholder text, your client keeps the full history, and the response reports `context_management.applied_edits` [Certain]. Clearing invalidates the cached prefix at the clearing point, hence `clear_at_least` [Certain]. With the memory tool present, Claude gets a warning before clearing so it can save what matters [Certain]. Thinking blocks have a sibling strategy, `clear_thinking_20251015`, which must be listed first when combined [Certain].
+
+**Exam angle:** cues are "returns 40,000 tokens but needs 200", "old search results". The distractor is compaction, which keeps the source unchanged so the bulk returns on the next call.
+
+### Compaction
+
+<SubskillAnchor id="ctx.compaction" />
+
+Compaction replaces older turns with a summary. It is **lossy**: the engineering guidance is to tune the summary for recall first, then precision, because overly aggressive compaction drops subtle but critical context. Tool result clearing is the lightest form of compaction.
+
+**Server-side compaction at a threshold (beta).** Header `compact-2026-01-12`, edit `{"type": "compact_20260112"}` in `context_management.edits` [Certain]. `trigger` defaults to 150,000 input tokens (minimum 50,000); `instructions` replaces the default summarization prompt entirely; `pause_after_compaction` returns `stop_reason: "compaction"` so you can re-insert recent turns [Certain]. The response contains a `compaction` block that you must send back; the API ignores every block before it [Certain]. Billing: top-level usage excludes the compaction pass, so sum `usage.iterations` [Certain]. Put a cache breakpoint on the system prompt so it stays cached when the conversation compacts [Certain]. Supported on Claude 4.6 and later models [Certain].
+
+<PostGuide since="2026-09">
+Compaction on demand (header `compact-2026-09-04`, top-level `compaction` parameter) lets your application decide when to compact, keep recent turns word for word, or compact in the background. The docs now recommend it wherever available. The client-side SDK `compaction_control` option is deprecated in favour of server-side strategies [Certain].
+</PostGuide>
+
+**Claude Code.** `/compact` summarizes the conversation and accepts focus instructions (`/compact focus on the auth bug fix`); auto-compaction runs near the limit [Certain]. After compaction, the system prompt still applies; project-root CLAUDE.md, unscoped rules and auto memory are re-injected from disk; up to five recently modified files are re-read; invoked skills return capped at 5,000 tokens each; nested CLAUDE.md files and path-scoped rules reload only on demand [Certain]. Instructions given only in conversation are summarized like everything else.
+
+| | Context editing (clearing) | Compaction |
+|---|---|---|
+| Removes | Specific old tool results or thinking | Everything before the summary point |
+| Replaced with | Placeholder text | A model-written summary |
+| Loss | Exact, predictable | Lossy, depends on the summary prompt |
+| Use when | Old tool output dominates | The whole conversation must continue past the limit |
+
+**Exam angle:** cues are "long session must continue", "near the limit", "forgot after compacting". The distractor treats compaction as lossless or as the first response to tool bloat.
+
+### Isolation through subagents or multi-step workflows
+
+<SubskillAnchor id="ctx.isolation" />
+
+Isolation keeps tokens from ever entering the parent's window, which is stronger than removing them later.
+
+<Sequence title="Subagent isolation" actors={["Parent agent", "Subagent", "Tools"]}
+  messages={[["Parent agent", "Subagent", "task + constraints, fresh context"],
+             ["Subagent", "Tools", "read logs, search, query"],
+             ["Tools", "Subagent", "60k tokens of raw output", "reply"],
+             ["Subagent", "Subagent", "raw output stays in this window", "note"],
+             ["Subagent", "Parent agent", "1-2k token summary + pointers", "reply"]]} />
+
+A subagent gets its own window and system prompt, does the exploration, and returns a condensed summary, often 1,000 to 2,000 tokens. In Claude Code only the subagent's final text (plus a small metadata trailer) returns to the main conversation, and the main conversation's auto memory is not loaded into it [Certain].
+
+**Multi-step workflows** isolate by construction: each step receives only the structured output of the previous step, not the transcript. A multi-session agent does the same across time: an initializer writes a progress log and checklist to memory, and each later session starts fresh by reading them [Certain].
+
+Costs to name in an answer: total tokens rise (each subagent re-reads shared context), detail is lost at the handoff, and the return format must be designed. Isolation suits high-volume, separable exploration. It is a poor fit for tightly coupled edits where the parent needs the raw detail.
+
+**Exam angle:** cues are "explore broadly", "many files", "keep the main thread focused", "in parallel". The distractor prunes after the fact, which still lets the raw output into the parent's window once.
 
 ## Decision table
 
-| When the stem says... | ...the answer is |
-|---|---|
-| Behavior contradicts an instruction followed 30 turns earlier | Drift — session hygiene: durable rules in system, restated at decision points, or a fresh session |
-| A tool call returns a huge payload, only a sliver relevant | Bloat — prune the tool output first; usually the largest source of bloat |
-| A long session nears the context limit and must continue | Compaction — summarize and replace older turns; lossy, so what survives is a design decision |
-| "We compacted and now it's forgotten details it needs" | Expected cost of over-aggressive compaction — recall before precision |
-| Broad exploratory search would flood the parent's context | Context isolation — delegate to a subagent; only the condensed result returns |
-| A system prompt is a long chain of nested if/else for every case | Wrong altitude — too brittle |
-| A system prompt is one vague sentence ("be helpful and careful") | Wrong altitude — too vague, add concrete signal |
+| If the stem says... | Choose | Why the runner-up loses |
+|---|---|---|
+| Agent followed a formatting rule early, ignores it 40 turns later, window far from full | Re-anchor the rule in the system prompt or CLAUDE.md and restate it at the decision point | Compaction may summarize the rule away; it treats size, not dilution |
+| Tool returns a full 50k-token log but the agent needs the error lines | Prune at the source: return error lines plus a pointer | Compaction lets the full log re-enter on every call |
+| Old search results from earlier steps fill the window; recent ones matter | Context editing: clear old tool results, keep the last few | Compaction summarizes everything, including the turns still in use |
+| Long-running session must continue past the window | Server-side compaction with summary instructions naming what to keep | Starting a new session drops state unless it was persisted |
+| State must survive across separate sessions and restarts | Memory tool or memory files, re-read at session start | A longer system prompt is static and cannot record progress |
+| Broad codebase exploration would flood the main conversation | Delegate to a subagent that returns a summary | Pruning after the fact still lets the raw reads in once |
+| After `/compact` the agent forgot an instruction typed in chat | Move the instruction into project-root CLAUDE.md | CLAUDE.md is re-injected after compaction; chat-only instructions are summarized |
+| Rule must hold every time, even after compaction | A hook or permission rule | CLAUDE.md and memory are advisory context, not enforcement |
 
-## Code examples
+## Worked walkthrough
 
-Both delegate a broad tool-calling chain to an isolated subagent so raw tool output never enters the parent's context, and prune verbose results before they do.
+<Walkthrough title="Scenario: pipeline triage agent that loses the thread">
+
+<Step title="Read the scenario">
+A Sonnet 5.5 agent triages failed nightly jobs. Its `get_job_logs` tool returns the full driver log for a job, 30,000 to 60,000 tokens each. After six or seven jobs the agent re-checks jobs it already diagnosed and its root-cause notes get vaguer, though total input is around 300,000 tokens of a 1M window. Options: (A) move to a model with a larger context window, (B) enable server-side compaction at 150,000 tokens, (C) change `get_job_logs` to return the error lines, job ID and a path to the full log, (D) add "never re-check a diagnosed job" to the system prompt.
+</Step>
+
+<Step title="Find the constraint">
+The symptom appears far below the limit, and one tool contributes almost every token. This is bloat from tool output, with drift-like side effects because the instructions are now a tiny fraction of the window.
+</Step>
+
+<Step title="Eliminate the distractors">
+(A) The window is a third used; more room does not stop context rot. (B) Compaction would summarize the logs after the fact, lose exact error strings, and the next `get_job_logs` call would bring 50,000 tokens straight back. (D) Restating a rule adds tokens and removes none; the dilution that caused the re-checking is still there.
+</Step>
+
+<Step title="Choose">
+(C). Pruning at the source removes the dominant cause on every call. A path to the full log keeps the detail one tool call away (just-in-time retrieval). If the run still grows long, add tool result clearing and record diagnosed job IDs in memory.
+</Step>
+
+<Step title="The deciding cue">
+"Returns the full driver log" combined with "far from the limit". Volume from one tool, degradation below the limit: prune at the source before any compaction or window change.
+</Step>
+
+</Walkthrough>
+
+## Code
+
+**A memory tool handler that cannot escape its root.** Claude asks; your code executes. Every path resolves inside one directory or the call fails.
 
 ```python
-from anthropic import Anthropic
+import anthropic
+from pathlib import Path
 
-client = Anthropic()
+client = anthropic.Anthropic()
 
-def run_subagent_search(query: str) -> str:
-    """Isolated context: the subagent's tool loop and raw results live
-    entirely in this call. Only the returned string reaches the caller."""
-    msg = client.messages.create(
-        model="claude-opus-5",
-        max_tokens=300,
-        system=("You are a research subagent. Use the search tool as needed, "
-                 "then return a condensed summary under 200 words — findings "
-                 "and sources only, no raw tool output."),
-        tools=[SEARCH_TOOL],
-        messages=[{"role": "user", "content": query}],
+ROOT = Path("./agent_memory").resolve()  # per user or tenant in production
+ROOT.mkdir(exist_ok=True)
+
+
+def safe_path(p: str) -> Path:
+    if not p.startswith("/memories"):
+        raise ValueError("path must start with /memories")
+    real = (ROOT / p.removeprefix("/memories").lstrip("/")).resolve()
+    real.relative_to(ROOT)  # raises ValueError if '..' escaped the root
+    return real
+
+
+def run_memory(cmd: dict) -> str:
+    path = safe_path(cmd.get("path") or cmd.get("old_path") or "/memories")
+    if cmd["command"] == "view":
+        if path.is_dir():
+            return "\n".join(str(f.relative_to(ROOT)) for f in sorted(path.rglob("*")))
+        return path.read_text()
+    if cmd["command"] == "create":
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(cmd["file_text"])
+        return f"File created successfully at: {cmd['path']}"
+    if cmd["command"] == "str_replace":
+        text = path.read_text()
+        if text.count(cmd["old_str"]) != 1:
+            return "No replacement was performed: old_str must appear exactly once."
+        path.write_text(text.replace(cmd["old_str"], cmd.get("new_str", "")))
+        return "The memory file has been edited."
+    return f"Error: {cmd['command']} is not supported by this handler"
+
+
+messages = [{"role": "user", "content": "Continue triaging last night's failed jobs."}]
+while True:
+    resp = client.messages.create(
+        model="claude-sonnet-5-5",
+        max_tokens=4_000,
+        tools=[{"type": "memory_20250818", "name": "memory"}],
+        messages=messages,
     )
-    return "".join(b.text for b in msg.content if b.type == "text")
+    messages.append({"role": "assistant", "content": resp.content})
+    if resp.stop_reason != "tool_use":
+        break
+    results = []
+    for b in resp.content:
+        if b.type == "tool_use":
+            try:
+                out, err = run_memory(b.input), False
+            except (ValueError, OSError) as e:
+                out, err = f"Error: {e}", True
+            results.append({"type": "tool_result", "tool_use_id": b.id, "content": out, "is_error": err})
+    messages.append({"role": "user", "content": results})
 
-def prune_tool_result(raw: dict, keep_fields: list[str], max_chars: int = 500) -> str:
-    """Shrink a verbose API payload to the fields actually needed."""
-    text = str({k: raw.get(k) for k in keep_fields})
-    return text if len(text) <= max_chars else text[:max_chars] + "...[pruned]"
+print("".join(b.text for b in resp.content if b.type == "text"))
+```
 
-summary = run_subagent_search("recent rate-limit changes for the Batch API")
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+import fs from "node:fs";
+import path from "node:path";
+
+const client = new Anthropic();
+
+const ROOT = path.resolve("./agent_memory"); // per user or tenant in production
+fs.mkdirSync(ROOT, { recursive: true });
+
+function safePath(p: string): string {
+  if (!p.startsWith("/memories")) throw new Error("path must start with /memories");
+  const real = path.resolve(ROOT, p.slice("/memories".length).replace(/^\/+/, ""));
+  const rel = path.relative(ROOT, real);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) throw new Error("path escapes the memory root");
+  return real;
+}
+
+type MemoryCmd = { command: string; path?: string; old_path?: string; file_text?: string; old_str?: string; new_str?: string };
+
+function runMemory(cmd: MemoryCmd): string {
+  const p = safePath(cmd.path ?? cmd.old_path ?? "/memories");
+  switch (cmd.command) {
+    case "view":
+      return fs.statSync(p).isDirectory()
+        ? fs.readdirSync(p, { recursive: true }).map(String).sort().join("\n")
+        : fs.readFileSync(p, "utf8");
+    case "create":
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, cmd.file_text ?? "");
+      return `File created successfully at: ${cmd.path}`;
+    case "str_replace": {
+      const text = fs.readFileSync(p, "utf8");
+      if (text.split(cmd.old_str ?? "").length !== 2) return "No replacement was performed: old_str must appear exactly once.";
+      fs.writeFileSync(p, text.replace(cmd.old_str ?? "", cmd.new_str ?? ""));
+      return "The memory file has been edited.";
+    }
+    default:
+      return `Error: ${cmd.command} is not supported by this handler`;
+  }
+}
+
+const messages: Anthropic.MessageParam[] = [{ role: "user", content: "Continue triaging last night's failed jobs." }];
+let resp: Anthropic.Message;
+while (true) {
+  resp = await client.messages.create({
+    model: "claude-sonnet-5-5",
+    max_tokens: 4_000,
+    tools: [{ type: "memory_20250818", name: "memory" }],
+    messages,
+  });
+  messages.push({ role: "assistant", content: resp.content });
+  if (resp.stop_reason !== "tool_use") break;
+  const results: Anthropic.ToolResultBlockParam[] = [];
+  for (const b of resp.content) {
+    if (b.type !== "tool_use") continue;
+    try {
+      results.push({ type: "tool_result", tool_use_id: b.id, content: runMemory(b.input as MemoryCmd) });
+    } catch (e) {
+      results.push({ type: "tool_result", tool_use_id: b.id, content: `Error: ${(e as Error).message}`, is_error: true });
+    }
+  }
+  messages.push({ role: "user", content: results });
+}
+console.log(resp.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join(""));
+```
+
+<Output kind="illustrative">
+Picking up from /memories/triage_progress.md: jobs 8812 and 8815 are diagnosed (schema drift in bronze_orders). Next: 8819, which failed on executor OOM...
+</Output>
+
+**Clear old tool results, then compact if the session still grows (both beta).** Clearing is exact and cheap; compaction is the heavier, lossy step, so its instructions name what must survive.
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+SYSTEM = "You triage failed data pipeline jobs. Record each diagnosis before moving on."
+TOOLS = [{
+    "name": "get_job_logs",
+    "description": "Error lines and a log path for one job.",
+    "input_schema": {"type": "object", "properties": {"job_id": {"type": "string"}}, "required": ["job_id"]},
+}]
+messages = [{"role": "user", "content": "Triage jobs 8812 through 8830."}]
+
+# 1. Lightest touch: server-side clearing of old tool results.
+resp = client.beta.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=4_000,
+    betas=["context-management-2025-06-27"],
+    system=SYSTEM,
+    tools=TOOLS,
+    messages=messages,
+    context_management={"edits": [{
+        "type": "clear_tool_uses_20250919",
+        "trigger": {"type": "input_tokens", "value": 60_000},
+        "keep": {"type": "tool_uses", "value": 3},
+        "clear_at_least": {"type": "input_tokens", "value": 20_000},  # make the cache rewrite worth it
+    }]},
+)
+cm = getattr(resp, "context_management", None)
+for edit in (cm.applied_edits if cm else []):
+    print("cleared", edit.type, edit.cleared_input_tokens)
+
+# 2. Heavier: server-side compaction when the whole conversation must continue.
+resp = client.beta.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=4_000,
+    betas=["compact-2026-01-12"],
+    system=[{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],  # survives compaction
+    tools=TOOLS,
+    messages=messages,
+    context_management={"edits": [{
+        "type": "compact_20260112",
+        "trigger": {"type": "input_tokens", "value": 150_000},
+        "instructions": "Keep job IDs, each diagnosis and its evidence, open questions and user constraints. Drop raw log lines.",
+    }]},
+)
+messages.append({"role": "assistant", "content": resp.content})  # the compaction block must go back
+if any(b.type == "compaction" for b in resp.content):
+    billed_in = sum(i.input_tokens for i in resp.usage.iterations)  # top-level usage excludes compaction
+    print("compacted; input billed across iterations:", billed_in)
 ```
 
 ```typescript
@@ -94,39 +437,164 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
 
-async function runSubagentSearch(query: string): Promise<string> {
-  // Isolated context: tool loop and raw results never leave this call.
-  const msg = await client.messages.create({
-    model: "claude-opus-5",
-    max_tokens: 300,
-    system: "You are a research subagent. Use the search tool as needed, " +
-      "then return a condensed summary under 200 words — findings and " +
-      "sources only, no raw tool output.",
-    tools: [SEARCH_TOOL],
-    messages: [{ role: "user", content: query }],
-  });
-  return msg.content.filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text).join("");
-}
+const SYSTEM = "You triage failed data pipeline jobs. Record each diagnosis before moving on.";
+const TOOLS = [{
+  name: "get_job_logs",
+  description: "Error lines and a log path for one job.",
+  input_schema: { type: "object" as const, properties: { job_id: { type: "string" } }, required: ["job_id"] },
+}];
+const messages: any[] = [{ role: "user", content: "Triage jobs 8812 through 8830." }];
 
-function pruneToolResult(raw: Record<string, unknown>, keepFields: string[], maxChars = 500): string {
-  const text = JSON.stringify(Object.fromEntries(keepFields.map((k) => [k, raw[k]])));
-  return text.length <= maxChars ? text : text.slice(0, maxChars) + "...[pruned]";
-}
+// 1. Lightest touch: server-side clearing of old tool results.
+const cleared: any = await client.beta.messages.create({
+  model: "claude-sonnet-5-5",
+  max_tokens: 4_000,
+  betas: ["context-management-2025-06-27"],
+  system: SYSTEM,
+  tools: TOOLS,
+  messages,
+  context_management: { edits: [{
+    type: "clear_tool_uses_20250919",
+    trigger: { type: "input_tokens", value: 60_000 },
+    keep: { type: "tool_uses", value: 3 },
+    clear_at_least: { type: "input_tokens", value: 20_000 }, // make the cache rewrite worth it
+  }] },
+});
+for (const edit of cleared.context_management?.applied_edits ?? []) console.log("cleared", edit.type, edit.cleared_input_tokens);
 
-const summary = await runSubagentSearch("recent rate-limit changes for the Batch API");
+// 2. Heavier: server-side compaction when the whole conversation must continue.
+const resp: any = await client.beta.messages.create({
+  model: "claude-sonnet-5-5",
+  max_tokens: 4_000,
+  betas: ["compact-2026-01-12"],
+  system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }], // survives compaction
+  tools: TOOLS,
+  messages,
+  context_management: { edits: [{
+    type: "compact_20260112",
+    trigger: { type: "input_tokens", value: 150_000 },
+    instructions: "Keep job IDs, each diagnosis and its evidence, open questions and user constraints. Drop raw log lines.",
+  }] },
+});
+messages.push({ role: "assistant", content: resp.content }); // the compaction block must go back
+if (resp.content.some((b: any) => b.type === "compaction")) {
+  const billedIn = resp.usage.iterations.reduce((s: number, i: any) => s + i.input_tokens, 0); // top level excludes compaction
+  console.log("compacted; input billed across iterations:", billedIn);
+}
 ```
 
-## Named traps, expanded
+**Prune at the source and isolate in a subagent.** The tool returns error lines and a pointer instead of the full log, and the exploration runs in a subagent whose window the parent never sees.
 
-**"Tool output pruning is usually the largest single source of bloat."** Easy to underrate because compaction sounds like the more sophisticated fix while pruning sounds like minor cleanup. In practice one verbose tool call — a full API response, an unfiltered search result set — routinely dwarfs everything else in the window combined. Recognize this whenever a stem describes ballooning context in a tool-calling agent: check the tool output before reaching for compaction or a bigger model.
+```python
+import anthropic
+import json
 
-**"Compaction is lossy — what survives is a design decision."** Attractive because compaction sounds automatic: summarize, replace, move on. Wrong because summarization discards detail, and if the discarded piece mattered — a constraint mentioned once — the session degrades in a way that's hard to trace back to "we compacted." Recognize this whenever a stem treats compaction as free or asks what should survive it: the application decides, compaction doesn't preserve relevance on its own.
+client = anthropic.Anthropic()
+
+
+def fetch_driver_log(job_id: str) -> str:  # stand-in for your log store
+    return "\n".join([f"INFO step {i}" for i in range(5000)] + ["ERROR AnalysisException: column order_ts not found"])
+
+
+def get_job_logs(job_id: str) -> str:
+    raw = fetch_driver_log(job_id).splitlines()
+    errors = [line for line in raw if "ERROR" in line or "Exception" in line][:20]
+    return json.dumps({"job_id": job_id, "error_lines": errors, "total_lines": len(raw),
+                       "full_log": f"dbfs:/logs/{job_id}/driver.log"})  # pointer, not payload
+
+
+LOG_TOOL = {"name": "get_job_logs", "description": "Error lines and a log path for one job.",
+            "input_schema": {"type": "object", "properties": {"job_id": {"type": "string"}}, "required": ["job_id"]}}
+
+
+def triage_subagent(job_id: str) -> str:
+    """Own window, own loop. Only the final text reaches the parent."""
+    msgs = [{"role": "user", "content": f"Find the root cause of failed job {job_id}. Reply in under 150 words with cause, evidence, fix."}]
+    for _ in range(6):
+        resp = client.messages.create(model="claude-haiku-4-5", max_tokens=1_500, tools=[LOG_TOOL], messages=msgs)
+        msgs.append({"role": "assistant", "content": resp.content})
+        if resp.stop_reason != "tool_use":
+            return "".join(b.text for b in resp.content if b.type == "text")
+        msgs.append({"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": b.id, "content": get_job_logs(b.input["job_id"])}
+            for b in resp.content if b.type == "tool_use"]})
+    return "Subagent hit its step limit; see job log path."
+
+
+summaries = {job: triage_subagent(job) for job in ["8812", "8815"]}  # parent sees only these
+print(summaries)
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+function fetchDriverLog(jobId: string): string { // stand-in for your log store
+  return [...Array.from({ length: 5000 }, (_, i) => `INFO step ${i}`), "ERROR AnalysisException: column order_ts not found"].join("\n");
+}
+
+function getJobLogs(jobId: string): string {
+  const raw = fetchDriverLog(jobId).split("\n");
+  const errors = raw.filter((l) => l.includes("ERROR") || l.includes("Exception")).slice(0, 20);
+  return JSON.stringify({ job_id: jobId, error_lines: errors, total_lines: raw.length,
+    full_log: `dbfs:/logs/${jobId}/driver.log` }); // pointer, not payload
+}
+
+const LOG_TOOL: Anthropic.Tool = { name: "get_job_logs", description: "Error lines and a log path for one job.",
+  input_schema: { type: "object", properties: { job_id: { type: "string" } }, required: ["job_id"] } };
+
+async function triageSubagent(jobId: string): Promise<string> {
+  // Own window, own loop. Only the final text reaches the parent.
+  const msgs: Anthropic.MessageParam[] = [{ role: "user",
+    content: `Find the root cause of failed job ${jobId}. Reply in under 150 words with cause, evidence, fix.` }];
+  for (let step = 0; step < 6; step++) {
+    const resp = await client.messages.create({ model: "claude-haiku-4-5", max_tokens: 1_500, tools: [LOG_TOOL], messages: msgs });
+    msgs.push({ role: "assistant", content: resp.content });
+    if (resp.stop_reason !== "tool_use")
+      return resp.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("");
+    msgs.push({ role: "user", content: resp.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use")
+      .map((b) => ({ type: "tool_result" as const, tool_use_id: b.id, content: getJobLogs((b.input as { job_id: string }).job_id) })) });
+  }
+  return "Subagent hit its step limit; see job log path.";
+}
+
+const summaries = Object.fromEntries(await Promise.all(["8812", "8815"].map(async (j) => [j, await triageSubagent(j)])));
+console.log(summaries); // parent sees only these
+```
+
+<Output kind="illustrative">
+```text
+{'8812': 'Cause: upstream renamed order_ts to order_timestamp. Evidence: AnalysisException in driver log dbfs:/logs/8812/driver.log. Fix: update the bronze_orders select or add a column mapping.', '8815': '...'}
+```
+</Output>
 
 ## Recall checks
 
-- An agent ignores a constraint at turn 40 that it applied at turn 3. Drift or bloat, and what's the fix?
-- A tool call returns 40,000 tokens and the agent needed 200. Name the most effective mitigation and why it beats a larger context window.
-- What should be prioritized first when compacting — recall or precision — and why?
-- Why does subagent delegation give a stronger isolation guarantee than pruning results after they've already entered the parent's context?
-- What does "right altitude" mean for a system prompt, and what do both failure extremes look like?
+<Recall q="What should an agent persist to memory, and what should it re-fetch?">
+Persist conclusions, decisions with reasons, progress and pointers such as paths or IDs. Re-fetch anything with a source of truth that can change, and raw tool output, because a stored copy goes stale silently and costs window space when read back.
+</Recall>
+
+<Recall q="Who stores the data behind the memory_20250818 tool, and what must that code guard against?">
+Your application does: the tool is client-side, so Claude only requests operations under /memories. Your handler must validate every path against traversal (for example /memories/../../secrets.env) and should cap sizes and expire stale files.
+</Recall>
+
+<Recall q="An agent degrades at 250k tokens on a 1M-token model. Why is a larger window the wrong fix?">
+Recall degrades as token count grows (context rot), long before the limit. More room lets bloat grow and further dilutes instructions, so the fix is to remove low-value tokens, not add capacity.
+</Recall>
+
+<Recall q="Distinguish drift from bloat by symptom and fix.">
+Drift is a rule or goal fading as the session grows; fix it by re-anchoring the rule in the system prompt or CLAUDE.md, restating it at decision points, or enforcing it with code. Bloat is low-value tokens filling the window; fix it by pruning, clearing old tool results, compacting or isolating.
+</Recall>
+
+<Recall q="Why prune tool output at the source rather than rely on context editing?">
+Source pruning keeps the bulk out on every call. Context editing removes old results only after they have already consumed window space, and each clearing invalidates the cached prefix from that point.
+</Recall>
+
+<Recall q="After /compact in Claude Code, which instructions are guaranteed to come back, and which can be lost?">
+The system prompt still applies and project-root CLAUDE.md, unscoped rules and auto memory are re-injected from disk. Instructions given only in the conversation are summarized with everything else and can be lost.
+</Recall>
+
+<Recall q="Why does subagent isolation beat pruning after the fact for broad exploration?">
+The subagent's raw tool output never enters the parent's window; only its summary returns. Pruning after the fact still lets the full output into the parent once, where it costs attention and tokens.
+</Recall>
