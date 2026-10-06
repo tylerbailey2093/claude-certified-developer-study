@@ -149,13 +149,21 @@ resource guarantees a pass. The recommended combination:
 
 ## Repo layout
 
+Astro 5 static site ("CCDV-F Field Lab"), deployed to GitHub Pages by `.github/workflows/pages.yml`.
+
 ```
-guide/    ccdv-f-glass.html      primary study guide (glass theme)
-          ccdv-f-prep.html       alternate (Atom One theme)
-labs/     00–10 *.ipynb          hands-on notebooks + README
-scripts/  check_originality.py   similarity gate against published samples
-          verify_links.py        resolve every doc URL
-blueprint.json                   machine-readable blueprint
+blueprint.json                 v2: 25 objectives with ids, verbatim guide text, 144 sub-skills
+src/content/objectives/*.mdx   one page per objective (spec: docs/authoring/AUTHORING_SPEC.md)
+src/content/labs/*.mdx         GENERATED from labs/*.ipynb + labs/annotations (scripts/build_labs.ts)
+src/data/questions/<id>.json   question bank v2, one file per objective (+ retired.json)
+src/data/facts.json            single source for model IDs, prices, defaults
+src/lib/bank/                  schema, sampler, grading      src/lib/store/  localStorage v2 + v1 migration, SRS, exam reducer
+src/islands/                   React: PracticeHub, ExamSimulator, QuestionCell, Progress, Home, Search, Settings
+src/scripts/lakehouse-grid.ts  animated background          src/styles/     tokens, base, components, drills
+docs/authoring/                AUTHORING_SPEC, QUESTION_SPEC, GLOSSARY, WORKFLOW
+scripts/                       gates (see below), migrations, build_labs, build_sw (offline PWA)
+legacy/guide/                  the original single-file HTML guides (kept for reference and offline use)
+tests/unit, tests/e2e          Vitest and Playwright
 ```
 
 ## Working agreements
@@ -163,11 +171,7 @@ blueprint.json                   machine-readable blueprint
 - Weight effort by blueprint percentage, always.
 - Report findings before editing when verifying something.
 - Show diffs for factual changes rather than silently editing.
-- Prefer self-contained, zero-dependency output. Single-file HTML is a feature.
-- Verify before claiming anything is done:
-  ```
-  python3 scripts/check_originality.py guide/ccdv-f-glass.html
-  python3 scripts/verify_links.py guide/ccdv-f-glass.html      # needs egress
-  ```
-  `npm run verify` does not exist yet. Phase 4 creates it and should wrap exactly
-  these checks plus a JS parse of the guide's inline script.
+- The site must work fully offline once installed (service worker precaches everything); no runtime CDN or third-party requests.
+- Verify before claiming anything is done: `npm run verify` (typecheck, contrast, unit tests, MDX compile, page structure, code lint, labs, coverage, question lint, originality, build, internal links, size budget) and `npm run test:e2e` (Playwright: every route, practice, exam timeout, offline, v1 migration, grid).
+- Pages listed in `scripts/strict-objectives.json` must pass the v2 structure and code rules; add an objective there when its rewrite lands.
+- External links: `npm run links:external` (needs egress; weekly CI job, informational).
