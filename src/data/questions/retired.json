@@ -616,5 +616,51 @@
     "sources": [],
     "author": "v1-new",
     "status": "retired"
+  },
+  {
+    "id": "new-claude-application-design-02",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.interfaces"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team is building a research assistant that runs in Claude Desktop. They want the assistant to always be able to call the company's internal ticket-lookup service in every conversation the user starts on that machine, without the user re-explaining what the service is or how to call it each time they open a new chat. Where should this capability be defined?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Restate the ticket-lookup service's API in the first message of every conversation",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Add the service description to a claude.ai Project's custom instructions",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Connect the ticket-lookup service as an MCP server in Claude Desktop's local configuration",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Paste the service's documentation into the system prompt of a single raw API call",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "On Claude Desktop, the instruction surface for tool capability is the connected tooling itself; an MCP server configured locally persists across every conversation on that machine without the user restating anything.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [
+      "retired:Tracks published Sample 3 (internal service exposed to Claude through an MCP server, answer 'connect it as an MCP server'). Desktop surface coverage moved to claude-application-design-018."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
   }
 ]

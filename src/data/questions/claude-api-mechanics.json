@@ -58,41 +58,45 @@
     ],
     "type": "single",
     "select": 1,
-    "stem": "A compliance dashboard counts declined requests by incrementing a counter inside the except block that wraps each Messages API call. Users report several declined answers a day, yet the counter has stayed at zero for a month and the access logs show HTTP 200 for every call. What should the team change?",
+    "stem": "A team builds a multi-turn assistant and, to save tokens, sends only the newest user message on each call, relying on prompt caching to keep earlier turns available to the model. Users complain that the assistant forgets details they gave two turns earlier. What is the cause?",
     "options": [
       {
         "id": "a",
-        "text": "Branch on stop_reason in each successful response and count the responses whose value is refusal",
-        "why": "Correct. A refusal is reported as stop_reason refusal on a normal HTTP 200 response, so it never reaches an exception handler."
+        "text": "The Messages API is stateless, so every request must carry the full conversation history it needs",
+        "why": "Correct. The API keeps no conversation state between calls; the model sees only what the current request contains."
       },
       {
         "id": "b",
-        "text": "Set the SDK's max_retries to zero so that refusals surface as exceptions instead of being retried",
-        "why": "SDK retries apply to connection errors, 429 and 5xx; a refusal is not an error, so retry settings never turn it into an exception."
+        "text": "The cached turns expired after the default 5-minute TTL, so the 1-hour TTL would keep them in memory",
+        "why": "A cache only discounts a prefix that the request still sends; it never supplies turns the request leaves out."
       },
       {
         "id": "c",
-        "text": "Count responses whose HTTP status is in the 4xx range, since policy declines are client errors",
-        "why": "Declines arrive with status 200, so a 4xx counter stays at zero exactly like the current exception counter."
+        "text": "The request omits the previous response's message id, which the API uses to link one turn to the next",
+        "why": "Message ids identify responses for logging; the API has no mechanism that loads earlier turns from an id."
       },
       {
         "id": "d",
-        "text": "Scan the returned text for apology phrases and count those responses as declined answers",
-        "why": "Phrase matching is brittle and misses refusals with little or no text, while the API already reports the outcome as a structured field."
+        "text": "max_tokens is too low for the model to recall earlier turns, so raising it restores the missing context",
+        "why": "max_tokens caps the length of the response; it has no effect on what earlier content the model can see."
       }
     ],
     "answer": [
       "a"
     ],
-    "explanation": "The cue is HTTP 200 on every call while users see declines. Every way a generation can end, including refusal, is a stop_reason value on a successful response, so exception or status-code monitoring never sees it. Text heuristics are tempting but guess at something the API states explicitly.",
-    "cue": "access logs show HTTP 200 for every call",
-    "pattern": "diagnosis",
-    "difficulty": 2,
+    "explanation": "The cue is relying on prompt caching to stand in for conversation history. The Messages API is stateless, so the client resends the turns it wants the model to see on every call; caching only makes a repeated prefix cheaper. Reaching for a longer TTL is the tempting fix, but no cache holds content the request does not send.",
+    "cue": "relying on prompt caching to keep earlier turns available",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 1,
     "tags": [],
     "sources": [
       {
-        "label": "Handling stop reasons",
-        "url": "https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons"
+        "label": "Using the Messages API",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/working-with-messages"
+      },
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
       }
     ],
     "verified": "2026-10-06",
@@ -532,45 +536,45 @@
     ],
     "type": "single",
     "select": 1,
-    "stem": "A support agent requests summarized thinking that the UI never shows, and finance proposes switching display to omitted to cut the output-token bill. Usage shows thinking accounts for most of the billed output. What will the switch do to cost, and which lever actually reduces it?",
+    "stem": "A chat UI streams answers from a model with thinking on and display set to summarized, but it discards every thinking_delta and never shows the reasoning. The product owner wants the reasoning depth kept exactly as it is, and users complain about a long pause before the first words appear. Which change shortens that pause?",
     "options": [
       {
         "id": "a",
-        "text": "The bill stays the same because full thinking is billed either way; lowering effort reduces thinking spend",
-        "why": "Correct. Display changes what you see, not what is billed; effort steers how much Claude thinks and so how much you pay."
+        "text": "Set display to omitted so the server streams only each thinking block's signature before the text",
+        "why": "Correct. With omitted display the server skips streaming thinking text, so the answer starts sooner; thinking and billing are unchanged."
       },
       {
         "id": "b",
-        "text": "The bill drops to the visible text only, because omitted thinking is generated but never billed",
-        "why": "Omitted thinking is still generated and billed as output tokens at full length; only the returned text is empty."
+        "text": "Lower the effort level so Claude spends fewer tokens thinking before it starts writing the answer",
+        "why": "This does shorten the pause, but it reduces how much Claude reasons, which the product owner ruled out."
       },
       {
         "id": "c",
-        "text": "The bill drops by the size of the summaries, because summary generation is charged as extra output tokens",
-        "why": "Summary generation carries no charge, so removing summaries saves nothing on the bill."
+        "text": "Drop thinking_delta events earlier in the client so that the browser renders text deltas sooner",
+        "why": "Client-side filtering cannot reorder the stream; the text deltas still arrive only after the thinking text has streamed."
       },
       {
         "id": "d",
-        "text": "The bill stays the same, and the remaining lever is a cache_control marker on each thinking block",
-        "why": "Thinking blocks cannot be marked with cache_control directly, and caching would reduce input cost, not thinking output."
+        "text": "Reduce max_tokens so the thinking phase is capped and the answer begins streaming sooner",
+        "why": "max_tokens is a hard cap on thinking plus answer, so lowering it risks max_tokens stops rather than scheduling thinking."
       }
     ],
     "answer": [
       "a"
     ],
-    "explanation": "The cue is switching display to cut the bill. You are billed for the full internal thinking as output tokens whether display is summarized or omitted; omitted mainly speeds time to first text token. To spend less on thinking, lower effort or route easier requests to a lighter configuration.",
-    "cue": "switching display to omitted to cut the output-token bill",
-    "pattern": "tradeoff",
+    "explanation": "The cue is keeping reasoning depth unchanged while hiding thinking anyway. Display controls visibility, not billing or depth: with omitted, the server sends an empty thinking block plus its signature, so text starts streaming sooner while the full thinking is still billed as output. Lowering effort is the tempting fix, but it changes the reasoning the stem says to keep.",
+    "cue": "wants the reasoning depth kept exactly as it is",
+    "pattern": "buried-constraint",
     "difficulty": 2,
     "tags": [],
     "sources": [
       {
-        "label": "Steering thinking (effort, cost, caching)",
-        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking-steering-and-cost"
-      },
-      {
         "label": "Thinking",
         "url": "https://platform.claude.com/docs/en/build-with-claude/thinking"
+      },
+      {
+        "label": "Steering thinking (effort, cost, caching)",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking-steering-and-cost"
       }
     ],
     "verified": "2026-10-06",
@@ -637,36 +641,36 @@
     ],
     "type": "single",
     "select": 1,
-    "stem": "A release added the current request timestamp to the first line of a large cached system prompt so the model knows the time. Since then cache_read_input_tokens has stayed at zero while cache_creation_input_tokens appears on every call. Why?",
+    "stem": "A Go service rebuilds long agent conversations for each request, re-encoding every earlier tool_use block's input from a map, and keeps a cache breakpoint on the latest message. The conversation content is unchanged between turns, yet cache_read_input_tokens stays near zero and cache writes appear on every call. What is the most likely cause?",
     "options": [
       {
         "id": "a",
-        "text": "The cached prefix now differs on every request, so no request matches an earlier write",
-        "why": "Correct. Cache hits need a byte-identical prefix; a per-request value near the top makes every prefix unique."
+        "text": "Map key order is randomized during JSON encoding, so the replayed prefix bytes differ on each request",
+        "why": "Correct. Cache hits need byte-identical prefixes, and languages such as Go and Swift can randomize key order when encoding."
       },
       {
         "id": "b",
-        "text": "The added line pushed the system prompt past the maximum length that a cache entry can hold",
-        "why": "One line cannot plausibly cross a size limit, and the steady cache writes show the prompt is still being cached."
+        "text": "Breakpoints placed on messages are ignored, so only the tools and system segments can ever be cached",
+        "why": "Message blocks are cacheable, and the steady cache writes show the breakpoint is being honoured."
       },
       {
         "id": "c",
-        "text": "The 5-minute TTL stops being refreshed when a prompt contains values that change per request",
-        "why": "The TTL refreshes on every hit; there are no hits here because the prefix never matches, so the TTL is not the issue."
+        "text": "The 5-minute TTL stops being refreshed once a conversation contains tool_use and tool_result blocks",
+        "why": "Tool blocks do not affect the TTL; there are no reads because the prefix never matches, not because it expired."
       },
       {
         "id": "d",
-        "text": "Timestamps are treated as sensitive data and are excluded from the cacheable prefix by design",
-        "why": "No content type is excluded from caching; the timestamp is cached, it just differs every time."
+        "text": "tool_use blocks are excluded from the cacheable prefix, so every replayed turn is billed at full price",
+        "why": "tool_use and tool_result blocks are cacheable message content like any other block."
       }
     ],
     "answer": [
       "a"
     ],
-    "explanation": "The cue is a per-request value on the first line of the cached prefix. Caching is an exact prefix match, so a changing value early in the prompt turns every call into a write and never a read; move volatile content after the last breakpoint. Blaming the TTL is the tempting mistake, but writes on every call show the prefix itself changed.",
-    "cue": "first line of a large cached system prompt",
+    "explanation": "The cue is re-encoding tool_use input from a map on every rebuild. Caching is an exact byte match on the prefix, so a non-deterministic key order makes every request look new; keep the original blocks or encode with stable ordering. Blaming the TTL is tempting, but writes on every call show the prefix itself is changing.",
+    "cue": "re-encoding every earlier tool_use block's input from a map",
     "pattern": "diagnosis",
-    "difficulty": 1,
+    "difficulty": 2,
     "tags": [],
     "sources": [
       {
@@ -737,7 +741,7 @@
     ],
     "type": "multi",
     "select": 2,
-    "stem": "An internal HR assistant puts cache_control on its 300-token system prompt, and requests that share it arrive about every 15 minutes. Both cache_creation_input_tokens and cache_read_input_tokens are 0 on every response, and no error is returned. Which two statements correctly explain the zeros or the next problem the team will hit? Select two.",
+    "stem": "An internal HR assistant puts cache_control on its 300-token system prompt, and requests that share it arrive every 20 to 40 minutes. Both cache_creation_input_tokens and cache_read_input_tokens are 0 on every response, and no error is returned. Which two statements correctly explain the zeros or the next problem the team will hit? Select two.",
     "options": [
       {
         "id": "a",
@@ -746,8 +750,8 @@
       },
       {
         "id": "b",
-        "text": "Once the prefix is long enough to cache, 15-minute gaps outlast the default 5-minute lifetime, so a 1-hour TTL fits",
-        "why": "Correct. The default TTL is 5 minutes, refreshed on use; traffic every 15 minutes needs the 1-hour TTL to see reads."
+        "text": "Once the prefix is long enough to cache, gaps of 20 minutes or more outlast the 5-minute default, so a 1-hour TTL fits",
+        "why": "Correct. The default TTL is 5 minutes, refreshed on use; traffic every 20 to 40 minutes needs the 1-hour TTL to see reads."
       },
       {
         "id": "c",
@@ -769,7 +773,7 @@
       "a",
       "b"
     ],
-    "explanation": "The cue is both cache fields at zero with no error on a 300-token prompt. Below the model's minimum, caching silently does nothing; once the prefix is long enough, a 15-minute request gap will still miss the 5-minute TTL, so the 1-hour TTL is the next fix. Adding breakpoints is tempting but cannot make a short prefix cacheable.",
+    "explanation": "The cue is both cache fields at zero with no error on a 300-token prompt. Below the model's minimum, caching silently does nothing; once the prefix is long enough, gaps of 20 minutes or more will still miss the 5-minute TTL, so the 1-hour TTL is the next fix. Adding breakpoints is tempting but cannot make a short prefix cacheable.",
     "cue": "both cache_creation_input_tokens and cache_read_input_tokens are 0",
     "pattern": "diagnosis",
     "difficulty": 3,
