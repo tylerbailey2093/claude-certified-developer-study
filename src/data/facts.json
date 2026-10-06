@@ -269,5 +269,31 @@
     "examRule": "teach 0.1x reads and 1.25x / 2x writes; per-model read overrides are post-guide",
     "invalidation": "tool definitions invalidate tools, system and messages; tool_choice and image changes invalidate only messages",
     "source": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
-  }
+  },
+  "features": [
+    {
+      "name": "context editing",
+      "types": [
+        "clear_tool_uses_20250919",
+        "clear_thinking_20251015"
+      ],
+      "beta": "context-management-2025-06-27",
+      "asOfGuide": "unknown",
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-editing"
+    },
+    {
+      "name": "server-side compaction (threshold)",
+      "type": "compact_20260112",
+      "beta": "compact-2026-01-12",
+      "asOfGuide": "unknown",
+      "source": "https://platform.claude.com/docs/en/build-with-claude/compaction-threshold"
+    },
+    {
+      "name": "memory tool",
+      "type": "memory_20250818",
+      "beta": null,
+      "asOfGuide": true,
+      "source": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool"
+    }
+  ]
 }

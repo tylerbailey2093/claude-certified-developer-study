@@ -6,6 +6,9 @@ name: "Agent Patterns and Frameworks"
 weight: 4.9
 tier: 2
 hot: false
+summary: "The building blocks inside an agent: bounded tool-use loops with error feedback, sub-agents that take a brief and return a summary, application-designed memory, context-window management in long loops, multi-step task design, and what Strands, LangGraph and PydanticAI each abstract."
+subskills: ["ap.tool-loops", "ap.sub-agents", "ap.memory", "ap.context-window", "ap.frameworks", "ap.multi-step"]
+related: ["agent-architecture", "agent-construction-with-claude", "context-engineering", "tool-implementation", "debugging-and-error-handling"]
 scope:
   - "tool-use loops"
   - "sub-agents"
@@ -15,136 +18,656 @@ scope:
   - "LangGraph"
   - "PydanticAI"
 traps:
-  - "unbounded loops are a harness design failure, not a model failure"
-  - "the API is stateless; long-term memory is application-designed"
+  - name: "Fixing a runaway loop with a better model"
+    looksRight: "The agent keeps calling the same tool, so it must be reasoning badly; a stronger model or a sterner prompt should stop it."
+    failsBecause: "Termination is the harness's job. Without a turn cap, a spend or token budget and a defined exit, any model can loop. A better model lowers the frequency; only code guarantees the stop."
+    cue: "'Ran for hours', 'hundreds of turns', 'bill spiked', 'repeated the same call'; one option changes the model or prompt, one adds max turns and a budget."
+  - name: "Expecting the API to remember"
+    looksRight: "The assistant answered well yesterday, so it should recall the user's preferences today; or prompt caching should keep the history."
+    failsBecause: "The Messages API is stateless. Each request contains everything the model sees. Cross-session memory is something the application stores and reloads (files, a memory tool backend, a database, retrieval). Prompt caching is a short-lived cost and latency optimization, not storage."
+    cue: "'Next session', 'remember across conversations', 'after restart'; options offer a bigger context window, caching, or an application-managed store."
+  - name: "Swallowing or crashing on tool errors"
+    looksRight: "Raise the exception so the job fails loudly, or return an empty result so the loop keeps going."
+    failsBecause: "Raising ends the run without letting Claude adapt; an empty or vague result makes it guess or retry blindly. Return a tool_result with is_error true and an instructive message saying what went wrong and what to try next."
+    cue: "'The agent retried the same failing call' or 'the run aborted on a transient error'; one option returns the error to the model with is_error."
+  - name: "The subagent knows what the parent knows"
+    looksRight: "It is part of the same agent system, so it can see the conversation and earlier tool results."
+    failsBecause: "A (non-fork) subagent starts with a fresh context: its own system prompt and the delegation prompt. Paths, error messages and decisions it needs must be written into the brief."
+    cue: "'The subagent redid work already done' or 'ignored the constraint the user gave earlier'; the fix is a better brief, not a bigger subagent model."
+  - name: "Compaction keeps everything that matters"
+    looksRight: "Summarizing near the limit is lossless enough, so early instructions will survive."
+    failsBecause: "Compaction replaces older turns with a summary, so specific early instructions and subtle details can be lost. Durable rules belong in the system prompt or CLAUDE.md, and must-keep facts in memory files written before the history is summarized or cleared."
+    cue: "'After a long run the agent forgot a rule from the first message'; options include re-sending in the system prompt or persisting to memory."
+  - name: "A framework to fix a bug you cannot see"
+    looksRight: "Adopting a popular agent framework brings best practices that will resolve odd agent behaviour."
+    failsBecause: "Frameworks add scaffolding, but Anthropic warns they can obscure the underlying prompts and responses, making them harder to debug. The first step is to see the actual requests, tool calls and results, then fix the prompt, tool or harness."
+    cue: "'Cannot tell what the model was sent', 'behaviour differs from the raw API'; one option is to inspect or trace the raw calls."
 sources:
-  - label: "Context engineering"
-    url: "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
-  - label: "Building effective agents"
-    url: "https://www.anthropic.com/engineering/building-effective-agents"
+  - { label: "Handle tool calls", url: "https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls", kind: "docs", verified: "2026-10-06" }
+  - { label: "Tool use with Claude (overview)", url: "https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview", kind: "docs", verified: "2026-10-06" }
+  - { label: "Agent SDK: how the agent loop works", url: "https://code.claude.com/docs/en/agent-sdk/agent-loop", kind: "docs", verified: "2026-10-06" }
+  - { label: "Agent SDK overview", url: "https://code.claude.com/docs/en/agent-sdk/overview", kind: "docs", verified: "2026-10-06" }
+  - { label: "Agent SDK subagents", url: "https://code.claude.com/docs/en/agent-sdk/subagents", kind: "docs", verified: "2026-10-06" }
+  - { label: "Memory tool", url: "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool", kind: "docs", verified: "2026-10-06" }
+  - { label: "Context editing", url: "https://platform.claude.com/docs/en/build-with-claude/context-editing", kind: "docs", verified: "2026-10-06" }
+  - { label: "Building effective agents", url: "https://www.anthropic.com/engineering/building-effective-agents", kind: "engineering", verified: "2026-10-06" }
+  - { label: "Effective context engineering for AI agents", url: "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents", kind: "engineering", verified: "2026-10-06" }
+  - { label: "How we built our multi-agent research system", url: "https://www.anthropic.com/engineering/multi-agent-research-system", kind: "engineering", verified: "2026-10-06" }
+  - { label: "Effective harnesses for long-running agents", url: "https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents", kind: "engineering", verified: "2026-10-06" }
+  - { label: "Strands Agents SDK (Python) README", url: "https://github.com/strands-agents/sdk-python", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "LangGraph README", url: "https://github.com/langchain-ai/langgraph", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "Pydantic AI README", url: "https://github.com/pydantic/pydantic-ai", kind: "swe-ref", verified: "2026-10-06" }
+lastReviewed: "2026-10-06"
 authored: true
 ---
 
-#### What this objective actually tests
+## Concept
 
-This objective tests the mechanics that make an agent loop *survivable* in production, not the pattern-selection judgment covered in Agent Architecture. Expect stems about a loop that won't terminate, memory that should have persisted and didn't, or a scenario naming a specific third-party framework by its real shape. It deliberately stops short of context-window mechanics at the token level — token budgeting and prompt-level context hygiene are scored under the separate Context Engineering objective, not here.
+Once <ObjLink id="agent-architecture"/> has decided that some part of the system is an agent, this objective asks how that agent is built so it survives production. The guide names four patterns (tool-use loops, sub-agents, memory, context-window management), three frameworks as examples (Strands, LangGraph, PydanticAI), and the goal they serve: agents and workflows for multi-step tasks.
 
-#### Mechanism
+The common thread is that **the model proposes and the harness disposes**. Claude emits a `tool_use` block and stops; your code runs the tool, decides whether to continue, decides what stays in context, and decides what is written to durable storage. Every failure this page covers (loops that never end, memory that vanished, context that overflowed, a subagent that redid work) is a harness design failure, and every correct answer is a harness control.
 
-**The tool-use loop.** On each turn the harness sends the model the conversation plus a set of tool definitions; the model either returns text or a tool-call request; if it's a tool call, the harness — never the model — executes it and appends the result to the conversation; the loop repeats until the model stops requesting tools or a harness-defined limit is hit. That limit is the load-bearing detail: an agent that repeats the same call for hours is not a model failure to be fixed by a better model or a lower temperature, it is a harness that never bounded the loop. The standard bounds are a maximum iteration count, a wall-clock timeout, and a token budget, enforced in code around the loop.
+The frameworks matter because they package those controls differently. The exam does not need their APIs memorized. It needs you to recognize each one's idiom (model-driven loop, explicit graph with persisted state, typed agents with validated output) and to know when an abstraction helps and when it hides what you need to debug.
 
-**Memory.** The Claude API is stateless: every request is evaluated fresh against whatever you send it, with no server-side recollection of previous calls. Short-term memory is just the conversation history you resend each turn. Long-term memory — anything that must survive past the current context window or across sessions — is something the application designs and manages, not a model capability. Anthropic's context-engineering guidance names a concrete pattern for this: structured note-taking, where the agent writes progress, decisions, and dependencies to a persistent store outside the context window and reads them back later, giving it continuity "with minimal overhead" without keeping everything in-context.
+**Scope boundary.**
 
-**Context-window management, at the pattern level.** Long-running agents accumulate tool results relentlessly, and Anthropic's guidance names the levers used to keep a run inside its window without losing what matters:
+Not this:
+- Workflow versus agent, the five workflow patterns, supervisor hierarchies, and *why* to use subagents: <ObjLink id="agent-architecture"/>.
+- The Claude Agent SDK's permission modes, hooks and hosting choices in depth: <ObjLink id="agent-construction-with-claude"/>.
+- What belongs in the context window and how to curate it in general: <ObjLink id="context-engineering"/>.
+- Designing individual tool schemas and descriptions: <ObjLink id="tool-implementation"/>.
 
-| Lever | What it does |
-|---|---|
-| Compaction | Summarize the conversation near the context limit and reinitiate a new window with the summary; the risk is over-aggressive summarization dropping a subtle but load-bearing detail |
-| Tool-result clearing | The lightest-touch form of compaction — drop stale raw tool outputs from history once the agent no longer needs to re-see them |
-| Structured memory / notes | Persist progress and decisions outside the window so continuity doesn't depend on keeping everything in-context |
-| Subagent isolation | Push a subtask's raw exploration into a subagent's own window so only its distilled summary re-enters the parent's context |
+<Callout type="key" title="The point-winning idea">
+When an agent misbehaves over many turns (loops, forgets, overflows, repeats work), the right answer changes the harness: a turn cap and budget, an is_error result, a memory write, a context edit, a better brief. Options that only change the model or the wording of a request are usually the distractor.
+</Callout>
 
-These are patterns for deciding *what to do* when a run gets long. The token-level mechanics of context engineering — what to put in a system prompt, how caching works, prompt structure — belong to the Context Engineering objective, not this one.
+## Mechanism
 
-#### Agentic frameworks
+### Tool-use loops
 
-| Framework | Maintainer | Shape | Fits when |
+<SubskillAnchor id="ap.tool-loops" />
+
+The loop is the core agent pattern. For client tools, Claude responds with `stop_reason: "tool_use"` and one or more `tool_use` blocks, each with an `id`, `name` and `input`. Your code executes each one and replies with a user message whose content is `tool_result` blocks keyed by `tool_use_id`. Repeat until Claude answers without requesting a tool.
+
+<Sequence title="Client tool-use loop with harness controls" actors={["Harness", "Claude API", "Tools"]}
+  messages={[["Harness", "Claude API", "messages.create(tools, history)"],
+             ["Claude API", "Harness", "stop_reason: tool_use + tool_use blocks", "reply"],
+             ["Harness", "Harness", "check turn cap and budget", "note"],
+             ["Harness", "Tools", "run each tool_use"],
+             ["Tools", "Harness", "result or exception", "reply"],
+             ["Harness", "Claude API", "tool_result blocks (is_error on failure)"],
+             ["Claude API", "Harness", "stop_reason: end_turn + text", "reply"]]}
+  caption="The model never executes anything. Every stop, retry and error path is code in the harness." />
+
+Rules the API enforces **[Certain]**:
+
+- `tool_result` blocks must immediately follow the assistant message that requested them, and in that user message they must come **first**; any text goes after them. Violations return a 400.
+- When Claude requests several tools in one turn, return all the results in that one user message.
+- Server tools (web search, code execution) run on Anthropic's side and need no `tool_result` from you.
+
+**Stop conditions.** A production loop needs more than "until no tool call":
+
+| Exit | Why | Agent SDK equivalent |
+|---|---|---|
+| Model finished (`end_turn`) | Normal completion | `ResultMessage` subtype `success` |
+| Turn cap | Bounds a model that keeps finding one more thing to check | `max_turns`, result `error_max_turns` |
+| Spend or token budget | Bounds cost regardless of turn count | `max_budget_usd`, result `error_max_budget_usd` |
+| Wall-clock timeout | Bounds latency for a waiting user or a batch window | Your own timer around the run |
+| `max_tokens`, `refusal` | Truncated or declined output; not success | `stop_reason` on the result |
+| Repeated identical call | Detects a stuck loop early | Your own check, or a hook |
+
+In the Agent SDK neither turns nor budget is limited by default, and the docs call setting a budget "a good default for production agents" **[Certain]**. The SDK's `max_turns` counts tool-use round trips only.
+
+**Error feedback.** When a tool fails, return a `tool_result` with `"is_error": true` and the error in `content`. Claude then adapts or explains. Anthropic's guidance is to write **instructive** errors (what went wrong and what to try next, such as "Rate limit exceeded. Retry after 60 seconds.") rather than "failed". For invalid calls with missing parameters, Claude typically retries two to three times with corrections before apologizing **[Certain]**; `strict: true` on tool definitions removes that class of error by guaranteeing schema-conforming inputs. Raising the exception out of the loop throws away the model's ability to recover; returning an empty success makes it guess.
+
+**Exam angle:** "runs forever", "hundreds of turns", "cost spike" point to turn caps and budgets in the harness. "Retries the same failing call" points to instructive `is_error` results. Distractor: a stronger model or "tell it to stop" in the prompt.
+
+### Sub-agents
+
+<SubskillAnchor id="ap.sub-agents" />
+
+As a pattern, a sub-agent is three steps: **spawn** a fresh context, **brief** it, and **summarize back**. In a raw API harness it is just another `messages.create` loop with its own system prompt, tool subset and model, exposed to the parent as a tool such as `delegate(objective, deliverable, boundaries)`. In the Claude Agent SDK and Claude Code it is the built-in `Agent` tool plus `AgentDefinition` entries (`description`, `prompt`, `tools`, `model`, `maxTurns` and others). Claude chooses which subagent to call from its `description`, so descriptions should say when to use it.
+
+<Flow title="Sub-agent pattern" steps={[{label: "Parent decides to delegate", kind: "model"}, {label: "Brief", kind: "client", note: "objective, deliverable, tools, boundaries"}, {label: "Subagent loop", kind: "model", note: "fresh context, restricted tools"}, {label: "Summary", kind: "store", note: "short, structured"}, {label: "Parent continues", kind: "model"}]} caption="Only the brief goes in and only the final message comes back." />
+
+**The brief is the whole interface.** The Agent SDK docs state that the only content passed from parent to subagent is the Agent tool's prompt string, so file paths, error messages and decisions must be in it **[Certain]**. Anthropic's research system found that vague briefs caused subagents to duplicate each other's work or miss parts of it; each brief needed an objective, an output format, guidance on tools and sources, and clear task boundaries.
+
+**The summary is the whole return.** The parent receives the subagent's final message, not its transcript. Ask for a format the parent can use (bullets with file paths, a JSON object, a verdict plus evidence). When the full output matters, have the subagent write it to storage and return a reference; Anthropic describes this as avoiding a "game of telephone".
+
+**Controls.** Restrict each subagent's tools to what its job needs (a reviewer gets read and search only), give it a turn cap, and pick a cheaper model when the work is mechanical. In the Agent SDK a tool omitted from `tools` is simply absent, with no prompt or error, and spend by subagents counts toward the parent's `max_budget_usd` **[Certain]**.
+
+**Exam angle:** "subagent redid work" or "ignored an earlier decision" points to the brief. "Parent's context still fills up" points to the subagent returning too much. Distractor: assuming the subagent sees the parent's history.
+
+### Agent memory
+
+<SubskillAnchor id="ap.memory" />
+
+The Messages API is stateless. Whatever the model "remembers" within a session is the history your code resends; anything beyond that is designed by the application. Memory comes in four forms:
+
+| Form | Where it lives | Lifetime | Good for |
 |---|---|---|---|
-| LangGraph | LangChain | Low-level graph orchestration — explicit nodes and edges, cycles, conditional branching, persisted state | You need durable execution, human-in-the-loop steps, and fine control mixing deterministic code with agentic steps in one graph |
-| PydanticAI | Pydantic (the validation library's team) | Python-native agent framework built on Pydantic models for typed, validated structured output and typed tools | You want compile-time-checkable structured output and FastAPI-like ergonomics over raw string parsing |
-| Strands Agents | AWS, open source | Model-driven SDK — minimal scaffolding around model, prompt, and tools; the SDK runs the reasoning loop itself | You want a thin, model-agnostic loop (Bedrock, Anthropic, others) with built-in multi-agent patterns and MCP support, not a bespoke graph |
+| In-context | The `messages` array you resend | One session, until compacted or cleared | Working state of the current task |
+| Files and notes | Files the agent writes (progress log, NOTES.md, feature checklist) | Across sessions and context resets | Plans, decisions, progress, what is left |
+| Memory tool | Your storage behind `/memories` (type `memory_20250818`) | Across conversations | Lessons, preferences, project knowledge the agent curates |
+| Retrieval | Vector or keyword index, database | As long as the store | Large corpora the agent queries just in time |
 
-All three sit on top of the same underlying loop described above — they buy scaffolding (state management, retries, typed I/O, multi-agent primitives) at the cost of a layer of abstraction between your team and the model's actual failures. The generally correct exam framing: start with direct API calls; adopt a framework once the scaffolding it buys clearly earns its keep for the problem at hand.
+The **memory tool** is a client-side tool: Claude requests `view`, `create`, `str_replace`, `insert`, `delete` and `rename` on paths under `/memories`, and your handler maps them onto real storage **[Certain]**. When the tool is present, the API adds a system instruction telling Claude to view its memory directory first and to record progress because its context "might be reset at any moment". Because your code executes every operation, path validation is your job: reject anything that resolves outside `/memories` (for example `/memories/../../secrets.env`), and strip sensitive data before writing.
 
-#### Decision table
+**What to persist.** Persist what a fresh context would need to continue without re-exploring: the objective and acceptance criteria, decisions with their reasons, what is done and verified, what is next, and known pitfalls. Do not persist raw tool output that can be fetched again, secrets, or unverified claims marked as facts. Anthropic's research lead agent saved its plan to memory because a context over 200,000 tokens would be truncated, and its long-running coding harness keeps a progress file and a feature list so each new session can "quickly understand the state of work" **[Certain]**.
 
-| When the stem says… | …the answer is |
-|---|---|
-| An agent loops indefinitely or repeats the same call for hours | Bound the loop in the harness (max iterations, timeout, token budget) — not a smarter model, not a lower temperature |
-| Information from a session that already ended must be recalled | An external store the application reads/writes — the API itself retains nothing between calls |
-| A conversation is approaching the context-window limit mid-run | Compaction (summarize, reinitiate) or tool-result clearing — not simply raising `max_tokens` |
-| Output must validate against a typed schema in Python with minimal boilerplate | PydanticAI |
-| The scenario needs an explicit, controllable graph of steps mixing code and model calls | LangGraph |
-| The scenario wants a thin, model-agnostic loop with little custom scaffolding | Strands Agents |
+**Exam angle:** "next session", "after a restart", "across conversations" point to an application-managed store. Distractors: a larger context window, prompt caching, or assuming the API keeps history.
 
-#### Code sketch: a bounded tool-use loop
+### Context-window management in agents
 
-The bound is the point — this is what a harness owes every agent regardless of framework.
+<SubskillAnchor id="ap.context-window" />
+
+An agent's context does not reset between turns: system prompt, tool definitions, every tool input and every tool output accumulate. Long loops therefore degrade (attention spread over stale output) before they overflow. Anthropic's context engineering post names three long-horizon techniques, and the platform adds two mechanisms. General context curation is covered in <ObjLink id="context-engineering"/>; this is what you do *inside a running loop*.
+
+| Lever | Mechanism | Fits |
+|---|---|---|
+| Tool result clearing | Drop old tool outputs once processed. Server-side context editing (`clear_tool_uses_20250919`) replaces the oldest results with a placeholder past a trigger, keeping the most recent few | Heavy tool use where old results will not be revisited |
+| Compaction | Summarize the conversation near the limit and continue in a fresh window with the summary. The Agent SDK does this automatically and emits a `compact_boundary` message | Long back-and-forth sessions |
+| Structured note-taking | Write progress and decisions outside the window and read them back | Iterative work with clear milestones |
+| Sub-agents | Push exploration into another window and receive a summary | Research and analysis with parallel exploration |
+| Just-in-time retrieval | Keep identifiers (paths, IDs) in context and load content with tools when needed | Large corpora, codebases |
+
+Details that decide items **[Certain]** unless marked:
+
+- Context editing runs on the server before the prompt reaches Claude; your client keeps the full history. It uses a beta header (`context-management-2025-06-27`) **[Likely]**, defaults to triggering at 100,000 input tokens and keeping 3 tool uses, and supports `exclude_tools` for results that must never be cleared.
+- Clearing tool results **invalidates the prompt cache** from the cleared point, so clear in larger chunks (`clear_at_least`) rather than a little every turn.
+- Paired with the memory tool, Claude gets a warning near the clearing threshold so it can write what matters to memory before those results disappear.
+- Compaction loses detail. The Agent SDK docs warn that specific instructions from early in the conversation may not survive, and advise putting persistent rules in CLAUDE.md, which is re-injected on every request.
+- Anthropic's docs now call server-side compaction the primary strategy for most long-running conversations **[Likely]**, with context editing for finer control.
+
+**Exam angle:** "context fills with old tool output" points to tool result clearing; "very long session nearing the limit" points to compaction; "forgot an early rule after a long run" points to moving the rule into the system prompt or CLAUDE.md and persisting facts to memory. Distractor: raising `max_tokens`, which limits output, not context.
+
+### Abstraction frameworks (Strands, LangGraph, PydanticAI)
+
+<SubskillAnchor id="ap.frameworks" />
+
+All three run the same tool-use loop described above. They differ in what they make explicit.
+
+| Framework | Idiom | What you write | Built-ins worth knowing | Choose when |
+|---|---|---|---|---|
+| Strands Agents (AWS open source) | **Model-driven**: give an agent a model, a prompt and tools, and the model plans and drives the loop | An `Agent` with a tool list, then call it with the task | Lightweight loop with lifecycle controls (turn limits, token budgets, cancellation), model-agnostic providers including Anthropic and Amazon Bedrock, MCP tools, agents-as-tools plus Swarm, Graph and Workflow multi-agent patterns | You want a thin loop with little scaffolding and trust the model to plan |
+| LangGraph (LangChain) | **Explicit graph and state machine**: nodes are steps (model calls or code), edges route between them, state is shared and persisted | A state type, nodes, and edges including conditional ones, compiled into a graph | Durable execution that resumes from the last checkpoint, human-in-the-loop inspection and modification of state, working and persistent long-term memory, tracing via LangSmith; usable without the rest of LangChain | You need control flow you can draw, mixing deterministic steps with agentic ones, with pause, resume and approval |
+| PydanticAI (Pydantic team) | **Typed agents**: inputs, dependencies, tools and outputs are typed and validated with Pydantic models | An `Agent` with a model, `deps_type` and `output_type`, plus decorated tool functions | Structured output validated against your model, typed dependency injection, OpenTelemetry instrumentation (Logfire), durable execution engines (Temporal, DBOS, Prefect and others), human approval for deferred tool calls | Python services where validated, typed output is the contract |
+
+Framework capabilities move quickly; the table reflects each project's README as read on 2026-10-06 **[Likely]**. PydanticAI feeding validation failures back to the model for a retry is a long-standing feature **[Likely]**, and LangGraph's graph builder is called `StateGraph` **[Likely]**; neither was confirmed on a page fetched today.
+
+**Anthropic's own options as the comparison point:**
+
+- **Client SDK, hand-written loop**: full control, nothing hidden. "Building effective agents" recommends starting here because many patterns are a few lines of code.
+- **Client SDK Tool Runner** (beta): the SDK executes your tool functions and sends results back, with an iteration cap.
+- **Claude Agent SDK**: Claude Code's loop as a library, with built-in file, shell and web tools, subagents, hooks, permissions, sessions, automatic compaction, `max_turns` and `max_budget_usd`.
+- **Managed Agents**: Anthropic hosts the loop and sandbox.
+
+**When an abstraction helps:** durable execution and resume across failures, human approval steps, typed output contracts, tracing you would otherwise build, and multi-agent wiring you would otherwise maintain. **When it hurts:** Anthropic warns that frameworks "can obscure the underlying prompts and responses, making them harder to debug", and advises that if you use one, you understand the underlying code. If the problem is "the agent does something odd and we cannot see why", the fix is to inspect the raw requests and tool results, not to add another layer.
+
+**Exam angle:** "explicit graph", "resume after failure", "approval node" point to LangGraph; "typed, validated output in Python" points to PydanticAI; "minimal scaffolding, model plans the steps" points to Strands. Distractor: adopting a framework to fix a bug nobody has looked at in the raw calls.
+
+### Agents and workflows for multi-step tasks
+
+<SubskillAnchor id="ap.multi-step" />
+
+Long tasks fail in two characteristic ways that Anthropic documented in its long-running harness work: the agent tries to **do too much at once** and runs out of context mid-change, or a later session sees progress and **declares the job done prematurely** **[Certain]**. Multi-step design counters both with structure in the harness.
+
+- **Decompose and work incrementally.** One feature or unit at a time, with a checklist where every item starts as failing.
+- **Verify before marking done.** Mark an item complete only after an end-to-end check (tests, a query against the output table, a browser run), using ground truth from the environment rather than the model's opinion.
+- **Checkpoint.** Commit or snapshot after each verified unit so a bad step can be reverted, and record progress in a file the next session reads first.
+- **Resume, do not restart.** Anthropic's research system resumes from where the agent was when an error occurred, because restarting long runs is expensive and frustrating.
+- **Human approval at risky boundaries.** Pause before irreversible or external actions (deploys, payments, emails, schema drops). In code this is an approval step or a `PreToolUse` hook; in LangGraph an interrupt; in PydanticAI a deferred tool call.
+- **Bound everything.** Turn caps per agent and per subagent, a spend cap for the whole tree, and timeouts.
+
+<Flow title="Checkpointed multi-step task" steps={[{label: "Read progress file", kind: "store"}, {label: "Pick next failing item", kind: "decision"}, {label: "Agent works on one item", kind: "model"}, {label: "Verify end to end", kind: "guard", note: "tests, queries"}, {label: "Human approval if risky", kind: "guard"}, {label: "Commit + update progress", kind: "store"}]} caption="Each loop leaves the environment clean and the next session oriented." />
+
+**Exam angle:** "declared done but features were broken" points to verification before completion; "lost work when the run crashed" points to checkpoints and resume; "must not deploy without sign-off" points to a human approval gate in code. Distractor: a prompt telling the agent to be careful.
+
+## Decision table
+
+| If the stem says... | Choose | Why the runner-up loses |
+|---|---|---|
+| Agent ran hundreds of turns and the bill spiked | Turn cap plus spend or token budget in the harness | A stronger model or stricter prompt reduces frequency but guarantees nothing |
+| Agent keeps retrying a tool that fails | Return `is_error: true` with an instructive message | Raising ends the run; an empty result makes it guess |
+| Tool inputs sometimes miss required fields | `strict: true` on the tool definition | Prompting for complete inputs is a request, not a guarantee |
+| User preferences must persist to the next session | Application-managed memory (memory tool backend, files, database) | Context window and prompt caching do not persist across sessions |
+| Old tool outputs crowd the context in a long loop | Tool result clearing (context editing), keeping recent results | Raising `max_tokens` affects output length, not context |
+| Agent forgot a rule from the first message after a long run | Put durable rules in the system prompt or CLAUDE.md; persist facts to memory | Repeating the rule in a later user message is lost again at the next compaction |
+| Subagent repeated work the parent already did | Write prior findings and boundaries into the brief | A bigger subagent model cannot see context it was never given |
+| Need a drawable flow with resume after failure and an approval step | LangGraph | Strands' model-driven loop makes the path less explicit |
+| Python service needs validated, typed output from the agent | PydanticAI | Hand-parsing strings rebuilds what the framework validates |
+| Thin, model-driven loop with minimal scaffolding | Strands Agents | A graph framework adds structure the task does not need |
+| Team cannot tell what prompts the framework sends | Inspect or trace the raw API calls first | Switching frameworks swaps one opaque layer for another |
+| Agent marks tasks complete that later fail | End-to-end verification before completion, recorded in a progress file | Asking the agent to double-check is not ground truth |
+
+## Worked walkthrough
+
+<Walkthrough title="Scenario: the pipeline triage agent that would not stop">
+
+<Step title="Read the scenario">
+A data platform team runs an agent that triages failed pipeline runs. It has tools to fetch run status and read logs. Overnight, one run ID had been archived, so the log tool returned the string "ERROR" each time. The agent called the log tool more than 300 times before someone killed the process. What change best prevents a repeat?
+</Step>
+
+<Step title="Find the constraint">
+"Called the log tool more than 300 times before someone killed the process" says nothing in the harness stopped it. "Returned the string ERROR" says the model got no usable signal about what failed or what to do instead. Both are harness defects.
+</Step>
+
+<Step title="Eliminate the model swap">
+Switching to a more capable model might make it give up sooner, but nothing guarantees a stop. The next unusual failure can loop again. This treats a harness failure as a model failure.
+</Step>
+
+<Step title="Eliminate the prompt rule and the bigger window">
+"Never call a tool more than five times" in the system prompt is a request the model usually follows, not a control. A larger context window only lets the loop run longer before it fails.
+</Step>
+
+<Step title="Choose">
+Bound the loop in code (turn cap plus token or spend budget, with a clear status when hit) and return failures as `is_error: true` with an instructive message, for example "Run run-981 is archived; logs are unavailable. Report the run as archived instead of retrying." Optionally detect identical repeated calls and stop early.
+</Step>
+
+<Step title="The deciding cue">
+"Before someone killed the process." A human had to stop it, so the harness had no stop condition. The fix is a harness bound plus actionable error feedback, not a smarter model.
+</Step>
+
+</Walkthrough>
+
+## Code
+
+**A bounded tool-use loop with error feedback.** Turn cap and token budget are enforced in code, every requested tool gets a result in one user message, and failures go back as `is_error` with an instructive message. The fake run store stands in for a jobs API.
 
 ```python
-def run_agent(client, messages, tools, max_iterations=10, timeout_s=60):
-    start = time.monotonic()
-    for _ in range(max_iterations):
-        if time.monotonic() - start > timeout_s:
-            raise TimeoutError("agent loop exceeded wall-clock budget")
+import json
 
+import anthropic
+
+client = anthropic.Anthropic()
+
+RUNS = {"run-981": {"status": "FAILED", "task": "silver_orders", "error": "column order_ts not found"}}
+
+TOOLS = [
+    {
+        "name": "get_run",
+        "description": "Return status, failing task and error for one pipeline run. Input run_id looks like 'run-981'.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"run_id": {"type": "string"}},
+            "required": ["run_id"],
+            "additionalProperties": False,
+        },
+    }
+]
+
+
+class ToolError(Exception):
+    pass
+
+
+def get_run(run_id: str) -> str:
+    if run_id not in RUNS:
+        raise ToolError(f"No run {run_id}. It may be archived. Report it as unavailable; do not retry.")
+    return json.dumps(RUNS[run_id])
+
+
+HANDLERS = {"get_run": get_run}
+
+
+def text_of(resp) -> str:
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+
+def run_agent(task: str, max_turns: int = 8, token_budget: int = 50_000) -> tuple[str, str]:
+    messages = [{"role": "user", "content": task}]
+    used = 0
+    for turn in range(1, max_turns + 1):
         resp = client.messages.create(
-            model="claude-sonnet-4-5",
+            model="claude-sonnet-5-5",
+            max_tokens=2048,
+            system="You triage failed pipeline runs. Use tools for facts; never invent run data.",
+            tools=TOOLS,
             messages=messages,
-            tools=tools,
-            max_tokens=1024,
         )
+        used += resp.usage.input_tokens + resp.usage.output_tokens
         if resp.stop_reason != "tool_use":
-            return resp  # model is done; no more tool calls requested
-
-        # The HARNESS executes the tool -- the model never does.
-        tool_call = next(b for b in resp.content if b.type == "tool_use")
-        result = execute_tool(tool_call.name, tool_call.input)
+            return resp.stop_reason, text_of(resp)  # end_turn, max_tokens or refusal
         messages.append({"role": "assistant", "content": resp.content})
-        messages.append({
-            "role": "user",
-            "content": [{"type": "tool_result", "tool_use_id": tool_call.id, "content": result}],
-        })
-    raise RuntimeError("agent loop exceeded max_iterations")
+        results = []
+        for block in resp.content:
+            if block.type != "tool_use":
+                continue
+            handler = HANDLERS.get(block.name)
+            try:
+                if handler is None:
+                    raise ToolError(f"Unknown tool {block.name}.")
+                results.append({"type": "tool_result", "tool_use_id": block.id, "content": handler(**block.input)})
+            except (ToolError, TypeError) as exc:  # TypeError: unexpected arguments
+                results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(exc), "is_error": True})
+        messages.append({"role": "user", "content": results})  # all results, one message
+        if used > token_budget:
+            return "budget_exhausted", f"Stopped after {turn} turns, {used} tokens."
+    return "max_turns", f"Stopped after {max_turns} turns without an answer."
+
+
+for task in ["Why did run-981 fail?", "Why did run-700 fail?"]:
+    status, answer = run_agent(task)
+    print(f"{status}: {answer}\n")
 ```
 
 ```typescript
-async function runAgent(
-  client: Anthropic,
-  messages: MessageParam[],
-  tools: Tool[],
-  maxIterations = 10,
-  timeoutMs = 60_000
-) {
-  const start = Date.now();
-  for (let i = 0; i < maxIterations; i++) {
-    if (Date.now() - start > timeoutMs) {
-      throw new Error("agent loop exceeded wall-clock budget");
-    }
+import Anthropic from "@anthropic-ai/sdk";
 
+const client = new Anthropic();
+
+const RUNS: Record<string, object> = {
+  "run-981": { status: "FAILED", task: "silver_orders", error: "column order_ts not found" },
+};
+
+const TOOLS: Anthropic.Tool[] = [
+  {
+    name: "get_run",
+    description: "Return status, failing task and error for one pipeline run. Input run_id looks like 'run-981'.",
+    input_schema: {
+      type: "object",
+      properties: { run_id: { type: "string" } },
+      required: ["run_id"],
+      additionalProperties: false,
+    },
+  },
+];
+
+class ToolError extends Error {}
+
+const HANDLERS: Record<string, (input: any) => string> = {
+  get_run: ({ run_id }: { run_id: string }) => {
+    if (!(run_id in RUNS)) {
+      throw new ToolError(`No run ${run_id}. It may be archived. Report it as unavailable; do not retry.`);
+    }
+    return JSON.stringify(RUNS[run_id]);
+  },
+};
+
+const textOf = (r: Anthropic.Message) =>
+  r.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+
+async function runAgent(task: string, maxTurns = 8, tokenBudget = 50_000): Promise<[string, string]> {
+  const messages: Anthropic.MessageParam[] = [{ role: "user", content: task }];
+  let used = 0;
+  for (let turn = 1; turn <= maxTurns; turn++) {
     const resp = await client.messages.create({
-      model: "claude-sonnet-4-5",
+      model: "claude-sonnet-5-5",
+      max_tokens: 2048,
+      system: "You triage failed pipeline runs. Use tools for facts; never invent run data.",
+      tools: TOOLS,
       messages,
-      tools,
-      max_tokens: 1024,
     });
-    if (resp.stop_reason !== "tool_use") {
-      return resp; // model is done; no more tool calls requested
-    }
-
-    // The HARNESS executes the tool -- the model never does.
-    const toolCall = resp.content.find((b) => b.type === "tool_use")!;
-    const result = await executeTool(toolCall.name, toolCall.input);
+    used += resp.usage.input_tokens + resp.usage.output_tokens;
+    if (resp.stop_reason !== "tool_use") return [resp.stop_reason ?? "unknown", textOf(resp)];
     messages.push({ role: "assistant", content: resp.content });
-    messages.push({
-      role: "user",
-      content: [{ type: "tool_result", tool_use_id: toolCall.id, content: result }],
-    });
+    const results: Anthropic.ToolResultBlockParam[] = [];
+    for (const block of resp.content) {
+      if (block.type !== "tool_use") continue;
+      try {
+        const handler = HANDLERS[block.name];
+        if (!handler) throw new ToolError(`Unknown tool ${block.name}.`);
+        results.push({ type: "tool_result", tool_use_id: block.id, content: handler(block.input) });
+      } catch (err) {
+        if (!(err instanceof ToolError)) throw err;
+        results.push({ type: "tool_result", tool_use_id: block.id, content: err.message, is_error: true });
+      }
+    }
+    messages.push({ role: "user", content: results }); // all results, one message
+    if (used > tokenBudget) return ["budget_exhausted", `Stopped after ${turn} turns, ${used} tokens.`];
   }
-  throw new Error("agent loop exceeded maxIterations");
+  return ["max_turns", `Stopped after ${maxTurns} turns without an answer.`];
+}
+
+for (const task of ["Why did run-981 fail?", "Why did run-700 fail?"]) {
+  const [status, answer] = await runAgent(task);
+  console.log(`${status}: ${answer}\n`);
 }
 ```
 
-#### Traps, expanded
+<Output kind="illustrative">
+end_turn: Run run-981 failed in task silver_orders: the column order_ts was not found. The upstream schema likely renamed or dropped it.
 
-**Unbounded loops are a harness design failure, not a model failure.** It's tempting to treat a stuck agent as a reasoning problem — try a more capable model, adjust the prompt, lower the temperature for more deterministic behavior. None of these fix the actual defect, which is that nothing in the code ever told the loop to stop. A better model reduces how often this happens; it does not eliminate the need for explicit bounds, and an exam option that proposes a model or prompt fix for a termination problem is the distractor.
+end_turn: Run run-700 is unavailable; it may have been archived, so its logs cannot be read. Check the archive or rerun the job to reproduce.
+</Output>
 
-**The API is stateless; long-term memory is application-designed.** Every Claude API call is independent — there is no session on the server that remembers yesterday's conversation. It's easy to reach for "a longer context window" or "prompt caching" as the fix for cross-session recall, but a bigger window still only holds what you send it this call, and prompt caching is a short-TTL cost/latency optimization, not persistent storage. The only mechanism that actually survives across sessions is an external store the application writes to and reads from on purpose.
+**A sub-agent as a function: fresh context in, short summary out.** The brief carries objective, deliverable and boundaries because the worker sees nothing else. The parent's context grows by the summary only; the noisy log never enters it.
 
-#### Recall checks
+```python
+import anthropic
 
-- An agent has been calling the same tool in a loop for twenty minutes. What is the correct fix, and what are two incorrect fixes the exam is likely to offer?
-- Explain in one sentence why "the model remembers the last session" is never the correct mechanism for cross-session recall.
-- Name the four levers for keeping a long agent run inside its context window.
-- A team wants typed, validated structured output in Python with minimal custom parsing. Which named framework fits, and why do the other two fit less well?
-- What does a framework buy you, and what does it cost you, in Anthropic's own framing?
+client = anthropic.Anthropic()
+
+
+def text_of(resp) -> str:
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+
+def run_subagent(objective: str, deliverable: str, boundaries: str, material: str) -> str:
+    brief = (
+        f"Objective: {objective}\n"
+        f"Deliverable: {deliverable}\n"
+        f"Boundaries: {boundaries}\n\n"
+        f"<material>\n{material}\n</material>"
+    )
+    resp = client.messages.create(
+        model="claude-haiku-4-5",  # mechanical reading task: cheaper model
+        max_tokens=300,  # forces a short return
+        system="You are a focused worker. Do only the objective and return only the deliverable.",
+        messages=[{"role": "user", "content": brief}],
+    )
+    return text_of(resp)
+
+
+noisy_log = "\n".join(f"INFO batch {i} committed 5000 rows" for i in range(400))
+noisy_log += "\nERROR AnalysisException: column order_ts not found in silver_orders"
+
+summary = run_subagent(
+    objective="Find the first error in this job log and its likely cause.",
+    deliverable="Two bullets: the error line, and the likely cause.",
+    boundaries="Do not propose fixes. Ignore INFO lines.",
+    material=noisy_log,
+)
+print(f"log chars: {len(noisy_log)}  summary chars: {len(summary)}")
+print(summary)
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+const textOf = (r: Anthropic.Message) =>
+  r.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+
+async function runSubagent(objective: string, deliverable: string, boundaries: string, material: string) {
+  const brief =
+    `Objective: ${objective}\nDeliverable: ${deliverable}\nBoundaries: ${boundaries}\n\n` +
+    `<material>\n${material}\n</material>`;
+  const resp = await client.messages.create({
+    model: "claude-haiku-4-5", // mechanical reading task: cheaper model
+    max_tokens: 300, // forces a short return
+    system: "You are a focused worker. Do only the objective and return only the deliverable.",
+    messages: [{ role: "user", content: brief }],
+  });
+  return textOf(resp);
+}
+
+let noisyLog = Array.from({ length: 400 }, (_, i) => `INFO batch ${i} committed 5000 rows`).join("\n");
+noisyLog += "\nERROR AnalysisException: column order_ts not found in silver_orders";
+
+const summary = await runSubagent(
+  "Find the first error in this job log and its likely cause.",
+  "Two bullets: the error line, and the likely cause.",
+  "Do not propose fixes. Ignore INFO lines.",
+  noisyLog,
+);
+console.log(`log chars: ${noisyLog.length}  summary chars: ${summary.length}`);
+console.log(summary);
+```
+
+<Output kind="illustrative">
+log chars: 14309  summary chars: 160
+- ERROR AnalysisException: column order_ts not found in silver_orders
+- Likely cause: an upstream schema change renamed or dropped order_ts.
+</Output>
+
+**Memory with a path guard, plus server-side tool result clearing.** The memory tool is client-side, so the handler is yours and must refuse paths outside `/memories`. Context editing clears old tool results on the server once the trigger is crossed while your client keeps the full history. The beta header and edit type are as documented on 2026-10-06 **[Likely]**.
+
+```python
+from pathlib import Path
+
+import anthropic
+
+client = anthropic.Anthropic()
+ROOT = Path("./agent_memory").resolve()
+
+
+def safe_path(virtual: str) -> Path:
+    if not virtual.startswith("/memories"):
+        raise ValueError("Path must start with /memories")
+    real = (ROOT / virtual.removeprefix("/memories").lstrip("/")).resolve()
+    if real != ROOT and ROOT not in real.parents:
+        raise ValueError("Path escapes the memory directory")
+    return real
+
+
+def handle_memory(cmd: dict) -> str:
+    path = safe_path(cmd.get("path", "/memories"))
+    if cmd["command"] == "view":
+        if path.is_dir():
+            return "\n".join(f"/memories/{p.relative_to(ROOT)}" for p in path.rglob("*")) or "(empty)"
+        return path.read_text() if path.exists() else f"The path {cmd['path']} does not exist."
+    if cmd["command"] == "create":
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(cmd["file_text"])
+        return f"File created successfully at: {cmd['path']}"
+    raise ValueError(f"Command {cmd['command']} not supported by this demo handler")
+
+
+ROOT.mkdir(exist_ok=True)
+print(handle_memory({"command": "create", "path": "/memories/progress.md", "file_text": "run-981: triaged\n"}))
+try:
+    handle_memory({"command": "view", "path": "/memories/../../etc/passwd"})
+except ValueError as exc:
+    print("blocked:", exc)
+
+resp = client.beta.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=1024,
+    betas=["context-management-2025-06-27"],
+    tools=[{"type": "memory_20250818", "name": "memory"}],
+    context_management={
+        "edits": [
+            {
+                "type": "clear_tool_uses_20250919",
+                "trigger": {"type": "input_tokens", "value": 40000},
+                "keep": {"type": "tool_uses", "value": 3},
+                "exclude_tools": ["memory"],
+            }
+        ]
+    },
+    messages=[{"role": "user", "content": "Continue triage from where the last session stopped."}],
+)
+print(resp.stop_reason)  # expect tool_use: Claude views /memories first
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+import fs from "node:fs";
+import path from "node:path";
+
+const client = new Anthropic();
+const ROOT = path.resolve("./agent_memory");
+
+function safePath(virtual: string): string {
+  if (!virtual.startsWith("/memories")) throw new Error("Path must start with /memories");
+  const real = path.resolve(ROOT, virtual.slice("/memories".length).replace(/^\/+/, ""));
+  if (real !== ROOT && !real.startsWith(ROOT + path.sep)) throw new Error("Path escapes the memory directory");
+  return real;
+}
+
+function handleMemory(cmd: { command: string; path?: string; file_text?: string }): string {
+  const p = safePath(cmd.path ?? "/memories");
+  if (cmd.command === "view") {
+    if (fs.existsSync(p) && fs.statSync(p).isDirectory()) {
+      const entries = fs.readdirSync(p, { recursive: true }) as string[];
+      return entries.map((e) => `/memories/${e}`).join("\n") || "(empty)";
+    }
+    return fs.existsSync(p) ? fs.readFileSync(p, "utf8") : `The path ${cmd.path} does not exist.`;
+  }
+  if (cmd.command === "create") {
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, cmd.file_text ?? "");
+    return `File created successfully at: ${cmd.path}`;
+  }
+  throw new Error(`Command ${cmd.command} not supported by this demo handler`);
+}
+
+fs.mkdirSync(ROOT, { recursive: true });
+console.log(handleMemory({ command: "create", path: "/memories/progress.md", file_text: "run-981: triaged\n" }));
+try {
+  handleMemory({ command: "view", path: "/memories/../../etc/passwd" });
+} catch (err) {
+  console.log("blocked:", (err as Error).message);
+}
+
+const resp = await client.beta.messages.create({
+  model: "claude-sonnet-5-5",
+  max_tokens: 1024,
+  betas: ["context-management-2025-06-27"],
+  tools: [{ type: "memory_20250818", name: "memory" }],
+  context_management: {
+    edits: [
+      {
+        type: "clear_tool_uses_20250919",
+        trigger: { type: "input_tokens", value: 40000 },
+        keep: { type: "tool_uses", value: 3 },
+        exclude_tools: ["memory"],
+      },
+    ],
+  },
+  messages: [{ role: "user", content: "Continue triage from where the last session stopped." }],
+});
+console.log(resp.stop_reason); // expect tool_use: Claude views /memories first
+```
+
+<Output kind="illustrative">
+File created successfully at: /memories/progress.md
+blocked: Path escapes the memory directory
+tool_use
+</Output>
+
+## Recall checks
+
+<Recall q="Name four exits a production tool-use loop needs besides the model finishing, and say who enforces them.">
+A turn cap, a spend or token budget, a wall-clock timeout, and handling of non-success stop reasons such as max_tokens or refusal (plus, optionally, detection of repeated identical calls). The harness enforces all of them in code; the model cannot be relied on to stop itself.
+</Recall>
+
+<Recall q="How should a harness report a failed tool call to Claude, and why?">
+As a tool_result with is_error set to true and an instructive message saying what failed and what to do next. Claude can then adapt or explain; raising out of the loop removes that chance and a vague or empty result makes it guess or retry blindly.
+</Recall>
+
+<Recall q="What does a subagent see when it starts, and what does the parent get back?">
+A non-fork subagent sees its own system prompt and the delegation prompt (plus project context such as CLAUDE.md in the Agent SDK), not the parent's conversation. The parent gets the subagent's final message only, so the brief must carry everything needed and the return format must be designed.
+</Recall>
+
+<Recall q="Why is long-term memory an application concern, and what should be persisted?">
+The Messages API is stateless, so anything remembered across sessions must be stored and reloaded by the application, through files, a memory tool backend, a database or retrieval. Persist objectives, decisions with reasons, verified progress and next steps; do not persist secrets or raw outputs that can be refetched.
+</Recall>
+
+<Recall q="Compare tool result clearing and compaction, and name one side effect of each.">
+Tool result clearing drops old tool outputs (server-side context editing replaces them with placeholders) and invalidates the prompt cache from that point. Compaction summarizes the whole conversation into a fresh window and can lose specific early instructions, which is why durable rules belong in the system prompt or CLAUDE.md.
+</Recall>
+
+<Recall q="Give the core idiom of Strands, LangGraph and PydanticAI in one phrase each.">
+Strands: a model-driven loop where you supply model, prompt and tools and the model plans. LangGraph: an explicit graph of nodes and edges over persisted state, with checkpoints and human-in-the-loop. PydanticAI: typed agents whose dependencies, tools and outputs are validated with Pydantic models.
+</Recall>
+
+<Recall q="What is Anthropic's warning about agent frameworks, and what does it recommend instead?">
+Frameworks can obscure the underlying prompts and responses, making agents harder to debug. Anthropic recommends starting with the API directly, since many patterns are a few lines of code, and understanding the underlying code if you adopt a framework.
+</Recall>
+
+<Recall q="Which two failure modes did Anthropic see in long-running agents, and what counters each?">
+Doing too much at once and running out of context mid-change, countered by one feature at a time with a checklist; and declaring the job done prematurely, countered by end-to-end verification before marking items complete. Progress files and commits let each new session resume cleanly.
+</Recall>
