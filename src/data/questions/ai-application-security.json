@@ -1,0 +1,213 @@
+[
+  {
+    "id": "legacy-055",
+    "objective": "ai-application-security",
+    "domain": 7,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A support agent reads customer tickets and can call a refund tool. A customer pastes text into a ticket that reads like an internal instruction authorising a full refund. The agent issues it. Which change prevents recurrence?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Add a system prompt line telling Claude that ticket text is never authoritative",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Require an approval step for refunds and scope the tool so the agent cannot issue one unilaterally",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Lower the temperature so the agent behaves more predictably",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Move to a larger model with stronger instruction following",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Ticket content is untrusted input and the injection succeeded because the tool permitted an irreversible financial action without a gate. Least privilege at the tool boundary plus human approval is the enforceable control. A system prompt line is a request, temperature is unrelated to injection, and a model that follows instructions better can follow injected ones better too.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-ai-application-security-01",
+    "objective": "ai-application-security",
+    "domain": 7,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A document-review assistant reads legal contracts uploaded by outside counsel and drafts summaries for the internal legal team. The company cannot control how outside counsel formats these documents before upload, and one uploaded contract contains a paragraph formatted to look like a system instruction telling the assistant to also send a copy to an external address. The team wants to keep processing contracts from any outside counsel without manual pre-screening of every upload.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Switch the assistant to a larger, more capable model so it better recognizes manipulation attempts",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Deliver the uploaded contract text only inside tool_result content, and give the assistant no email-sending tool at all",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Increase the sampling temperature so responses are less predictable to an attacker",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Add a line to the system prompt asking the model to ignore instructions embedded in uploaded documents",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The correct fix combines content isolation (the untrusted document text stays in tool_result, distinguishable from real instructions) with least-privilege tooling: with no email-sending capability, an injected instruction to email a copy has nowhere to go, regardless of whether the model complies with it. A larger model is a trap distractor — better instruction-following can make a model more susceptible to embedded injected instructions, not less. Temperature has no bearing on whether embedded instructions are followed. A system-prompt request not to follow embedded instructions is advisory only; it is not an enforced control and can be talked around by a sufficiently crafted injection.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-ai-application-security-02",
+    "objective": "ai-application-security",
+    "domain": 7,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A finance-ops agent has a tool that transfers funds between internal accounts. Leadership requires that this tool must never execute without a second human's explicit sign-off, with no exceptions, even if the request comes from an admin user or someone later edits the system prompt. An engineer proposes adding a bold instruction to the system prompt: \"ALWAYS require human approval before calling transfer_funds.\"",
+    "options": [
+      {
+        "id": "a",
+        "text": "The bold system-prompt instruction, since Claude reliably follows explicit capitalized directives",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "A one-time reminder appended to the first user message of each session",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "A deterministic approval gate in the tool-execution harness that blocks the transfer_funds call from completing until a second human explicitly confirms it",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "A note in the tool's description field stating that approval is required",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "\"No exceptions\" is a guarantee, and only code the harness enforces can provide one — text the model reads, no matter how it's phrased or where it's placed, remains a request the model could fail to follow, be argued out of, or simply misjudge. A deterministic gate in the harness can refuse to execute the transfer regardless of what the model outputs. The bold system-prompt line, a session reminder, and a tool-description note are all variations on the same failure: they place the control inside model-readable text rather than inside code that physically stops the call.",
+    "cue": "",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-ai-application-security-03",
+    "objective": "ai-application-security",
+    "domain": 7,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An internal chatbot lets employees query their own HR records through a tool that calls the HR database. Two employees in the same department report that when they ask nearly identical questions, one occasionally sees a fragment of the other's salary data mixed into the response. The engineering team wants to fix the root cause rather than add a warning banner to the chat.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Scope every HR-record query to the authenticated identity of the current user at the point the tool executes, rather than trusting the model to filter results in conversation",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Add a system-prompt instruction telling Claude to only discuss the current user's own data",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Fine-tune a smaller, cheaper model specifically for the HR chatbot",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Log every conversation so leaks can be reviewed after the fact",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Authorization has to be enforced where the query actually executes, scoped to the authenticated caller, not left to the model's judgment inside the conversation. A system-prompt instruction is advisory and can fail under model error or a crafted request, which is exactly the failure mode already occurring. Model size has no bearing on per-user data scoping. Logging is detective, not preventive; it documents leaks after they've already happened instead of stopping them.",
+    "cue": "",
+    "pattern": "scope-boundary",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-ai-application-security-04",
+    "objective": "ai-application-security",
+    "domain": 7,
+    "subskills": [],
+    "type": "multi",
+    "select": 2,
+    "stem": "A security engineer is auditing a Claude-powered agent's supply chain for integrity risk, even though the model itself has not been altered. The agent connects to three MCP servers pulled fresh from a public registry at every deployment with no version pinning, and its long-running memory file accumulates facts across sessions with no validation step before they're written.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Confidentiality failure, because MCP servers pulled from a public registry are inherently exposed",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Memory integrity failure, because unvalidated facts can persist into every future session",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Availability failure, because an MCP server might go offline during a deployment",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Supply-chain integrity failure, because unpinned MCP servers can change behavior between deployments without review",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b",
+      "d"
+    ],
+    "explanation": "The two integrity failure modes actually present are supply-chain integrity (unpinned dependencies pulled fresh each deploy can change agent behavior without any review step) and memory integrity (a persistent memory file that accepts new facts without validation lets a false fact compound forward into every later session). \"Public registry\" describes where the servers come from, not a confidentiality property of the data the agent handles, so that option mislabels the risk. Nothing in the scenario describes downtime, so availability doesn't apply here even though it's a real property in other contexts.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  }
+]

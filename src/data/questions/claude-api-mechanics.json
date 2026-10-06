@@ -1,0 +1,423 @@
+[
+  {
+    "id": "legacy-013",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A request fails with a 400 invalid_request_error. The messages array begins with an entry whose role is 'system'. What is the fix?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Move the system entry to the end of the messages array",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Pass the content in the top-level system parameter instead",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Change its role to 'assistant'",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Add a cache_control block to the entry",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The Messages API takes system as a top-level parameter; there is no system role inside messages. Reordering an invalid role doesn't make it valid, and cache_control is unrelated to request schema.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-014",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A batch of 5,000 classifications completes with no errors, but labels are mismatched to records. The pipeline zips results positionally against the input list. What is wrong?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Batch requests silently use a smaller model",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Batch results return in nondeterministic order and must be joined on custom_id",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Prompt caching returned another request's cached output",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "The batch exceeded its window and returned partial results",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Batch requests process concurrently and results are not guaranteed to return in submission order, so custom_id is the join key. Caching never returns another request's output, and batch honors the model parameter.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-015",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "After a release added a current timestamp to the top of a cached system prompt, cache_read_input_tokens dropped to near zero. Why?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The prompt now exceeds the maximum cacheable length",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "The cached prefix differs on every request, so no two requests share a prefix",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "The 5-minute TTL stops refreshing when a prompt contains variables",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Timestamps are explicitly excluded from cacheable content",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Prompt caching requires an exact prefix match. A value that changes every request, placed at the top of the prefix, means every call is a cache write and never a read. The fix is placement, not TTL.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-016",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A streaming endpoint logs HTTP 200 for every upstream call, yet users report answers stopping mid-sentence with no error shown. What is the most likely explanation?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The client disconnected and the server did not notice",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "An error event arrived in the stream after the 200 status was committed",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "The stream buffered incorrectly and dropped the final chunk",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "The model returned stop_reason end_turn prematurely",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Because the HTTP status is sent before generation finishes, streaming responses can carry error events after a 200. A streaming client needs the same error branching as a non-streaming one, plus a policy for partial output already shown.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-017",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A pipeline analyzes 60-page contracts including tables and signature blocks. The team currently runs a separate OCR step and sends extracted plain text. What does sending the PDF as a document block change?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Nothing, since PDF support performs the same text extraction internally",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Pages are processed visually as well as textually, so charts, tables, and layout survive without separate OCR",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "PDFs bypass token costs because they are treated as attachments",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "The document must first be converted to .docx for full support",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "PDF support runs through vision: pages are rendered as images alongside extracted text, so visual structure is preserved. Budget roughly 1,500 to 3,000 tokens per page. Office formats like .docx are the ones needing conversion, not PDFs.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-018",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A legal team queries the same 90-page contract dozens of times a day. Requests are large and slow. Which change most directly addresses this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Upload the document once via the Files API and reference it by file_id",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Split the contract across several parallel synchronous requests",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Convert the PDF to plain text to remove image token costs",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Raise max_tokens so the whole document fits in one response",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The Files API lets you upload once and reference by file_id across requests, keeping payloads small instead of re-sending the document every time. Converting to text discards the visual structure contract review depends on, and max_tokens governs output rather than input.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-019",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An application answers questions from supplied source documents, and reviewers must verify each answer against the original text. Which feature addresses this most directly?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Extended thinking, so reviewers can read the model's reasoning",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Citations enabled on the document block, referencing the exact source passages",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "A higher effort level to improve accuracy",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Structured outputs with a confidence score field",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Citations grounds responses in supplied documents with references to the specific passages used, which is what verification requires. Thinking shows reasoning rather than sourcing, effort doesn't create traceability, and a self-reported confidence score is not evidence.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-020",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An enterprise has an existing AWS commitment and wants Claude billed through it. What is the most relevant integration consideration?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Claude is unavailable outside the first-party API",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Model identifiers and feature availability can differ, and authentication uses the cloud provider's IAM",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "The Messages API request format is entirely different on cloud platforms",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Prompt caching cannot be used through cloud vendors",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Claude runs on Amazon Bedrock, Google Cloud, and Microsoft Foundry. The practical differences are model ID conventions, lag in feature and beta availability, endpoint types, and provider IAM in place of an Anthropic API key.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-claude-api-mechanics-01",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A support bot caches a large product-docs system prompt behind one breakpoint and holds a strong cache-read rate for weeks. During a routine release, an engineer unconditionally appends one new tool definition to the request's tool list, gated behind a feature flag that only 5% of traffic can trigger, while the system prompt and message-building code are left untouched. Cache-read tokens then drop to zero on every request, including the 95% that never touch the new tool. What explains the drop?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The feature flag itself disables caching for flagged requests regardless of payload content",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "The cache prefix is rendered as tools, then system, then messages, so any change to the tools array invalidates the cached system and message segments too, not just the tools segment",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Adding a tool definition pushes the request past the maximum of four cache breakpoints, so the write silently fails",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Tool definitions are excluded from the cacheable prefix entirely, so introducing one always forces a full-price request",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Correct: the cache is a strict prefix match rendered in the fixed order tools -> system -> messages, and a change at any level invalidates that level plus everything downstream, so an edited tools array busts the system and message caches even though those literal blocks never changed. Option A fails because feature flags are a runtime branch, not a caching input -- the tool entry itself is present in the payload for all 100% of requests regardless of who exercises it. Option C fails because this scenario uses a single breakpoint, well under the limit of four, so the breakpoint cap is not in play. Option D fails because it reverses the real rule: tools sit at the very front of the cacheable hierarchy, not outside it.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-claude-api-mechanics-02",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [],
+    "type": "multi",
+    "select": 2,
+    "stem": "A data team submits 40,000 documents to the Message Batches API for classification, expecting the batch to finish well inside their six-hour reporting window. To save engineering time, they write the results-processing code to zip the downloaded results directly against the original 40,000-item input list by array position, and they build no handling for a batch that doesn't fully complete. Which two of the following are real risks in this design? (Select two.)",
+    "options": [
+      {
+        "id": "a",
+        "text": "Results can return in a different order than requests were submitted, so a positional zip can silently pair a result with the wrong input document",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "A batch that hasn't finished processing within 24 hours expires, losing whatever requests are still unfinished, so a design with no fallback for that case can silently lose data",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "The Batches API only applies its cost discount to requests that finish within the first hour, so slower requests are billed at full synchronous price",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "A single batch submission is capped at 1,000 requests, so the 40,000-document submission would be rejected outright",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Correct (both): batch requests are processed independently and concurrently, so completion order carries no relationship to submission order -- only a custom_id join is safe, making a positional zip a real data-integrity bug; separately, a batch that has not finished within 24 hours expires and drops unfinished requests, so skipping fallback handling for that case risks silent data loss even though most batches finish in under an hour. Option C fails because the batch discount is a flat percentage off standard pricing applied to all usage in the batch, not a time-boxed promotion tied to how fast a given request completes. Option D fails because the per-batch request ceiling is far larger than 1,000 -- the number is fabricated and would not cause 40,000 documents to be rejected at submission.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  }
+]

@@ -1,0 +1,22 @@
+{
+  "name": "CCDV-F Field Lab",
+  "short_name": "CCDV-F Lab",
+  "description": "Offline study platform for the Claude Certified Developer – Foundations exam: objectives, practice, exam simulator, labs.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0B2026",
+  "theme_color": "#0B2026",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "shortcuts": [
+    { "name": "Quick 10", "url": "./practice/?mode=weighted&n=10" },
+    { "name": "Due reviews", "url": "./practice/?mode=due" },
+    { "name": "Exam simulator", "url": "./exam/" }
+  ]
+}

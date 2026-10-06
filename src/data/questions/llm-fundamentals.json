@@ -1,0 +1,296 @@
+[
+  {
+    "id": "legacy-038",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "Which statement about tokens is correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Token counts are identical across all Claude models",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Token counts are model-specific and should be re-measured when migrating models",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "One token always equals one word",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Only input text is tokenized; output is billed by character",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Tokenization is model-specific, so counts measured against one model don't transfer. Newer models use a different tokenizer that can produce meaningfully more tokens for identical text, which changes effective cost even at a flat rate.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-039",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A team fills a 1M-token context window with retrieved documents on every request. What is the main concern?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The request will be rejected for exceeding limits",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Retrieval quality degrades in very long contexts and cost rises, so advertised context is not effective context",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Thinking will be automatically disabled",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "The response will always hit max_tokens",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Context is a finite resource with diminishing returns: recall degrades as the window fills and every token is billed. Filling the window because capacity exists is a design smell rather than a hard failure.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-040",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A classification task produces inconsistent output formatting. Which prompting technique most directly addresses this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Zero-shot with a longer instruction",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Multi-shot, providing several diverse examples of the desired output format",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Raising max_tokens to give more room for formatting",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Increasing temperature to encourage variety",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Few-shot examples establish format and handle edge cases more reliably than prose instruction. Diverse canonical examples beat many similar ones, and the block belongs in the cached prefix to control cost.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-041",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "Which statement about thinking tokens is correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "They are free because they are not shown to the user",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "They are billed at output token rates",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "They are billed at cached input rates",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "They count toward max_tokens but are not billed",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Thinking tokens bill at output rates even when collapsed, making them the most commonly missed line in a cost model. They also consume max_tokens before the visible answer starts, which is why a tight budget carried over from an older model causes mysterious truncation.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-llm-fundamentals-01",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A team runs requests against a model with a 200,000-token context window. Their conversation history sits at 190,000 tokens, and they set max_tokens to 64,000 hoping to get a long generated report back in one call, but the response cuts off well short of 64,000 output tokens. A teammate insists this must be a bug because max_tokens should guarantee that many output tokens regardless of input length. Which explanation is correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "It is a bug: max_tokens is a fixed allocation reserved before the request starts, entirely separate from the context window.",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "The cutoff means the model exceeded its training data limit, which is unrelated to context window size.",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "max_tokens sets a ceiling, not a guarantee: input and output share one context-window budget, so once input plus generated tokens reach that shared ceiling, generation stops even if max_tokens has not been reached.",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "max_tokens only applies to text output; thinking tokens are counted separately and unlimited, so the report was truncated by a content filter instead.",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "Correct answer C: the context window is one shared budget covering the system prompt, messages, tool definitions, and all output for the turn, including thinking. At 190,000 tokens of input against a 200,000-token window, only 10,000 tokens of room remain regardless of what max_tokens is set to, so generation stops early. Option A is wrong because it treats max_tokens as an independent reservation rather than a ceiling within the shared budget. Option B invents an unrelated concept (training data size) that has nothing to do with the context window limit being described. Option D is wrong because thinking tokens count toward the same window and are not unlimited, and nothing in the scenario suggests a content filter.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-llm-fundamentals-03",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A finance team wants an automated pipeline that must produce the exact same invoice-categorization output every single time it processes the same invoice text, byte-for-byte, so they can diff outputs across nightly runs without any manual review. An engineer proposes setting temperature to 0 on every call and calling it done. Which response correctly evaluates this proposal?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The proposal is sound: temperature 0 is defined as fully deterministic, so identical inputs are guaranteed to produce identical outputs on every call.",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "The team should instead set top_p to 0 alongside temperature 0, since together these are documented to eliminate all output variance.",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "The team should raise max_tokens to guarantee stability, since truncated responses are the only source of run-to-run variance at temperature 0.",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Temperature 0 makes decoding greedy but does not guarantee byte-identical output across calls; floating-point non-associativity and request batching can still shift results, so a hard byte-for-byte guarantee cannot come from a sampling parameter alone.",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "Correct answer D: temperature 0 selects the highest-probability token at each step (greedy decoding), but infrastructure-level effects such as GPU floating-point non-associativity and batching with other concurrent requests mean two calls with identical input and parameters are still not guaranteed to match exactly. A pipeline that must diff outputs byte-for-byte needs a deterministic check outside the sampling parameter, not a parameter tweak alone. Option A states the common misconception that temperature 0 equals a determinism guarantee. Option B fabricates a documented top_p combination that does not exist. Option C misattributes the variance to output truncation, which is not the mechanism described in the scenario.",
+    "cue": "",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-llm-fundamentals-04",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A team hard-codes a per-request token budget of 3,000 tokens for a summarization prompt, calibrated by counting tokens on one model during development. Six months later they migrate the same prompt template to a newer model generation with an updated tokenizer, without re-measuring anything, and the pipeline starts truncating input that used to fit comfortably. Which practice would have prevented this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Increase max_tokens instead of re-counting, since max_tokens and input token budgets are governed by the same underlying tokenizer figure.",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Re-run token counting against the new model after any migration, since token counts are model-specific and a count calibrated on one model's tokenizer does not reliably transfer to another.",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Switch to counting words instead of tokens, since word counts are consistent across all model generations and avoid the tokenizer dependency entirely.",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Nothing could have prevented this: token budgets calibrated on one model are guaranteed to transfer exactly to any newer model in the same family.",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Correct answer B: token counts depend on the specific tokenizer a model version uses, so a budget measured against one model's tokenizer is not safe to reuse unmeasured after a migration; re-counting against the new model is what prevents the silent truncation. Option A confuses two different limits: max_tokens governs output length, not the input token budget being described, so raising it does not address the input-side miscount. Option C is wrong because the token-to-word ratio itself varies by content type and by tokenizer, so word counts are not a stable substitute. Option D asserts a guarantee that directly contradicts the scenario, which demonstrates the opposite.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  }
+]

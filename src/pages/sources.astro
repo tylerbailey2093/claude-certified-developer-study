@@ -1,0 +1,63 @@
+---
+import Base from '../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+
+const base = import.meta.env.BASE_URL;
+const objectives = await getCollection('objectives');
+type Row = { label: string; url: string; host: string; cited: { id: string; name: string }[] };
+const byUrl = new Map<string, Row>();
+for (const o of objectives) {
+  for (const s of o.data.sources as { label: string; url: string }[]) {
+    let host = '';
+    try {
+      host = new URL(s.url).host.replace(/^www\./, '');
+    } catch {}
+    const row = byUrl.get(s.url) ?? { label: s.label, url: s.url, host, cited: [] };
+    row.cited.push({ id: o.data.id, name: o.data.name });
+    byUrl.set(s.url, row);
+  }
+}
+const groups = new Map<string, Row[]>();
+for (const r of byUrl.values()) groups.set(r.host, [...(groups.get(r.host) ?? []), r]);
+const ordered = [...groups.entries()].sort((a, b) => b[1].length - a[1].length);
+---
+<Base title="Sources" crumbs={[{ label: 'Sources' }]} grid="dim">
+  <header class="page-head">
+    <p class="eyebrow">{byUrl.size} sources across {ordered.length} sites</p>
+    <h1>Sources</h1>
+    <p class="lede">
+      Every page cites where its claims come from. Primary sources first: the exam guide, then official docs. Model IDs, prices and
+      parameters drift, so re-check a figure against the docs before relying on it.
+    </p>
+  </header>
+
+  <div class="callout callout-key">
+    <p class="callout-title">Primary sources</p>
+    <p>
+      The <strong>CCDV-F Exam Guide v1.0</strong> (July 2026) is the only authoritative statement of what is tested. After that:
+      <a href="https://platform.claude.com/docs" target="_blank" rel="noopener">platform.claude.com/docs</a> (API, models, pricing),
+      <a href="https://code.claude.com/docs" target="_blank" rel="noopener">code.claude.com/docs</a> (Claude Code, hooks, skills, settings),
+      <a href="https://www.anthropic.com/engineering" target="_blank" rel="noopener">anthropic.com/engineering</a>, and
+      <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">modelcontextprotocol.io</a>.
+    </p>
+  </div>
+
+  {ordered.map(([host, rows]) => (
+    <section style="margin-top:26px">
+      <h2 style="font-size:1.1rem" class="mono">{host || 'other'}</h2>
+      <div class="table-wrap">
+        <table class="grid-table">
+          <thead><tr><th>Source</th><th>Cited by</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr>
+                <td><a href={r.url} target="_blank" rel="noopener">{r.label}</a></td>
+                <td>{r.cited.map((c, i) => <>{i > 0 && ', '}<a href={`${base}objective/${c.id}/`}>{c.name}</a></>)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  ))}
+</Base>

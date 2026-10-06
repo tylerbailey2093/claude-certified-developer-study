@@ -1,0 +1,170 @@
+[
+  {
+    "id": "legacy-011",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An enterprise requires every production model version change to be recorded, reviewed, and approved before release. Which framework does this requirement come from?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Agile, which mandates sprint review of all changes",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "ITIL-style service management, where change and release management govern production changes",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Waterfall, which requires phase gate sign-off",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "DevOps, which automates approvals away",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Change records, approval boards, and release management are service management concepts, and a model version change is a production change like any other. Agile and Waterfall describe how work is planned and delivered rather than how production change is governed.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-012",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "Why can a Claude feature not rely solely on exact-match regression tests?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The API response format changes frequently",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Model output is non-deterministic, so correctness must be graded against criteria",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Tests cannot make network calls",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Token counts vary between runs",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Non-determinism means the same prompt can produce different valid outputs, so evals grade against criteria rather than asserting string equality. Deterministic code around the model is still unit tested normally.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-systems-life-cycle-01",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A team wants a repeatable way to describe how they take a Claude-powered feature from initial concept through iterative development, release, and ongoing operation. A vendor pitches a proprietary 'AI Development Lifecycle' framework built specifically for LLM-based projects, arguing that generic IT frameworks predate large language models and can't account for non-deterministic behavior.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Adopt the vendor's proprietary AI Development Lifecycle, since generic IT frameworks predate LLM applications",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Rely on prompt engineering best practices alone, since they govern how the feature behaves in production",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Apply the generic systems life cycle (plan, develop, test, implement, operate, maintain) using Agile or DevOps practices, adding evals as the test gate",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Design a new lifecycle framework from scratch, since no existing framework accounts for non-deterministic model output",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "The objective is scoped as generic IT systems life cycle management; Claude-application work maps onto the same plan-develop-test-implement-operate-maintain arc as any other system, with Agile or DevOps supplying the iteration and release discipline and evals replacing exact-match tests as the quality gate. Adopting a proprietary 'AI-specific' framework is the trap this objective is built to catch — an engineered-to-sound-plausible distractor that ignores that the generic model already covers this arc. Prompt engineering is a technique applied during development, not a lifecycle framework in its own right. Building a new framework from scratch overstates the problem: non-determinism is handled by changing what the existing test gate checks, not by discarding the gate.",
+    "cue": "",
+    "pattern": "scope-boundary",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-systems-life-cycle-02",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A Claude-powered pipeline is already live in production. An engineer wants to bump the pinned model version and adjust two prompts. Company policy requires a documented change record, a risk assessment, and sign-off from a change advisory board before any modification reaches production, regardless of how small the change is. Which management discipline governs this requirement?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Scrum sprint planning, since the change can be scoped and sized as a backlog item",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Waterfall requirements sign-off, since the system's original scope must be honored",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "DevOps continuous deployment, which is designed to automate this kind of approval away",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "ITIL-style change and release management",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "Documented change records, risk assessment, and change advisory board sign-off before any production modification, no matter how small, is the definition of ITIL-style service management governing a live system. Sprint planning organizes how development work gets scheduled and estimated, not how a change to a live production system gets approved. Waterfall governs how a project's own phases are sequenced during initial build, not ongoing change control after go-live. DevOps automates delivery pipelines, but 'automates approval away' directly contradicts the stem's explicit requirement for a human sign-off — a distractor that sounds efficient while ignoring the stated constraint.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  }
+]

@@ -1,0 +1,296 @@
+[
+  {
+    "id": "legacy-006",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An agent occasionally runs for hours, repeating the same tool call. What is the correct primary control?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Lower the temperature so its choices are more consistent",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Bound the loop with maximum iterations, a wall-clock timeout, and a token budget",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Switch to a more capable model that will not get stuck",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Increase max_tokens so it can complete its reasoning",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Unbounded loops are a harness design failure fixed with explicit bounds. A more capable model reduces but does not eliminate loops, and neither temperature nor max_tokens addresses termination.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-007",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An agent needs information from a session that ended two days ago. How is this achieved?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The model retains prior sessions in its weights automatically",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "The application writes to and reads from an external store, since the API is stateless",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Prompt caching persists the earlier session for later retrieval",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Setting a longer context window carries state between sessions",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The API is stateless and the model has no memory between calls. Long-term memory is something the application designs and manages. Caching is a cost and latency optimization with a short TTL, not a persistence layer.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-008",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "Which consideration most favors starting with direct API calls rather than an agentic framework?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Frameworks cannot support tool use",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Direct calls keep the failure surface visible without an abstraction layer between the team and the model",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Frameworks are only available for TypeScript",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Direct calls are the only way to use streaming",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Frameworks buy scaffolding at the cost of an abstraction that can obscure failures. Start direct and adopt a framework when the scaffolding earns its keep. The other options are factually false.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-01",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A deployment agent must never make more than fifty tool calls in a single run, regardless of how capable the underlying model is or how the prompt is worded, because a runaway run has already caused a production incident. Which control actually guarantees that ceiling holds?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A harness-level counter that stops the loop once fifty tool calls have been made, independent of the model's own judgment",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Switching to a more capable model that is less likely to get stuck in a loop",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Lowering the sampling temperature so the model's tool choices are more consistent",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Adding a system-prompt instruction telling the model to stop after fifty tool calls",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Only a harness-level counter enforced in code guarantees the ceiling, because it doesn't depend on the model choosing to comply. A more capable model reduces how often loops happen but never guarantees a hard limit. Lowering temperature changes variability, not termination. A system-prompt instruction is a request the model can fail to follow, not a guarantee -- the same distinction that makes unbounded loops a harness failure rather than a model failure.",
+    "cue": "",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-02",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A long-running research agent writes short notes to a local file as it works through a forty-step investigation, and reads those notes back on later steps, even though this costs it extra tool calls it wouldn't otherwise need. What best explains why this design choice is worth that overhead?",
+    "options": [
+      {
+        "id": "a",
+        "text": "It permanently increases the size of the agent's underlying context window",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "It gives the agent persistent memory outside the context window, preserving progress and dependencies without keeping the full history in-context",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "It replaces the harness's responsibility to bound the loop with a timeout or iteration limit",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "It lets the underlying API retain state between two otherwise unrelated conversations",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Structured note-taking is a memory pattern: it persists progress and dependencies outside the context window at low overhead, so the agent doesn't need to keep everything in-context. It does not change context-window size, does not substitute for loop-termination bounds, and does not make the API stateful -- each wrong option borrows a real mechanism from an adjacent concern that note-taking doesn't actually touch.",
+    "cue": "",
+    "pattern": "scope-boundary",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-03",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An agent's conversation has grown large enough that old tool outputs are consuming most of the available context, even though the agent no longer needs to re-inspect any of them. The team wants the lightest-touch fix available and specifically wants to avoid summarizing anything. Which lever fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Compaction: summarize the whole conversation and reinitiate a new context window",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Switch to a model with a larger context window so the old outputs simply fit",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Tool-result clearing: drop the stale raw tool outputs from the message history",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Rewrite the system prompt to be shorter",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "Tool-result clearing is the lightest-touch lever and involves no summarization -- it just drops stale raw outputs the agent no longer needs. Compaction is exactly the summarization the team said to avoid. A larger context window doesn't manage anything, it just delays the same growth problem. The system prompt isn't what's consuming context in this scenario, so shortening it doesn't address the stated cause.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-04",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A Python team wants every tool call and model response validated against typed schemas at development time, with as little custom parsing code as possible, and they explicitly do not need a general-purpose graph engine for branching, cyclical control flow. Which framework fits best?",
+    "options": [
+      {
+        "id": "a",
+        "text": "LangGraph, for its explicit graph of nodes and edges",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Strands Agents, for its minimal-scaffolding model-driven loop",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "A hand-rolled loop with no framework at all",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "PydanticAI, for its typed, validated structured output built on Pydantic models",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "PydanticAI's core value is typed, validated structured output via Pydantic models, which is exactly the team's stated requirement. LangGraph is built around explicit graph orchestration for branching, stateful control flow -- the team explicitly said they don't need that. Strands centers on a thin, model-driven loop, not on schema validation. A hand-rolled loop maximizes the custom parsing and validation code the team wants to minimize, the opposite of what they asked for.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  }
+]

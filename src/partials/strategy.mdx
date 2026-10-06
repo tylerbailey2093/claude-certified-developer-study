@@ -1,0 +1,109 @@
+import Callout from '../components/mdx/Callout.astro';
+
+## Exam facts that decide strategy
+
+| | |
+|---|---|
+| Items | 53, multiple-choice and multiple-response. Each multiple-response item states how many to select |
+| Time | 120 minutes, about **2.26 minutes per item** |
+| Scoring | Scaled 100 to 1000, **cut score 720**, criterion-referenced (no curve) |
+| Per-domain scores | Shown on the report, **diagnostic only**. No per-domain minimum |
+| Fee | $125 USD per attempt |
+| Delivery | Pearson VUE, online proctored or at a test center |
+| Validity | 12 months. Free non-proctored renewal if on time; Anthropic may require the full exam if content changes significantly |
+| Retakes | Wait 14, then 30, then 90 days. At most 4 attempts in a rolling 12 months |
+| Prerequisites | None. Awarded on exam performance alone |
+
+<Callout type="key" title="Why weighting your study time works">
+Pass or fail comes from the total scaled score only. A strong Domain 2 (33.1%) can carry a weak Domain 3 (3.1%). Spend time where the items are: Domains 2 and 5 together are 49.9% of the exam.
+</Callout>
+
+## Pacing on the day
+
+- **Budget 2.26 minutes per item.** Checkpoints: item 18 by about 40 minutes, item 35 by about 80 minutes, leaving time for flagged items.
+- **Flag and move on.** Candidates on the sibling Architect exam report flagging heavily early and finishing with 15 to 20 minutes to revisit. Hard items read easier on the second pass.
+- **There is no guessing penalty.** Never leave an item blank. Eliminate what you can, pick, flag.
+- **Multiple-response has no partial credit** (assume so; the guide does not promise it). Pick exactly the number asked for.
+- The [exam simulator](../exam/) reports your pace against this line after every run.
+
+## How the items are built
+
+Every practice item on this site follows the style of the three published samples:
+
+1. **One buried constraint decides the answer.** "Not needed until morning" means batch. "Must stay in region" means regional endpoints. "Reusable across applications" means an MCP server. "Must happen every time" means a hook. Read the stem once for the scenario and once hunting the constraint.
+2. **"Must" or "always" means a deterministic control.** A system-prompt instruction is a request; a hook, permission rule, or schema constraint is a guarantee. When the stem demands a guarantee, the prompt-based option is the distractor.
+3. **Distractors are real mechanisms in the wrong place.** Each wrong option is something that works somewhere else. The question is never "does this exist" but "does this fit these constraints".
+4. **Single words decide.** "Guaranteed", "fastest", "cheapest", "without code changes", "for every user". Underline them mentally.
+
+## What candidates report
+
+These are themes from public write-ups by people who sat CCDV-F or the sibling Architect exam. They are one-person accounts, not data, and none of them contain exam items. **[Likely]** on the themes, **[Guessing]** on any single claim.
+
+- **A third of the exam is not about Claude.** Domain 2 includes REST semantics, versioning, async, git, code review and refactoring. People who only studied Claude features were caught out.
+- **Specifics matter.** Fast mode, extended and adaptive thinking, effort levels, SDK retry behaviour, context management and tool use were called out by a candidate who scored in the 900s.
+- **Free practice tests are easier than the real thing.** Learn the reasoning, not answer keys. This site writes items harder on purpose and draws harder items more often in the simulator.
+- **Topics the Architect exam excluded are in scope here**: streaming, vision, prompt caching, pricing and cost, authentication, cloud provider endpoints, websockets and secrets management.
+- **Hands-on experience alone was not enough** for several Architect candidates; they paired building with reading the docs.
+- **Exam-day logistics trip people**: the ID name must exactly match the registration.
+
+<Callout type="trap" title="Avoid dump sites">
+Anything selling "real exam questions", "dumps" or "verified actual questions" violates the NDA you accept before the exam and is almost certainly lying about what it has. Disclosing exam content can invalidate your result and revoke the credential. Every item on this site is original.
+</Callout>
+
+## Anthropic's own prep prescription
+
+The guide (Section 7) says no single course is required and no resource guarantees a pass. Its recommended combination:
+
+1. Study the blueprint and self-assess against each objective by name. The objective pages here list the guide's wording and every sub-skill.
+2. Review the official docs for the API, models, prompt engineering, Claude Code, Skills and MCP. Every objective page links them under Sources.
+3. **Build and operate at least one Claude application** that uses the API, at least one tool, prompt and context engineering, and basic security and evaluation practice. The [labs](../labs/) exist for this.
+4. Practise the competencies directly.
+5. Work the sample questions to calibrate to item style.
+
+## The official course, mapped by value
+
+774 minutes on Anthropic Partner Academy. Runtime and exam weight are close to inversely correlated, so watch by weight, not in order.
+
+| # | Module | Run | Covers | Priority |
+|---|---|---|---|---|
+| 1 | MSO Foundations | 57m | All of D5 (16.8%) | Highest density: about 3.4 minutes of video per exam point |
+| 2 | Production-Grade Prompting, Agents & Tool Use | 209m | D1 (14.7%), D6 (11%), most of D8 (10.6%) | Fast pass if you know agents |
+| 3 | Claude Code, MCP & Integration | 142m | D3 (3.1%), MCP dev (2.1%), D2 Configuration Management (4.1%) | Skim the Claude Code half; the configuration half is where the points are |
+| 4 | Production Engineering, Evals & Security | 211m | D7 (8.1%), D4 (2.6%), D2 SWE (7.4%) and Life Cycle (2.8%) | Full attention: about 21% of the exam |
+| 5 | Accelerators & IP Contribution | 155m | Thin: reuse decisions (Agentic Customization), code review (SWE) | Lowest return. Last or not at all |
+
+<Callout type="key" title="The gap the course leaves">
+Claude Application Design (8.6%, the heaviest objective) and Understanding Requirements (3.4%) have no home module. About 12% of the exam lives in the seams between modules. That gap is what this site is built to fill.
+</Callout>
+
+## A plan for a 2 to 6 week window
+
+**Week 1: the heavy half.** Claude Application Design, Software Engineering Foundations, API Mechanics, Technical Fundamentals and LLM Fundamentals. Run labs 01 and 02. One Quick 10 every day.
+
+**Week 2: the rest of Domains 2 and 5.** Configuration Management, Requirements, Life Cycle, Model Selection, Cost. Run labs 04 and 06. First Mini mock at the end of the week.
+
+**Week 3: agents, tools, prompting.** Domains 1, 6 and 8. Labs 03, 08 and 10. First full strict exam at the end of the week.
+
+**Week 4 onward: security, Claude Code, and consolidation.** Domain 7 (lab 09), then Domains 3 and 4 quickly. Daily due reviews. A full strict exam every few days, reviewing every miss against its objective page rather than its answer key.
+
+**Book the exam** when strict exams sit above 780 for two runs in a row and the readiness checklist below is complete.
+
+## Policy that costs money if ignored
+
+| Item | Rule |
+|---|---|
+| Reschedule | Free up to 24 hours before. Inside that window, or a no-show, forfeits the fee |
+| ID | Valid, unexpired, government-issued photo ID. **Name must match registration exactly.** Fix mismatches with support before scheduling |
+| Accommodations | Requested and approved through Pearson VUE before you schedule |
+| NDA | Accepted before the exam starts. Declining ends the session with no refund |
+| Workspace (online) | No notes, phones, watches, headphones or second monitors. Stay in webcam view |
+| Appeals | Within 14 days. Item content and standard-setting outcomes are not appealable |
+| Support | certifications-support@anthropic.com |
+
+## Exam-day checklist
+
+- ID checked against the registration name, character for character.
+- For online delivery: run the Pearson system test the day before on the same machine and network; close every other app; clear the desk.
+- Water and a quiet room booked for 2.5 hours.
+- First pass: answer or flag every item, never stall past about 3 minutes.
+- Second pass: flagged items, then a last sweep for blanks.

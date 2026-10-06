@@ -1,0 +1,10 @@
+---
+import Base from '../layouts/Base.astro';
+import Settings from '../islands/Settings.tsx';
+---
+<Base title="Settings" crumbs={[{ label: 'Settings' }]} grid="dim" narrow>
+  <header class="page-head">
+    <h1>Settings</h1>
+  </header>
+  <Settings client:load />
+</Base>

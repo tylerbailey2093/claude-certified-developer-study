@@ -56,11 +56,21 @@ def extract_from_html(path: Path) -> list:
 
 
 def extract_from_json(path: Path) -> list:
+    """A v1 bank file, a v2 per-objective file, or a directory of v2 files.
+    Retired items are skipped: they never reach a learner."""
+    if path.is_dir():
+        out = []
+        for f in sorted(path.glob("*.json")):
+            if f.name != "retired.json":
+                out += extract_from_json(f)
+        return out
     data = json.loads(path.read_text())
     items = data if isinstance(data, list) else data.get("questions", [])
     return [{"domain": q.get("d") or q.get("domain"),
              "objective": q.get("s") or q.get("objective", ""),
-             "stem": q.get("q") or q.get("stem", "")} for q in items]
+             "stem": q.get("q") or q.get("stem", ""),
+             "options": [o["text"] if isinstance(o, dict) else o for o in (q.get("options") or q.get("o") or [])]}
+            for q in items if q.get("status") != "retired"]
 
 
 def main() -> int:
@@ -78,8 +88,9 @@ def main() -> int:
     thr = a.threshold if a.threshold is not None else ref.get("threshold", 0.55)
 
     target = Path(a.target)
-    items = extract_from_json(target) if a.json or target.suffix == ".json" \
+    items = extract_from_json(target) if a.json or target.is_dir() or target.suffix == ".json" \
         else extract_from_html(target)
+    sample_opts = ref.get("options", [])
 
     if not items:
         print("FAIL: no questions found in", target)
@@ -93,6 +104,15 @@ def main() -> int:
             worst = max(worst, peak)
             if peak >= thr:
                 fails.append((it, i, sc, peak))
+        # Options too: a distractor lifted from a published sample is still copying.
+        for opt in it.get("options", []):
+            for i, opts in enumerate(sample_opts, 1):
+                for r in opts:
+                    sc = scores(opt, r)
+                    peak = max(sc["ratio"], sc["shingle"])
+                    worst = max(worst, peak)
+                    if peak >= max(thr, 0.7) and len(opt) > 40:
+                        fails.append(({**it, "stem": "[option] " + opt}, i, sc, peak))
 
     print(f"checked {len(items)} items against {len(refs)} published samples")
     print(f"threshold {thr:.2f} | highest similarity observed {worst:.2f}")

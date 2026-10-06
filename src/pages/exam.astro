@@ -1,0 +1,16 @@
+---
+import Base from '../layouts/Base.astro';
+import ExamSimulator from '../islands/ExamSimulator.tsx';
+const base = import.meta.env.BASE_URL;
+---
+<Base title="Exam simulator" crumbs={[{ label: 'Exam simulator' }]} grid="dim">
+  <header class="page-head">
+    <p class="eyebrow">53 items · 120 minutes · blueprint-weighted</p>
+    <h1>Exam simulator</h1>
+    <p class="lede">
+      Runs like the real delivery: flag for review, a review screen with every item, no feedback until you end. The timer keeps
+      running if you reload or close the app, and resumes where you left off.
+    </p>
+  </header>
+  <ExamSimulator client:load base={base} />
+</Base>

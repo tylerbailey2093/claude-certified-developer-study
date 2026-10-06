@@ -1,0 +1,212 @@
+[
+  {
+    "id": "legacy-009",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A nightly job must classify 80,000 records. Results are reviewed the next business morning. Cost is the main concern. Which approach fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Synchronous Messages API calls issued in parallel",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "The Message Batches API, which processes asynchronous workloads at reduced cost",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Streaming requests to reduce total wall-clock time",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Reducing max_tokens on synchronous calls",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Nothing consumes results until morning, the signal for batch and its 50% discount. Parallel synchronous calls don't lower per-token cost, streaming optimizes a dimension nobody measures here, and trimming max_tokens ignores the realtime-versus-batch tradeoff.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-010",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A requirement states customer records must be processed within the EU. Which infrastructure decision follows most directly?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Use a regional endpoint that guarantees geographic routing",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Use a global endpoint for maximum availability",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Encrypt the payload before sending it",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Reduce the retention period on application logs",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Residency is met by regional endpoints with guaranteed geographic routing. Global endpoints route dynamically for availability, the opposite of what residency requires. Encryption and log retention are good practice but don't control where processing happens.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-understanding-requirements-01",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A telehealth company routes post-visit session summaries through Claude for clinician review. A newly passed data protection law in the patient's home country prohibits any processing of health data outside that country's borders, even momentarily in transit. Which infrastructure requirement should the solution architecture satisfy?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Encrypt the session summary with a customer-managed key before it leaves the clinic's network",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Route the request through a regional API endpoint that guarantees in-country processing",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Shorten the retention window on stored session summaries to reduce exposure",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Increase the request timeout budget to accommodate cross-border network latency",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The constraint is where processing happens, not how long data is kept or how fast a response arrives. A regional endpoint pins inference to the required jurisdiction. Encryption protects confidentiality in transit but doesn't control the country in which the model actually runs, so it fails the residency requirement outright. Shortening retention addresses how long data is stored, a different requirement dimension than where it's processed. Increasing the timeout is a latency parameter with no bearing on jurisdiction.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-understanding-requirements-02",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A brokerage firm's policy states that every response Claude sends to a retail customer must have account numbers stripped before delivery, with no exceptions permitted under any circumstance. A junior engineer proposes solving this by adding a instruction to the system prompt asking Claude to redact account numbers whenever it sees one. What does this requirement actually call for?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A longer, more detailed system prompt describing exactly what an account number looks like",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "A higher reasoning-effort configuration on the model to improve redaction accuracy",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Periodic manual audits of a sample of outgoing customer responses",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "A deterministic post-processing filter that runs on every response before delivery, independent of model behavior",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "\"No exceptions permitted under any circumstance\" means the requirement demands a guarantee, and a guarantee requires a deterministic control that runs regardless of what the model decides. A prompt instruction, however detailed, is still a request the model tries to follow, not a guarantee, so option 0 fails on the same grounds as the junior engineer's original proposal. Higher reasoning effort can reduce error rates but never eliminates them, so it can't satisfy \"no exceptions.\" Sampled manual audits catch problems after some have already reached customers, which directly contradicts a zero-exception requirement.",
+    "cue": "",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-understanding-requirements-03",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A project brief for an HR tool reads: 'Claude should draft a personalized onboarding email for each new hire based on their role and start date.' The same brief adds that the tool must stay responsive with sub-second turnaround even when 200 new hires start on the same day. A requirements analyst is sorting these two statements into a functional requirements document and an infrastructure requirements document.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Both statements belong in infrastructure requirements, since they both describe system behavior under real operating conditions",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Both statements belong in functional requirements, since neither one names a specific vendor or region",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "The email-drafting behavior is functional; the sub-second-at-200-concurrent-hires statement is infrastructure",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "The latency statement is functional, since it directly shapes what the end user experiences",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "Functional requirements describe what the system does (draft a personalized email); infrastructure requirements describe the non-functional envelope it must operate within (a throughput and latency constraint under concurrent load). Calling both statements infrastructure ignores that drafting the email is itself the capability being built, not a constraint on it. Calling both functional, on the reasoning that neither names a vendor or region, misses that a capacity/performance ceiling is the textbook definition of an infrastructure requirement regardless of vendor mention. Labeling the latency statement functional conflates user-experienced quality with the feature itself — latency-under-load is a quality attribute, not a capability.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  }
+]

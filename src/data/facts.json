@@ -1,0 +1,42 @@
+{
+  "_comment": "Single source of truth for drifting facts (model IDs, prices, defaults). Lints read allowedModelIds. Every entry carries where it came from. asOfGuide: whether it existed when Exam Guide v1.0 (July 2026) was written; 'unknown' means do not build exam items on it.",
+  "verified": "2026-10-06",
+  "verifiedFrom": "Anthropic claude-api reference (model table cached 2026-09-25) and platform.claude.com/docs/en/about-claude/models/overview",
+  "models": [
+    { "family": "Fable", "name": "Claude Fable 5.1", "id": "claude-fable-5-1", "tier": "most capable", "context": "1M", "maxOutput": "128K", "priceIn": 10, "priceOut": 50, "thinking": "always on (adaptive); disabled or budget_tokens returns 400", "effortDefault": "high", "forcedToolChoice": false, "asOfGuide": "unknown" },
+    { "family": "Fable", "name": "Claude Fable 5", "id": "claude-fable-5", "tier": "most capable (previous)", "context": "1M", "maxOutput": "128K", "priceIn": 10, "priceOut": 50, "thinking": "always on (adaptive)", "effortDefault": "high", "forcedToolChoice": true, "asOfGuide": "unknown" },
+    { "family": "Opus", "name": "Claude Opus 5.5", "id": "claude-opus-5-5", "tier": "flagship / default", "context": "1M", "maxOutput": "128K", "priceIn": 4, "priceOut": 20, "thinking": "cannot be disabled; effort is the only control", "effortDefault": "medium", "forcedToolChoice": false, "asOfGuide": "unknown" },
+    { "family": "Opus", "name": "Claude Opus 5", "id": "claude-opus-5", "tier": "flagship (previous)", "context": "1M", "maxOutput": "128K", "priceIn": 5, "priceOut": 25, "thinking": "adaptive by default; disabled only at effort high or below", "effortDefault": "high", "forcedToolChoice": true, "asOfGuide": "unknown" },
+    { "family": "Opus", "name": "Claude Opus 4.8", "id": "claude-opus-4-8", "tier": "legacy", "context": "1M", "maxOutput": "128K", "priceIn": 5, "priceOut": 25, "thinking": "adaptive must be set explicitly", "effortDefault": "high", "forcedToolChoice": true, "asOfGuide": true },
+    { "family": "Sonnet", "name": "Claude Sonnet 5.5", "id": "claude-sonnet-5-5", "tier": "balanced", "context": "1M", "maxOutput": "128K", "priceIn": 2, "priceOut": 10, "thinking": "adaptive by default; disabled returns 400, use between_tools", "effortDefault": "high", "forcedToolChoice": false, "asOfGuide": "unknown" },
+    { "family": "Sonnet", "name": "Claude Sonnet 5", "id": "claude-sonnet-5", "tier": "balanced (previous)", "context": "1M", "maxOutput": "128K", "priceIn": 2, "priceOut": 10, "thinking": "adaptive", "effortDefault": "high", "forcedToolChoice": true, "asOfGuide": "unknown" },
+    { "family": "Sonnet", "name": "Claude Sonnet 4.6", "id": "claude-sonnet-4-6", "tier": "legacy", "context": "1M", "maxOutput": "128K", "priceIn": 3, "priceOut": 15, "thinking": "adaptive recommended; budget_tokens deprecated", "effortDefault": "high", "forcedToolChoice": true, "asOfGuide": true },
+    { "family": "Haiku", "name": "Claude Haiku 4.5", "id": "claude-haiku-4-5", "tier": "fastest / cheapest", "context": "200K", "maxOutput": "64K", "priceIn": 1, "priceOut": 5, "thinking": "budget_tokens (min 1024, below max_tokens); no effort", "effortDefault": null, "forcedToolChoice": true, "asOfGuide": true }
+  ],
+  "allowedModelIds": [
+    "claude-fable-5-1", "claude-fable-5", "claude-opus-5-5", "claude-opus-5", "claude-opus-4-8", "claude-opus-4-7", "claude-opus-4-6",
+    "claude-sonnet-5-5", "claude-sonnet-5", "claude-sonnet-4-6", "claude-haiku-4-5", "claude-haiku-4-5-20251001"
+  ],
+  "legacyIdsAllowedInMigrationExamples": ["claude-sonnet-4-5", "claude-opus-4-5", "claude-3-5-haiku"],
+  "examples": {
+    "defaultModel": "claude-sonnet-5-5",
+    "cheapModel": "claude-haiku-4-5",
+    "note": "Study-site code uses Sonnet 5.5 as the everyday model and Haiku 4.5 for cheap, high-volume calls so examples stay inexpensive to run."
+  },
+  "sdkDefaults": {
+    "maxRetries": 2,
+    "retried": "408, 409, 429, 5xx and connection errors, with exponential backoff",
+    "timeout": "10 minutes (Python seconds, TypeScript milliseconds); TS scales up for large non-streaming max_tokens",
+    "source": "Anthropic SDK client configuration"
+  },
+  "restrictions": [
+    { "fact": "Assistant prefill returns 400", "models": "4.6 family and later (all current models)", "asOfGuide": "partial" },
+    { "fact": "temperature/top_p/top_k non-defaults return 400", "models": "Opus 4.7+, Fable, Sonnet 5+", "asOfGuide": "unknown" },
+    { "fact": "budget_tokens returns 400; use adaptive thinking + effort", "models": "Opus 4.7+, Fable, Sonnet 5+", "asOfGuide": "unknown" },
+    { "fact": "Forced tool_choice any/tool returns 400; use auto + strict or structured outputs", "models": "Fable 5.1, Opus 5.5, Sonnet 5.5", "asOfGuide": false },
+    { "fact": "output_format is deprecated; use output_config.format", "models": "all", "asOfGuide": "unknown" },
+    { "fact": "Batch results arrive in any order; join on custom_id", "models": "all", "asOfGuide": true },
+    { "fact": "MCP connector needs mcp_servers plus an mcp_toolset tool (beta mcp-client-2025-11-20)", "models": "all", "asOfGuide": "unknown" },
+    { "fact": "Memory tool type is memory_20250818", "models": "all", "asOfGuide": true }
+  ]
+}

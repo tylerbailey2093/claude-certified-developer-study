@@ -1,0 +1,47 @@
+[
+  {
+    "id": "new-llm-fundamentals-02",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "multi",
+    "select": 2,
+    "stem": "A study guide author is deciding where to place four related topics inside a blueprint that separates a 'Model Selection and Optimization' domain from a 'Prompt and Context Engineering' domain: zero-shot, single-shot, and multi-shot prompting; and structuring a prompt with XML tags plus managing long conversation history via context compaction. Select the two statements below that correctly describe where each topic belongs.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Zero-shot, single-shot, and multi-shot prompting belong in Prompt and Context Engineering, since choosing how many examples to include is fundamentally about crafting the prompt's text.",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Zero-shot, single-shot, and multi-shot prompting belong in Model Selection and Optimization, not Prompt and Context Engineering, despite reading like a general prompting topic.",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "XML tag structuring belongs in Model Selection and Optimization because it affects which model tier is chosen for a task.",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "XML tag structuring and context compaction both belong in Prompt and Context Engineering, since they concern how a single request's content is organized and managed.",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b",
+      "d"
+    ],
+    "explanation": "Correct answers B and D. B is correct because the blueprint deliberately places example-count prompting techniques (zero/single/multi-shot) under Model Selection and Optimization rather than Prompt and Context Engineering, even though it reads like a pure prompt-writing topic. D is correct because XML tag structuring and context compaction are exactly the kind of within-request content organization that Prompt and Context Engineering does own. Option A fails because it states the intuitive-but-wrong placement directly contradicted by the blueprint's explicit scope split. Option C fails because XML tags are a formatting technique with no connection to model tier selection, which is a separate objective entirely.",
+    "cue": "",
+    "pattern": "scope-boundary",
+    "difficulty": 2,
+    "tags": [
+      "retired:Meta-item about blueprint placement that encoded a wrong claim (few-shot is NOT D5-only; guide p7 lists few-shot examples under D6 Prompt Engineering)."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  }
+]

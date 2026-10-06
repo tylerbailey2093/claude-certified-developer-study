@@ -1,0 +1,170 @@
+[
+  {
+    "id": "legacy-044",
+    "objective": "model-selection-and-tradeoffs",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A high-volume, latency-sensitive routing step classifies incoming messages into six categories. Which tier fits best?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The most capable available model, for accuracy",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "The fastest, lowest-cost tier, validated with evals",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "The mid-tier model with maximum effort",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Whichever tier the rest of the application already uses",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Narrow, high-volume, latency-sensitive classification is what the fast, low-cost tier is for, provided evals confirm the quality bar. Defaulting to the most capable model for every task is the classic overprovisioning mistake.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-045",
+    "objective": "model-selection-and-tradeoffs",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "After migrating to a newer model, requests that previously worked return 400 errors on the thinking parameter. What is the likely cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The API key lacks permission for the new model",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "The newer model runs adaptive thinking and rejects manual thinking budgets",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "The context window shrank below the request size",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Thinking is only available on the Batch API",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Breaking behavior changes across releases are explicitly in scope. Newer models use adaptive thinking with effort as the control and reject manual budget_tokens, which is why migration means reading the guide and re-running evals rather than swapping a model string.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-046",
+    "objective": "model-selection-and-tradeoffs",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A team migrating to Opus 5 finds their requests now return 400 when they set temperature to 0 for deterministic extraction. What should they do?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Set temperature to 1 explicitly and accept the variability",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Remove the sampling parameter and control output using effort plus a structured output schema",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Downgrade to a model that still accepts temperature",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Wrap the call in a retry loop until it succeeds",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Non-default sampling parameters return 400 on the newest models; effort has replaced them as the control surface. For deterministic extraction specifically, a structured output schema constrains the shape far more reliably than temperature ever did.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-model-selection-and-tradeoffs-01",
+    "objective": "model-selection-and-tradeoffs",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A compliance workflow synthesizes conflicting clauses across long contracts using Claude Sonnet 5 at effort high, and the evals gating this workflow were all tuned against that configuration. Latency is now a concern, so an engineer proposes switching the workflow to Claude Haiku 4.5 at effort low to speed things up while keeping quality about the same. What is wrong with this proposal?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Nothing is wrong — Haiku 4.5 at effort low will reliably match Sonnet 5's quality on this task",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Claude Haiku 4.5 has no effort parameter, and swapping tiers invalidates the evals that were tuned on Sonnet 5's behavior",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Effort low always increases latency compared to effort high, so the proposal will make the workflow slower",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Claude Sonnet 5 does not support adaptive thinking, so the current baseline is already misconfigured",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Haiku 4.5 is differently shaped, not just cheaper: it runs extended thinking only and has no effort parameter at all, so 'effort low' on Haiku isn't a valid configuration to begin with. Even setting that aside, a tier swap invalidates every eval run against the old model, which is exactly what the workflow's evals were tuned on — the correct move is to step effort down on Sonnet 5 first, not swap tiers. Option A ignores both problems. Option C inverts the actual relationship between effort and latency (lower effort reduces reasoning depth and typically latency, it doesn't guarantee the opposite outcome described). Option D is a false factual claim — Sonnet 5 does support adaptive thinking.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  }
+]

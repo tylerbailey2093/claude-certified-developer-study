@@ -1,0 +1,28 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+const base = import.meta.env.BASE_URL;
+const labs = (await getCollection('labs')).sort((a, b) => a.data.n - b.data.n);
+---
+<Base title="Labs" crumbs={[{ label: 'Labs' }]} grid="dim">
+  <header class="page-head">
+    <p class="eyebrow">Guide Section 7: build and operate a Claude application</p>
+    <h1>Labs</h1>
+    <p class="lede">
+      Eleven hands-on walkthroughs, each sized for one sitting. Read them here step by step with annotated output, or download the
+      notebook and run it yourself. If you only do three: 02 (caching), 06 (structured output) and 09 (hooks).
+    </p>
+  </header>
+  <div class="cards">
+    {labs.map((l) => (
+      <a class="card" href={`${base}labs/${l.id}/`} data-d={l.data.domains[0]}>
+        <span class="tag tag-dom">Lab {String(l.data.n).padStart(2, '0')} · {l.data.minutes} min</span>
+        <h3>{l.data.title}</h3>
+        <p>{l.data.proves}</p>
+        <p class="faint" style="margin-top:8px;font-size:12.5px">
+          {l.data.apiKeyNeeded ? 'Needs an API key to run' : 'No API key needed'}{l.data.top3 ? ' · top 3' : ''}
+        </p>
+      </a>
+    ))}
+  </div>
+</Base>

@@ -1,56 +1,60 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { getCollection } from 'astro:content';
-import blueprint from '../../../blueprint.json';
-import allQuestions from '../../data/questions/all.json';
+import { DOMAINS } from '../../lib/blueprint';
+import { questionsFor } from '../../lib/bank/bank';
 
-export async function getStaticPaths() {
-  return blueprint.domains.map((d) => ({ params: { n: String(d.n) }, props: { domain: d } }));
+export function getStaticPaths() {
+  return DOMAINS.map((d) => ({ params: { n: String(d.n) }, props: { n: d.n } }));
 }
 
-const { domain } = Astro.props;
+const { n } = Astro.props;
 const base = import.meta.env.BASE_URL;
-
-const objectives = (await getCollection('objectives'))
-  .filter((o) => o.data.domain === domain.n)
-  .sort((a, b) => b.data.weight - a.data.weight);
-
-const maxW = Math.max(...objectives.map((o) => o.data.weight));
-const itemCount = (allQuestions as { d: number }[]).filter((q) => q.d === domain.n).length;
+const d = DOMAINS.find((x) => x.n === n)!;
+const objectives = [...d.objectives].sort((a, b) => b.weight - a.weight);
+const maxW = Math.max(...objectives.map((o) => o.weight));
+const counts = Object.fromEntries(objectives.map((o) => [o.id, questionsFor(o.id).length]));
+const total = Object.values(counts).reduce((s, x) => s + x, 0);
+const rank = [...DOMAINS].sort((a, b) => b.weight - a.weight).findIndex((x) => x.n === n) + 1;
 ---
-<Base
-  title={`Domain ${domain.n} — ${domain.name}`}
-  activeDomain={domain.n}
-  crumbs={[{ label: 'Field Manual', href: base }, { label: `Domain ${domain.n}` }]}
->
-  <header class="phead">
-    <p class="eyebrow">Domain {domain.n}</p>
-    <h1>{domain.name}</h1>
+<Base title={`D${d.n} · ${d.name}`} activeDomain={d.n} crumbs={[{ label: `D${d.n} · ${d.name}` }]} grid="dim">
+  <header class="page-head" data-d={d.n}>
+    <p class="eyebrow">Domain {d.n} · rank {rank} of 8 by weight</p>
+    <h1>{d.name}</h1>
+    <div class="btn-row" style="gap:8px">
+      <span class="tag tag-dom">{d.weight}% of the exam</span>
+      <span class="tag">≈{d.approxItems} of 53 items</span>
+      <span class="tag">{objectives.length} objective{objectives.length === 1 ? '' : 's'}</span>
+      <span class="tag">{total} practice items</span>
+    </div>
   </header>
 
-  <div class="obj-meta">
-    <span>Weight <b>{domain.weight}%</b></span>
-    <span>Scored items <b>~{domain.approx_items}</b></span>
-    <span>Objectives <b>{objectives.length}</b></span>
-    <span>Practice bank <b>{itemCount}</b></span>
+  <div class="kpis">
+    <div class="kpi is-accent"><div class="kpi-v">{d.weight}<small>%</small></div><div class="kpi-l">Exam weight</div></div>
+    <div class="kpi"><div class="kpi-v">{d.approxItems}</div><div class="kpi-l">Items in a 53-item exam</div></div>
+    <div class="kpi"><div class="kpi-v">{total}</div><div class="kpi-l">Practice items here</div></div>
   </div>
 
-  <p class="index-head">Objectives · ordered by weight</p>
-  <nav>
-    {objectives.map((o, i) => (
-      <a class="dom-row" href={`${base}objective/${o.data.id}/`}>
-        <span class="dom-n">{String(i + 1).padStart(2, '0')}</span>
-        <span>
-          <span class="dom-name">{o.data.name}</span>
-          <span class="dom-meta">
-            {o.data.hot ? 'Heaviest objective on the exam · ' : ''}{o.data.scope.length} scope points
-          </span>
-        </span>
-        <span>
-          <span class="dom-weight">{o.data.weight}%</span>
-          <span class="measure"><i style={`width:${(o.data.weight / maxW) * 100}%`}></i></span>
-        </span>
-      </a>
-    ))}
-  </nav>
+  <div class="table-wrap" data-d={d.n}>
+    <table class="grid-table">
+      <thead>
+        <tr><th>Objective</th><th>Weight</th><th class="n">Items/exam</th><th class="n">Practice</th><th></th></tr>
+      </thead>
+      <tbody>
+        {objectives.map((o) => (
+          <tr>
+            <td><a href={`${base}objective/${o.id}/`}>{o.name}</a><div class="faint" style="font-size:13px">{o.scope.slice(0, 4).join(' · ')}{o.scope.length > 4 ? ' …' : ''}</div></td>
+            <td style="min-width:140px"><span class="num">{o.weight}%</span><div class="meter" style="margin-top:6px"><i style={`width:${(o.weight / maxW) * 100}%`}></i></div></td>
+            <td class="n">{(o.weight * 0.53).toFixed(1)}</td>
+            <td class="n">{counts[o.id]}</td>
+            <td><a class="btn btn-sm" href={`${base}objective/${o.id}/#practice`}>Practice</a></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="btn-row" style="margin-top:8px">
+    <a class="btn btn-run" href={`${base}practice/?mode=domain&d=${d.n}&n=20`}>▶ Drill all of D{d.n}</a>
+    <a class="btn" href={`${base}objective/${objectives[0].id}/`}>Start with {objectives[0].name}</a>
+  </div>
 </Base>
