@@ -393,8 +393,8 @@
     "options": [
       {
         "id": "a",
-        "text": "Fix the history builder so each tool_use is answered by its tool_result in the next user turn",
-        "why": "Correct. A 400 that names a message position after a history refactor is a request-builder bug; tool_result blocks must follow their tool_use in the next user turn."
+        "text": "Fix the history builder so tool_result blocks come first in the content of the user turn after each tool_use",
+        "why": "Correct. A 400 that names a message position after a history refactor is a request-builder bug; tool_result blocks must immediately follow their tool_use and come first in that user turn's content array."
       },
       {
         "id": "b",

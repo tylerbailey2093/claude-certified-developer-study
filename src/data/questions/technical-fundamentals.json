@@ -176,7 +176,7 @@
       {
         "id": "a",
         "text": "A WebSocket between the phone and the backend, which aborts its upstream streaming request on an interrupt frame",
-        "why": "Correct. The duplex need is between phone and backend, so the WebSocket belongs there; the backend holds the key and closes its SSE request to Claude, which stops generation."
+        "why": "Correct. The duplex need is between phone and backend, so the WebSocket belongs there; the backend holds the key, and closing its upstream request stops further generation."
       },
       {
         "id": "b",
@@ -191,7 +191,7 @@
       {
         "id": "d",
         "text": "Muting playback on the phone while the backend lets the reply finish streaming so the transcript stays whole",
-        "why": "Muting hides the audio but generation continues, so every remaining token is still produced and billed."
+        "why": "Muting changes only what the phone plays; relaying less does not stop generation, so the rest of the reply is still produced."
       }
     ],
     "answer": [
@@ -348,7 +348,7 @@
     ],
     "type": "single",
     "select": 1,
-    "stem": "During an API overload incident, a service's dashboards show one user action producing up to nine Messages API requests. The service uses the official TypeScript SDK with default settings, and each call site goes through a helper that retries any thrown error three times with no delay. Which change best fixes the amplification?",
+    "stem": "During an API overload incident, a service's dashboards show one user action producing up to nine Messages API requests. The service uses the official TypeScript SDK with default settings, and each call site goes through a helper that makes up to three attempts on any thrown error with no delay. Which change best fixes the amplification?",
     "options": [
       {
         "id": "a",
@@ -362,7 +362,7 @@
       },
       {
         "id": "c",
-        "text": "Set maxRetries to 0 on the client and keep the helper's three immediate retries as the only retry layer",
+        "text": "Set maxRetries to 0 on the client and keep the helper's three immediate attempts as the only retry layer",
         "why": "This caps attempts at three but drops backoff and retry-after handling, and the helper still retries 400s and other errors that cannot succeed."
       },
       {
@@ -375,7 +375,7 @@
       "a"
     ],
     "explanation": "Nine requests per action is three helper attempts around three SDK attempts. The fix is one retry layer, and the SDK's is the better one because it retries only retryable statuses and backs off. Disabling SDK retries and keeping the helper is the tempting option, but that helper retries any thrown error immediately.",
-    "cue": "retries any thrown error three times with no delay",
+    "cue": "makes up to three attempts on any thrown error with no delay",
     "pattern": "wrong-place-mechanism",
     "difficulty": 3,
     "tags": [],
@@ -456,7 +456,7 @@
     ],
     "type": "single",
     "select": 1,
-    "stem": "A report generator calls `client.messages.create` with a very large max_tokens and no streaming. The Python SDK raises an error before any request is sent, warning that the call may take longer than about ten minutes. The team needs the complete Message object at the end. What is the intended fix?",
+    "stem": "A report generator calls `client.messages.create` with a very large max_tokens and no streaming, over a network path that drops connections left idle for more than a few minutes. The Python SDK raises an error before any request is sent, warning that the call may take longer than about ten minutes. The team needs the complete Message object at the end. What is the intended fix?",
     "options": [
       {
         "id": "a",
@@ -466,7 +466,7 @@
       {
         "id": "b",
         "text": "Pass a larger timeout on the call so the SDK's duration check stops raising before it sends",
-        "why": "Overriding the timeout silences the guard, but the long idle connection remains, and networks may drop it without any response."
+        "why": "Overriding the timeout does disable the check, but the call then waits idle for many minutes on a path that drops idle connections, so it fails with no response."
       },
       {
         "id": "c",
@@ -482,8 +482,8 @@
     "answer": [
       "a"
     ],
-    "explanation": "The deciding detail is that the SDK raises before any request is sent: it is refusing a long non-streaming call because idle connections get dropped. Streaming with the accumulation helper fixes the cause and still yields the whole Message. Raising the timeout is the tempting option, but it only disables the warning.",
-    "cue": "raises an error before any request is sent",
+    "explanation": "The deciding detail is a network path that drops idle connections: a long non-streaming call sits silent until the whole reply is ready, which is exactly what gets dropped. Streaming with the accumulation helper keeps data flowing and still yields the whole Message. Raising the timeout is tempting because it does stop the SDK's check, but the connection is still cut.",
+    "cue": "drops connections left idle for more than a few minutes",
     "pattern": "buried-constraint",
     "difficulty": 2,
     "tags": [],
@@ -619,7 +619,7 @@
     ],
     "type": "single",
     "select": 1,
-    "stem": "A chat endpoint sits behind a load balancer with a 60-second idle timeout and makes non-streaming calls through the official SDK with its default timeout and retries. On slow days users receive gateway errors, yet no SDK exception or request ID appears in the service's logs. Which change addresses the cause?",
+    "stem": "A chat endpoint sits behind a load balancer with a 60-second idle timeout and makes non-streaming calls through the official SDK with its default timeout and retries. On slow days users receive gateway errors, yet no SDK exception or request ID appears in the service's logs. The platform team will not change the shared load balancer's settings. Which change addresses the cause?",
     "options": [
       {
         "id": "a",
@@ -634,7 +634,7 @@
       {
         "id": "c",
         "text": "Raise the load balancer's idle timeout to ten minutes so that it matches the SDK's default request timeout",
-        "why": "This moves the cut-off instead of fixing it: with retries a user could wait tens of minutes, and other proxies in the path have their own limits."
+        "why": "The platform team has ruled out changing the shared load balancer, and even a longer limit would leave users waiting tens of minutes once retries stack up."
       },
       {
         "id": "d",
@@ -731,7 +731,7 @@
     "options": [
       {
         "id": "a",
-        "text": "Within a version, Anthropic may add output fields and stream event types, so the strict client can break with no version change",
+        "text": "New response fields and event kinds can appear under the same pinned version, and this client would reject them",
         "why": "Correct. The versioning policy preserves existing inputs and outputs but allows new output values and new event types, so clients should ignore what they do not recognise."
       },
       {
@@ -947,7 +947,7 @@
     ],
     "type": "single",
     "select": 1,
-    "stem": "Streaming works on a developer's laptop, where answers appear word by word. In staging, behind the company's reverse proxy with response compression enabled, the page shows nothing for twenty seconds and then the whole answer at once, while backend logs show deltas arriving from Claude steadily. What is the likely cause?",
+    "stem": "Streaming works on a developer's laptop, where the backend relays answers to the browser as server-sent events and they appear word by word. In staging, behind the company's reverse proxy with response compression enabled, the page shows nothing for twenty seconds and then the whole answer at once, while backend logs show deltas arriving from Claude steadily. What is the likely cause?",
     "options": [
       {
         "id": "a",
@@ -1063,12 +1063,12 @@
     ],
     "type": "single",
     "select": 1,
-    "stem": "A support widget streams Claude's answers through the company's backend. Analytics show many users close the tab partway through an answer, yet usage reports show those answers' output tokens at full length. What change stops paying for text nobody reads?",
+    "stem": "A support widget streams Claude's answers through the company's backend. Analytics show many users close the tab partway through an answer, yet usage reports show those answers' output tokens at full length. What change stops generating text nobody reads?",
     "options": [
       {
         "id": "a",
         "text": "When the client disconnects, abort the upstream stream so that generation stops at that point",
-        "why": "Correct. Closing the upstream request ends generation, so tokens that were never produced are not billed; the backend must propagate the disconnect."
+        "why": "Correct. Closing the upstream request stops further generation, whereas relaying less does not; the backend must propagate the disconnect."
       },
       {
         "id": "b",
@@ -1078,7 +1078,7 @@
       {
         "id": "c",
         "text": "Stop forwarding deltas once the client disconnects, and let the backend's stream run to its end",
-        "why": "Generation continues upstream, so every token is still produced and billed; only the relay to the browser stops."
+        "why": "Relaying less does not stop generation: the upstream request keeps running, so every token is still produced; only the relay to the browser stops."
       },
       {
         "id": "d",
@@ -1089,7 +1089,7 @@
     "answer": [
       "a"
     ],
-    "explanation": "The cue is full-length output tokens for abandoned answers: the backend notices the disconnect but never cancels the upstream request. Cancellation must propagate inward. Stopping the relay is the tempting option, but it saves bandwidth, not generation.",
+    "explanation": "The cue is full-length output tokens for abandoned answers: the backend never cancels the upstream request. Closing the upstream request stops further generation; relaying less does not. Stopping the relay is the tempting option, but it saves bandwidth, not generation.",
     "cue": "usage reports show those answers' output tokens at full length",
     "pattern": "buried-constraint",
     "difficulty": 2,
@@ -1098,10 +1098,6 @@
       {
         "label": "TypeScript SDK",
         "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript"
-      },
-      {
-        "label": "Streaming Messages",
-        "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
       }
     ],
     "verified": "2026-10-06",
