@@ -25,12 +25,14 @@ An agent that needs a new component, a facts change or a blueprint change asks f
 ## Gates every agent runs before reporting
 
 ```
+npx tsx scripts/check_mdx.ts --objective <id>
 npx tsx scripts/check_blueprint.ts --strict --objective <id>
-npx tsx scripts/lint_code.ts --objective <id>
+npx tsx scripts/lint_code.ts --strict --objective <id>
 npx tsx scripts/lint_questions.ts --strict --objective <id>
 python3 scripts/check_originality.py src/data/questions --root .
-npx astro check
 ```
+
+Agents never run `astro build`, `astro check`, `npm install` or state-changing git commands: several agents share one working tree, and the orchestrator integrates and builds.
 
 ## Report format (final message of every author agent)
 

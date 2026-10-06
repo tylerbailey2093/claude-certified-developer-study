@@ -20,13 +20,14 @@ import facts from '../src/data/facts.json' with { type: 'json' };
 const args = process.argv.slice(2);
 const forceStrict = args.includes('--strict');
 const only = args.includes('--objective') ? args[args.indexOf('--objective') + 1] : undefined;
+const labsOnly = args.includes('--labs');
 const strictList: string[] = JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts/strict-objectives.json'), 'utf8'));
 
 const allowed = new Set([...facts.allowedModelIds, ...facts.legacyIdsAllowedInMigrationExamples]);
 type Block = { src: string; owner: string; lang: 'python' | 'typescript'; code: string; line: number };
 const blocks: Block[] = [];
 
-for (const f of fs.readdirSync(ODIR).filter((f) => f.endsWith('.mdx'))) {
+for (const f of labsOnly ? [] : fs.readdirSync(ODIR).filter((f) => f.endsWith('.mdx'))) {
   const id = f.replace(/\.mdx$/, '');
   if (only && id !== only) continue;
   const text = fs.readFileSync(path.join(ODIR, f), 'utf8');
