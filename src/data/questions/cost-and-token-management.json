@@ -13,8 +13,8 @@
     "options": [
       {
         "id": "a",
-        "text": "Add a cache_control breakpoint at the end of the handbook so repeated requests read it at a tenth of the input price",
-        "why": "Correct. The prefix is identical on every request and traffic is steady, so after one write each request reads the handbook at 0.1x while outputs stay identical."
+        "text": "Add a cache breakpoint after the handbook so repeated requests read it at about a tenth of the input price on most models",
+        "why": "Correct. The prefix is identical on every request and traffic is steady, so after one write each request reads the handbook at about 0.1x while outputs stay identical."
       },
       {
         "id": "b",
@@ -23,8 +23,8 @@
       },
       {
         "id": "c",
-        "text": "Cut max_tokens from 2,000 to 500 so each answer is billed against a smaller output allowance per request",
-        "why": "Billing counts tokens actually generated, not the cap, so a lower max_tokens saves nothing on normal answers and truncates long ones."
+        "text": "Move the handbook after each employee's question so the newest and most specific content leads the prompt",
+        "why": "Putting the varying question first means no two requests share a prefix, so nothing can be cached and the token count is unchanged."
       },
       {
         "id": "d",
@@ -172,7 +172,7 @@
       {
         "id": "a",
         "text": "Count the assembled request with the token counting endpoint and refuse or trim when the count exceeds the budget",
-        "why": "Correct. Token counting accepts the same system, messages and documents as a real request, is free, and answers before anything is billed."
+        "why": "Correct. Token counting accepts the same system, messages and documents as a real request, is free, and answers before anything is billed (send attachments as base64; url and file sources are not countable)."
       },
       {
         "id": "b",
@@ -231,7 +231,7 @@
       },
       {
         "id": "c",
-        "text": "Set max_tokens to 400,000 on the first request so the whole loop draws from one shared output allowance",
+        "text": "Set max_tokens to 400,000 on the first request so every later request in the loop draws from one shared output allowance",
         "why": "max_tokens applies to one request and never carries across the loop; it is also far above the per-request output maximum."
       },
       {
@@ -241,7 +241,7 @@
       },
       {
         "id": "e",
-        "text": "Read the remaining-budget field in each response's usage object and stop the loop when it reaches zero",
+        "text": "Read the remaining-budget field in each response's usage object and stop the agent loop once that field reaches zero",
         "why": "The countdown is visible only to the model; responses carry no remaining-budget field, so client tracking must sum usage itself."
       }
     ],
@@ -307,8 +307,8 @@
     "tags": [],
     "sources": [
       {
-        "label": "Rate limits",
-        "url": "https://platform.claude.com/docs/en/api/rate-limits"
+        "label": "Pricing",
+        "url": "https://platform.claude.com/docs/en/about-claude/pricing"
       },
       {
         "label": "Building with extended thinking",
@@ -602,7 +602,7 @@
     "options": [
       {
         "id": "a",
-        "text": "Each invoice is read only once, so every request pays the cache write premium and never collects a cache read",
+        "text": "No later request shares the cached prefix, so every request pays the write premium and none collects a read",
         "why": "Correct. A 5-minute write costs 1.25x base input; with no later request sharing that prefix, the premium is pure overhead."
       },
       {

@@ -12,7 +12,7 @@
     "options": [
       {
         "id": "a",
-        "text": "Change the get_order wrapper to return only the fields the next step needs, plus the order ID for a follow-up lookup",
+        "text": "Change the get_order wrapper to project status, carrier and promised ship date, plus the order ID for follow-up lookups",
         "why": "Correct. Pruning at the source keeps the bulk out of the window on every call, and the ID keeps full detail one call away."
       },
       {
@@ -163,7 +163,7 @@
     ],
     "type": "single",
     "select": 1,
-    "stem": "Early in a Claude Code session, a developer typed that all timestamps in this repository are stored in UTC. After auto-compaction runs, Claude begins writing code that converts to local time. The developer wants this convention to keep applying after future compactions in every session. Where should it live?",
+    "stem": "Early in a Claude Code session, a developer typed that all timestamps in this repository are stored in UTC. After auto-compaction runs, Claude begins writing code that converts to local time. The developer wants the convention in force from the first turn after any future compaction, before Claude reads any file. Where should it live?",
     "options": [
       {
         "id": "a",
@@ -173,7 +173,7 @@
       {
         "id": "b",
         "text": "In a path-scoped rule file whose paths frontmatter matches the repository's source directories",
-        "why": "Path-scoped rules load into message history when a matching file is read, so compaction summarizes them away."
+        "why": "Path-scoped rules are summarized away by compaction and reload only on demand when a matching file is read again, so they are missing from the turns before any file is read."
       },
       {
         "id": "c",
@@ -614,17 +614,17 @@
       },
       {
         "id": "b",
-        "text": "Change the lookup tool to return only the fields the agent uses, plus an order ID for a follow-up call",
+        "text": "Have the lookup tool hand back just the order fields the agent acts on, with an ID for fetching more",
         "why": "Correct. Pruning at the source removes the bloat on every call, which also slows the dilution behind the drift."
       },
       {
         "id": "c",
-        "text": "Compact the conversation whenever the window passes half full, using the default summary prompt",
+        "text": "Compact the conversation whenever the window passes half full, using the default summarization prompt each time",
         "why": "Compaction can summarize the onboarding rule away, and the next lookup refills the window with full payloads."
       },
       {
         "id": "d",
-        "text": "Append the escalation rule to every tool result so it always sits near the end of the context",
+        "text": "Append the escalation rule to every tool result so that it always sits close to the end of the context window",
         "why": "This adds tokens on every call and mixes instructions into tool data, worsening the bloat it sits beside."
       },
       {
@@ -720,29 +720,29 @@
     "options": [
       {
         "id": "a",
-        "text": "Add load_contract to exclude_tools so its result is never cleared while other old results still are",
-        "why": "Correct. exclude_tools protects one specific tool's results and leaves clearing working for everything else."
+        "text": "Exempt the load_contract tool from clearing so its result stays while other old results are still cleared",
+        "why": "Correct. Exempting one named tool protects exactly the result the agent needs and leaves clearing working for everything else."
       },
       {
         "id": "b",
-        "text": "Raise keep from 3 to 30 tool uses so the contract result stays among the retained recent results",
+        "text": "Raise the number of recent tool uses kept from 3 to 30 so the contract stays among the retained results",
         "why": "This keeps 30 unrelated old results as well, giving up most of the space clearing was meant to free."
       },
       {
         "id": "c",
-        "text": "Raise clear_at_least so that each clearing pass removes a larger block of tokens at once",
-        "why": "clear_at_least sets a minimum amount to clear per pass, which makes clearing more aggressive, not more selective."
+        "text": "Require each clearing pass to remove a larger minimum block of tokens so clearing happens less often",
+        "why": "A larger minimum per pass makes each clearing more aggressive, not more selective, so the contract is still cleared."
       },
       {
         "id": "d",
-        "text": "Set clear_tool_inputs to true so the tool call parameters are cleared along with the results",
+        "text": "Also clear the parameters of each old tool call, not just its result, to free more space per pass",
         "why": "Clearing the call inputs as well removes even more context and does nothing to protect the contract."
       }
     ],
     "answer": [
       "a"
     ],
-    "explanation": "The cue is one tool result consulted throughout the session while every other result goes stale. exclude_tools names tools whose results are never cleared, which keeps the contract without retaining anything else. Raising keep is tempting because it does retain the contract, but only by keeping many stale results too.",
+    "explanation": "The cue is one tool result consulted throughout the session while every other result goes stale. Tool result clearing can exempt specific tools, which keeps the contract without retaining anything else. Keeping more recent tool uses is tempting because it does retain the contract, but only by keeping many stale results too.",
     "cue": "consults that contract's clauses throughout",
     "pattern": "buried-constraint",
     "difficulty": 3,
@@ -820,7 +820,7 @@
     ],
     "type": "multi",
     "select": 2,
-    "stem": "A developer plans a refactor that touches three tightly coupled files, where each edit depends on the exact lines changed in the other two. To keep the main conversation clean, they consider giving each file to its own subagent. Which two risks should they weigh? Select two.",
+    "stem": "A developer plans a refactor that touches three tightly coupled files, where each edit depends on the exact lines changed in the other two. To keep the main conversation clean, they consider giving each file to its own fresh (non-fork) subagent that starts with only the delegation message. Which two risks should they weigh? Select two.",
     "options": [
       {
         "id": "a",
@@ -845,7 +845,7 @@
       {
         "id": "e",
         "text": "Each subagent inherits the full main conversation, so the parent's history is duplicated three times",
-        "why": "A regular subagent starts fresh and sees only the delegation message, not the parent's history."
+        "why": "A fresh, non-fork subagent starts with only the delegation message; only a fork inherits the parent's conversation."
       }
     ],
     "answer": [
