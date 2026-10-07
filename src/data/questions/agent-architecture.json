@@ -3,295 +3,1051 @@
     "id": "legacy-001",
     "objective": "agent-architecture",
     "domain": 1,
-    "subskills": [],
+    "subskills": [
+      "aa.workflow-vs-agent",
+      "aa.principles"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A team must extract invoice fields, validate them against a schema, then write to a database. The steps are identical for every invoice. Which approach fits best?",
+    "stem": "A platform team turns each new vendor contract PDF into a database row: extract eleven fields, validate them against a JSON schema, then insert the record. Every contract goes through these three steps in this order, and a record that fails validation is not inserted. Which design fits best?",
     "options": [
       {
         "id": "a",
-        "text": "A prompt-chaining workflow with fixed steps in code",
-        "why": ""
+        "text": "A supervisor agent that delegates extraction, validation and insertion to three specialist agents and merges their results",
+        "why": "The elegant multi-agent design: it adds handoffs, tokens and run-to-run variation for a decomposition that is already known."
       },
       {
         "id": "b",
-        "text": "An autonomous agent that decides its own steps each run",
-        "why": ""
+        "text": "A prompt chain in code: an extraction call, a schema-validation gate, then the insert, stopping on any validation failure",
+        "why": "Correct. The steps are fixed and known in advance, so code owns the path, and a programmatic gate stops bad records deterministically."
       },
       {
         "id": "c",
-        "text": "A manager agent delegating to three specialist subagents",
-        "why": ""
+        "text": "One autonomous agent given extract, validate and insert tools, deciding the order of its calls on each run",
+        "why": "It lets the model choose an order the requirement already fixes, adding variance and cost, and validate-before-insert is no longer enforced in code."
       },
       {
         "id": "d",
-        "text": "An evaluator-optimizer loop that refines until validation passes",
-        "why": ""
+        "text": "An evaluator-optimizer loop in which a second model critiques each extraction until it judges every field correct",
+        "why": "A model judging correctness is not schema validation, and iterating on the extraction does not replace a deterministic gate before the insert."
       }
     ],
     "answer": [
-      "a"
+      "b"
     ],
-    "explanation": "The steps are known in advance and identical every run, which is the definition of a workflow. Agent and hierarchy options add cost, latency, and variability for nothing. Evaluator-optimizer applies where iteration improves quality, not where the path is fixed.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
+    "explanation": "The cue is that every contract goes through the same three steps in the same order. Fixed, known steps mean a workflow, and the simplest workflow is a prompt chain with a code gate between steps. The supervisor design is tempting because it looks modular, but it pays multi-agent costs to rediscover a sequence you could write down.",
+    "cue": "Every contract goes through these three steps in this order",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
     "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
   },
   {
     "id": "legacy-002",
     "objective": "agent-architecture",
     "domain": 1,
-    "subskills": [],
+    "subskills": [
+      "aa.subagents"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A research agent runs searches returning 40,000 tokens of raw results. After several searches its answers degrade. What is the primary architectural reason to move searching into a subagent?",
+    "stem": "A due-diligence agent answers questions about a company by running web searches, and each search pours about 30,000 tokens of page text into its own conversation. After five or six searches, its answers start ignoring constraints the user stated at the start. What is the main reason to move the searching into subagents?",
     "options": [
       {
         "id": "a",
-        "text": "Subagents run faster because they execute in parallel",
-        "why": ""
+        "text": "Subagents can run the searches concurrently, so five or six searches finish in the time of the slowest one rather than in the sum of all of them",
+        "why": "Parallelism is a real but secondary benefit, and finishing sooner does nothing about the parent's context filling with page text."
       },
       {
         "id": "b",
-        "text": "Each subagent has its own context window, so raw results never enter the parent's context",
-        "why": ""
+        "text": "Subagents can run on a cheaper, faster model, which lowers the cost of reading tens of thousands of tokens on every search",
+        "why": "Routing to a cheaper model is a real subagent benefit, but it addresses cost, not the degraded answers the stem describes."
       },
       {
         "id": "c",
-        "text": "Subagents can use models the parent cannot access",
-        "why": ""
+        "text": "Each subagent reads the pages in its own context window and returns a short summary, so raw page text never reaches the main conversation",
+        "why": "Correct. Context isolation is the primary reason: the parent's window grows by the summary, not the transcript, so early constraints keep their weight."
       },
       {
         "id": "d",
-        "text": "Subagents bypass rate limits with a separate connection pool",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "Context isolation is the primary reason; the parent receives only the distilled summary. Parallelism is a secondary benefit, and the other two describe capabilities subagents don't have.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "new-agent-architecture-01",
-    "objective": "agent-architecture",
-    "domain": 1,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "A support-ticket pipeline classifies each incoming ticket into billing, technical, or account-access, then hands it to a category-specific prompt tuned for that ticket type. Every ticket follows this same two-step flow, though the specialized prompt used in step two differs meaningfully depending on the category. Which architecture fits this pipeline?",
-    "options": [
-      {
-        "id": "a",
-        "text": "A single fixed prompt chain that runs the same two prompts on every ticket regardless of category",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "Routing: classify the ticket, then dispatch it to the prompt built for that category",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "An autonomous agent that decides at runtime how many classification passes to run",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "An orchestrator-workers design where a central call invents ticket categories on the fly",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "Routing fits because the categories are fixed but genuinely need different downstream handling -- that's the definition of routing, not plain chaining. Option A ignores the stated per-category difference in step two, collapsing routing into a single fixed chain. Option C adds agent-level runtime flexibility a fixed two-step flow never needs. Option D misapplies orchestrator-workers, which decides subtasks at runtime -- here the three categories are already known in advance.",
-    "cue": "",
-    "pattern": "buried-constraint",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "new-agent-architecture-02",
-    "objective": "agent-architecture",
-    "domain": 1,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "An engineering-metrics agent must read a 200,000-line CI log to isolate the root cause of a flaky test, then hand a two-paragraph summary back to the parent conversation. The team wants to guarantee the parent's context never fills up with raw log lines, no matter how long the log-scanning takes. Which choice best satisfies that guarantee?",
-    "options": [
-      {
-        "id": "a",
-        "text": "Increase the parent's context window so it can hold the entire log alongside the rest of the conversation",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "Enable prompt caching on the log content so repeated reads are cheaper",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "Run the log-scanning in a subagent with its own context window and return only the distilled summary",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "Run the log-scanning in a subagent so it can execute in parallel with the rest of the pipeline",
-        "why": ""
+        "text": "A subagent's context window is larger than the main agent's, so the page text fits without crowding out the earlier turns",
+        "why": "Subagents do not get a bigger window; the benefit is that page text lands in a separate window, not a larger one."
       }
     ],
     "answer": [
       "c"
     ],
-    "explanation": "A subagent with its own window keeps the raw log isolated; only the condensed summary re-enters the parent's context, which is the guarantee the team wants. A bigger window still fills up with raw lines eventually and doesn't prevent pollution. Prompt caching is a cost/latency optimization -- cached content still occupies context, it doesn't isolate it. Framing the subagent's value as parallel execution names the secondary benefit, not the primary reason, and there's nothing else described running concurrently for it to parallelize against.",
-    "cue": "",
+    "explanation": "The deciding detail is that raw page text lands in the agent's own conversation and later answers degrade. Subagents fix that by isolation: each does the noisy reading in its own window and returns a condensed summary. Parallelism is tempting because it is real, but it is secondary and conditional on independent subtasks, and speed is not the problem here.",
+    "cue": "pours about 30,000 tokens of page text into its own conversation",
     "pattern": "buried-constraint",
-    "difficulty": 2,
+    "difficulty": 1,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "new-agent-architecture-03",
-    "objective": "agent-architecture",
-    "domain": 1,
-    "subskills": [],
-    "type": "multi",
-    "select": 2,
-    "stem": "A team is weighing whether to add a manager agent that delegates a task to three specialist subagents, when a single call already handles that task adequately today. Select the two costs this hierarchy specifically introduces that the single-call design does not have.",
-    "options": [
+    "sources": [
       {
-        "id": "a",
-        "text": "Additional token cost and latency at every manager-to-worker hop",
-        "why": ""
+        "label": "Effective context engineering for AI agents",
+        "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
       },
       {
-        "id": "b",
-        "text": "Errors a worker makes can propagate upward and compound through the manager's synthesis step",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "The system permanently loses the ability to call external tools",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "The model's underlying context-window limit becomes smaller than before",
-        "why": ""
+        "label": "Claude Code subagents",
+        "url": "https://code.claude.com/docs/en/sub-agents"
       }
     ],
-    "answer": [
-      "a",
-      "b"
-    ],
-    "explanation": "Hop cost/latency and compounding worker error are the two costs a manager/subagent hierarchy actually adds over a single call. Losing tool-calling ability is false -- hierarchy depth doesn't affect tool access. A shrinking context-window limit is also false -- that's a fixed model property, untouched by how many subagents sit underneath a manager. Both wrong options borrow real-sounding constraints from elsewhere that don't actually apply here.",
-    "cue": "",
-    "pattern": "scope-boundary",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
   },
   {
-    "id": "new-agent-architecture-04",
+    "id": "new-agent-architecture-01",
     "objective": "agent-architecture",
     "domain": 1,
-    "subskills": [],
+    "subskills": [
+      "aa.principles",
+      "aa.workflow-vs-agent"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A code-review pipeline must run three checks in the exact same order on every single pull request with no exceptions: lint, then type-check, then test. Which implementation actually guarantees that ordering holds every time?",
+    "stem": "An insurer's email intake receives free-text messages that are new claims, policy changes or complaints, worded in many different ways. Each category is handled the same way every time by its own prompt and tool set. Which architecture fits this intake?",
     "options": [
       {
         "id": "a",
-        "text": "A system prompt instructing an agent to always run lint, type-check, then test in that order",
-        "why": ""
+        "text": "An autonomous agent holding every tool, since the wording of incoming emails is too varied to predict",
+        "why": "Messy input is not a reason for autonomy; an agent is justified when the steps cannot be predicted, and here each path is known."
       },
       {
         "id": "b",
-        "text": "An evaluator-optimizer loop that keeps retrying the three checks until all of them pass",
-        "why": ""
+        "text": "Orchestrator-workers: a central model decides at runtime which subtasks each email needs and delegates them",
+        "why": "Orchestrator-workers is for subtasks that only emerge from the input, but the three handlers are known before any email arrives."
       },
       {
         "id": "c",
-        "text": "A manager agent that decides at runtime which of the three checks are relevant to run",
-        "why": ""
+        "text": "Voting: run all three category prompts on every email and keep the output the models agree on most",
+        "why": "Voting aggregates repeated attempts at the same task for confidence; running three different handlers per email triples cost for no gain."
       },
       {
         "id": "d",
-        "text": "Fixed code that calls lint, then type-check, then test, with no model in the decision path",
-        "why": ""
+        "text": "Routing: a classification step sends each email to the fixed prompt and tools built for its category",
+        "why": "Correct. Distinct categories with a known handler each are the use-when condition for routing; the varied wording is absorbed by the classifier."
       }
     ],
     "answer": [
       "d"
     ],
-    "explanation": "Only code with no model in the decision path guarantees the order, which is what 'must ... with no exceptions' demands. A system-prompt instruction is a request the model can fail to follow, not a guarantee. An evaluator-optimizer loop assumes criteria to iteratively refine against, which doesn't apply to a fixed three-step checklist, and retries don't guarantee ordering either. A manager deciding which checks are relevant introduces exactly the runtime variability the requirement rules out.",
-    "cue": "",
-    "pattern": "must-means-deterministic",
+    "explanation": "The cue is that each category is always handled the same way, which is routing to fixed handlers. The free-text wording tempts candidates toward an agent, but unpredictable input is handled by an LLM classification step inside a workflow; autonomy is for unpredictable steps. Orchestrator-workers fails because its subtasks are decided at runtime, while these three are fixed.",
+    "cue": "Each category is handled the same way every time",
+    "pattern": "buried-constraint",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
   },
   {
-    "id": "new-agent-architecture-05",
+    "id": "new-agent-architecture-03",
     "objective": "agent-architecture",
     "domain": 1,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "A document-tagging task applies the exact same three tags via the same three tools to every document, with no variation across runs. A colleague argues for building this as an autonomous agent instead of a fixed workflow because, in their words, agents are 'more flexible and more modern.' What is the strongest architectural counterargument?",
+    "subskills": [
+      "aa.hierarchies"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A single agent reviews supplier contracts adequately today. An architect proposes a lead agent that sends each clause type to its own specialist subagent and merges their findings into one report. Which two costs does this hierarchy add that the single agent does not have? Select two.",
     "options": [
       {
         "id": "a",
-        "text": "Flexibility has no payoff when the steps and tools are already fully known and identical every run; a fixed workflow gets the same result with less cost and less unpredictable behavior",
-        "why": ""
+        "text": "Higher token use per contract, because each specialist pays for its own system prompt, brief and reading",
+        "why": "Correct. Every subagent is a separate context with its own prompt and exploration, so total tokens rise with each specialist added."
       },
       {
         "id": "b",
-        "text": "Agents are structurally incapable of reliable tool use, so a workflow is the only option that works at all",
-        "why": ""
+        "text": "Larger contexts per specialist, because every specialist also receives the lead's full conversation history",
+        "why": "The opposite is true: a non-fork subagent starts fresh with only its brief, which is why briefing quality matters."
       },
       {
         "id": "c",
-        "text": "Only a workflow can use the Claude API's tool-use feature; agents cannot register tools",
-        "why": ""
+        "text": "Lossy handoffs, because the lead sees only each specialist's summary and cannot see mistakes made inside it",
+        "why": "Correct. The lead synthesizes from summaries, so an error inside a specialist's context can pass into the report unseen and compound."
       },
       {
         "id": "d",
-        "text": "An agent architecture always requires a manager delegating to a subagent hierarchy, which this simple task doesn't justify",
-        "why": ""
+        "text": "Longer wall-clock time, because subagents must run one after another and cannot run concurrently",
+        "why": "Independent subagents can run concurrently; latency comes from sequential handoffs, not from anything subagents force."
+      },
+      {
+        "id": "e",
+        "text": "Smaller usable context per specialist, because the agents in a tree split one model's context window",
+        "why": "Each subagent has its own full context window; the agents do not divide one window between them."
+      }
+    ],
+    "answer": [
+      "a",
+      "c"
+    ],
+    "explanation": "A hierarchy adds tokens, because every specialist pays for its own context, and it adds lossy handoffs, because the lead merges summaries it cannot audit. The tempting distractors invert real facts: subagents start with a fresh context rather than the parent's history, and each gets its own window. That separation is exactly why the lead cannot see specialist mistakes.",
+    "cue": "merges their findings into one report",
+    "pattern": "tradeoff",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How we built our multi-agent research system",
+        "url": "https://www.anthropic.com/engineering/multi-agent-research-system"
+      },
+      {
+        "label": "Agent SDK subagents",
+        "url": "https://code.claude.com/docs/en/agent-sdk/subagents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "new-agent-architecture-04",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [
+      "aa.workflow-vs-agent",
+      "aa.principles"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A release pipeline uses Claude to draft a changelog, and compliance requires a license scan and then a secrets scan on every release, in that order, before anything is published. Today an agent holds all three tools and a system prompt that lists the required order. Which change makes the requirement hold on every run?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Rewrite the system prompt as a numbered checklist that tells the agent to always run both scans first",
+        "why": "A prompt is a request the model usually follows; a numbered list improves compliance but cannot guarantee it on every run."
+      },
+      {
+        "id": "b",
+        "text": "Run both scans as fixed code steps before the drafting call, and publish only when both have passed",
+        "why": "Correct. Code that runs the scans in sequence and gates publishing holds every time, because no model decision sits on the path."
+      },
+      {
+        "id": "c",
+        "text": "Add an evaluator model that reads each run's transcript afterwards and flags releases missing a scan",
+        "why": "Detection after the fact still lets a release ship unscanned, and a model reviewer is itself probabilistic."
+      },
+      {
+        "id": "d",
+        "text": "Give a supervisor agent the scan tools and have it delegate changelog drafting to a writer subagent",
+        "why": "The supervisor still decides when to call the scans, so the order still depends on model behaviour rather than code."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "When a stem says something must happen every time in a set order, the answer is a deterministic control. Fixed code steps with a publish gate make the order a property of the program. The checklist prompt is the tempting option because it usually works, but usually is not what compliance asked for.",
+    "cue": "on every release, in that order",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-architecture-001",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [
+      "aa.principles"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A pull-request bot checks every change for security issues, missing tests and style violations. The same three checks run on every pull request and none depends on another, yet developers complain that running them one after another is slow. Which pattern fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Parallelization by sectioning: three focused calls run at once and code merges their results",
+        "why": "Correct. Known, independent subtasks run concurrently is sectioning, which cuts wall-clock time and keeps each call focused on one aspect."
+      },
+      {
+        "id": "b",
+        "text": "Orchestrator-workers: a central model reads each change and decides which checks to delegate",
+        "why": "The subtask list is fixed in advance, so paying a model to rediscover it at runtime adds a call and variance for nothing."
+      },
+      {
+        "id": "c",
+        "text": "Prompt chaining: the security, test and style calls run in sequence, each gated on the last",
+        "why": "Chaining is for steps that consume each other's output, and running in sequence is exactly the slowness developers complain about."
+      },
+      {
+        "id": "d",
+        "text": "Parallelization by voting: one combined review runs three times and the results are compared",
+        "why": "Voting repeats the same task for confidence; it neither splits the three aspects apart nor speeds anything up."
       }
     ],
     "answer": [
       "a"
     ],
-    "explanation": "The correct counterargument is a cost/complexity one: identical, fully-known steps get no benefit from agent flexibility, so the workflow wins on cost and predictability. The other three options invent false technical limitations -- agents can call tools reliably, both workflows and agents use the same tool-use feature, and a single agent never requires a manager/subagent hierarchy. Each sounds like a plausible technical fact but fails on that basis alone.",
-    "cue": "",
+    "explanation": "The cue is three fixed, independent checks and a complaint about speed. If you can write the subtask list in code before the input arrives, the pattern is sectioning, not orchestrator-workers. Orchestrator-workers is tempting because both fan out and merge, but it is for subtasks that only a model can decide at runtime.",
+    "cue": "The same three checks run on every pull request and none depends on another",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-architecture-002",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [
+      "aa.principles"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A migration assistant receives requests such as renaming a configuration key everywhere it is used in a large repository. Which files need changing, and how many, depends on each request and can only be found by reading the code. Which workflow pattern fits best?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Sectioning: the repository is split into a fixed set of directory groups in code, each edited by its own parallel call",
+        "why": "Sectioning needs the subtask list fixed before the run; splitting by directory sends calls to code that may never mention the key."
+      },
+      {
+        "id": "b",
+        "text": "Routing: each request is classified by type and sent to a fixed handler prompt written for that type of change",
+        "why": "Routing picks a handler, but the handler still faces an unknown set of files, so the core decomposition problem remains."
+      },
+      {
+        "id": "c",
+        "text": "Orchestrator-workers: a central model finds the affected files, delegates each change to a worker and combines the results",
+        "why": "Correct. When the subtasks cannot be predicted and depend on the input, a central model must decide them at runtime, which is this pattern's use-when condition."
+      },
+      {
+        "id": "d",
+        "text": "Prompt chaining: a fixed sequence of calls plans the change, edits the files and then writes a summary for review",
+        "why": "A single fixed sequence cannot fan out to however many files a request touches; the number of edit steps is unknown in advance."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "The deciding words are that the files depend on each request and are only found by reading the code. Unpredictable subtasks are the use-when condition for orchestrator-workers, which Anthropic illustrates with exactly this kind of multi-file change. Sectioning is the near miss: it also fans out, but only over a list you could write before seeing the input.",
+    "cue": "depends on each request and can only be found by reading the code",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-architecture-003",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [
+      "aa.principles"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A forum moderation step should send a post to human review only when several independent assessments agree that it breaks policy, because any single model call produces too many false flags. Posts are short and volume is moderate. Which pattern matches this requirement?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Evaluator-optimizer: one call drafts a verdict and a second critiques it until the verdict meets the policy criteria",
+        "why": "Evaluator-optimizer feeds a critique back into one evolving answer, so its rounds are not independent assessments that can agree."
+      },
+      {
+        "id": "b",
+        "text": "Prompt chaining: a classification call is followed by a code gate that passes the post on if a keyword list matches",
+        "why": "A keyword gate is deterministic but blind to context, and the requirement is agreement across assessments, not a word match."
+      },
+      {
+        "id": "c",
+        "text": "Routing: a quick classifier sends borderline posts to a larger model whose single verdict decides the outcome",
+        "why": "One larger model still gives a single verdict; nothing aggregates independent assessments as the requirement asks."
+      },
+      {
+        "id": "d",
+        "text": "Voting: run the same policy check several times independently and flag the post only above an agreement threshold",
+        "why": "Correct. Independent attempts aggregated for confidence is voting, and a threshold on agreement is how it cuts single-call false positives."
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "The cue is agreement among several independent assessments, which is the voting form of parallelization. Evaluator-optimizer is the tempting confusion because it also calls the model more than once, but its calls are iterative, each revising the last, not independent. Routing to a bigger model improves one verdict rather than requiring agreement.",
+    "cue": "only when several independent assessments agree",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-architecture-004",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [
+      "aa.principles"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A localization team translates release notes into Japanese against a style guide of twenty checkable rules covering terminology, sentence length and politeness level. First drafts usually break two or three rules, and a second pass that is told exactly which rules failed fixes most of them. Which pattern fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Voting: three independent translations are produced, and the one that breaks the fewest of the twenty rules is kept as final",
+        "why": "Picking the best of independent attempts never feeds the critique back, so the rule failures that a revision would fix stay unfixed."
+      },
+      {
+        "id": "b",
+        "text": "Evaluator-optimizer: one call translates, another checks the draft against the rules, and failures go back for revision",
+        "why": "Correct. Clear criteria plus evidence that feedback-driven revision helps is the use-when condition for evaluator-optimizer."
+      },
+      {
+        "id": "c",
+        "text": "Sectioning: the notes are split into paragraphs that are translated in parallel and then joined back in order",
+        "why": "Parallel paragraphs speed up translation but do nothing about rule violations, and splitting can break consistency between paragraphs."
+      },
+      {
+        "id": "d",
+        "text": "Routing: notes are classified by product area and sent to a translation prompt tuned for that area's terms",
+        "why": "Tuned prompts may reduce terminology errors, but no step checks the draft against the rules or revises it."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Two things decide this: the criteria are explicit, and revision informed by the failed rules measurably improves the draft. That combination is evaluator-optimizer. Voting is the near miss because it also uses several model calls, but it chooses among independent drafts instead of feeding the critique into a revision.",
+    "cue": "a second pass that is told exactly which rules failed fixes most of them",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-architecture-005",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [
+      "aa.workflow-vs-agent",
+      "aa.hierarchies"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An on-call assistant investigates production incidents by querying metrics, reading logs and checking recent deploys, choosing what to examine next from what each result shows. Incidents vary so much that the team cannot list the investigation steps in advance, and every tool it has is read-only. Which design fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A fixed prompt chain that always queries metrics, then logs, then deploys, and summarizes what the three steps return",
+        "why": "A fixed path cannot follow the evidence; when the logs point somewhere new, the chain has no step for it."
+      },
+      {
+        "id": "b",
+        "text": "Routing by alert type to a fixed handler per type, each running a predefined set of queries for that kind of alert",
+        "why": "Per-type handlers are still fixed paths, and the stem says incidents vary too much to script the steps in advance."
+      },
+      {
+        "id": "c",
+        "text": "A single agent with the read-only tools, a turn cap and a spend budget, reporting its findings to the on-call engineer",
+        "why": "Correct. Unpredictable steps steered by tool results are the case for an agent, and read-only tools plus code-enforced bounds keep autonomy safe and affordable."
+      },
+      {
+        "id": "d",
+        "text": "A supervisor agent that delegates metrics, logs and deploys to three specialist agents and merges their summaries",
+        "why": "Each investigation step depends on the last result, so splitting by data source loses that thread and adds multi-agent cost."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "Here autonomy is earned: the steps cannot be listed in advance and each tool result gives ground truth for choosing the next. Read-only tools lower the cost of a wrong action, and a turn cap and budget keep the agent bounded. The supervisor design is the tempting elaborate option, but the investigation is sequential and tightly coupled, so splitting it across specialists hurts.",
+    "cue": "cannot list the investigation steps in advance",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      },
+      {
+        "label": "How we built our multi-agent research system",
+        "url": "https://www.anthropic.com/engineering/multi-agent-research-system"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-architecture-006",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [
+      "aa.workflow-vs-agent",
+      "aa.principles"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A procurement process has a fixed intake form, a fixed manager approval and a fixed purchase-order step. Between intake and approval, a supplier-risk check must research each new supplier across sources whose number and type vary from one supplier to the next. Which architecture fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "One autonomous agent that runs the whole process, from intake through approval to issuing the purchase order",
+        "why": "Making approval and ordering autonomous gives up a predictable, auditable path that was fixed for good reason."
+      },
+      {
+        "id": "b",
+        "text": "A fixed prompt chain throughout, with the risk check querying the same three sources for every new supplier",
+        "why": "A fixed source list cannot adapt when a supplier needs different or more sources, which the stem says varies."
+      },
+      {
+        "id": "c",
+        "text": "A supervisor agent that coordinates separate intake, research, approval and ordering agents for each supplier",
+        "why": "Wrapping fixed steps in agents adds multi-agent tokens and handoffs where code would do, the classic over-engineered design."
+      },
+      {
+        "id": "d",
+        "text": "A fixed workflow for intake, approval and ordering, with a bounded research agent as the one open-ended step",
+        "why": "Correct. Hybrids are normal: keep the known steps deterministic and spend autonomy only where the path genuinely depends on what is found."
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "Only one step has unpredictable work: the supplier research, where the number and type of sources varies. The least autonomous design that fits is a workflow with an agent embedded at that step. The all-agent and supervisor designs are tempting because the research needs autonomy, but that is no reason to hand the fixed approval and ordering steps to a model.",
+    "cue": "whose number and type vary from one supplier to the next",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-architecture-007",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [
+      "aa.workflow-vs-agent"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team wants Claude to clean up stale cloud resources in production accounts. Deletions cannot be undone and there is no staging copy to test against, while the list of stale resources comes from a deterministic tagging report. Which design fits best?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A workflow: code reads the report, Claude drafts a deletion plan with reasons, and code deletes only what a human approves",
+        "why": "Correct. Irreversible actions with no sandbox call for a predictable path and a human approval gate before anything is deleted."
+      },
+      {
+        "id": "b",
+        "text": "An agent with list and delete tools and a system prompt telling it to be conservative and skip anything uncertain",
+        "why": "Caution in a prompt is a request, and an autonomous agent with a delete tool in production is the riskiest option here."
+      },
+      {
+        "id": "c",
+        "text": "An agent with list and delete tools and a harness cap of 20 tool calls, so that any mistakes stay limited in number",
+        "why": "A turn cap bounds how long the agent runs, not whether each deletion is right; twenty irreversible mistakes is still an incident."
+      },
+      {
+        "id": "d",
+        "text": "A workflow in which a second model reviews the deletion plan and its approval triggers the deletions automatically",
+        "why": "A model reviewer is still probabilistic; for irreversible actions the approval that gates execution should be a person."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding constraint is that deletions are irreversible and there is no sandbox, which removes the conditions Anthropic sets for running agents: sandboxed testing and appropriate guardrails. The candidate list is already deterministic, so a workflow with a human approval gate fits. The turn cap is tempting because bounds are good practice, but it limits run length, not the damage of each wrong action.",
+    "cue": "Deletions cannot be undone and there is no staging copy to test against",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-architecture-008",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [
+      "aa.workflow-vs-agent"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A team is deciding whether a new data-quality task should be an agent or a fixed workflow, and it will run in a sandboxed copy of the warehouse. Which two characteristics of the task most strongly favor building it as an agent? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Requests arrive as free text, worded differently by every analyst who submits one",
+        "why": "Varied wording is handled by an extraction or routing step inside a workflow; it says nothing about whether the steps vary."
+      },
+      {
+        "id": "b",
+        "text": "How many checks are needed depends on what earlier queries reveal about the data",
+        "why": "Correct. An unknown number of steps that depends on discoveries is Anthropic's defining condition for using an agent."
+      },
+      {
+        "id": "c",
+        "text": "The task runs thousands of times a day on a tight per-run budget",
+        "why": "High volume on a tight budget favors a workflow, since agents trade cost and latency for flexibility."
+      },
+      {
+        "id": "d",
+        "text": "Each query result gives ground truth the system can use to choose the next step",
+        "why": "Correct. Agents need environment feedback at each step to judge progress, and query results provide it."
+      },
+      {
+        "id": "e",
+        "text": "Auditors want each run to follow the same reviewable sequence of steps",
+        "why": "A fixed, reviewable path is the definition of a workflow, so this requirement argues against an agent."
+      }
+    ],
+    "answer": [
+      "b",
+      "d"
+    ],
+    "explanation": "Agents are for open-ended problems where the number of steps cannot be predicted and the environment supplies ground truth to steer by. Free-text input is the tempting wrong answer: messy input is handled by an LLM step inside a workflow, not by handing over control. Volume and auditability both point the other way.",
+    "cue": "most strongly favor building it as an agent",
     "pattern": "scope-boundary",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-architecture-009",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [
+      "aa.hierarchies",
+      "aa.subagents"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A strategy team wants reports comparing 40 competitors on pricing, hiring and product launches. The source material runs to far more than one context window can hold, each competitor can be researched independently, and each report is worth a great deal to the business. Which architecture fits best?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A single agent on the largest available context window, reading every source in turn before writing the report",
+        "why": "The material exceeds what one context holds well, so a single reader degrades or truncates however large its window."
+      },
+      {
+        "id": "b",
+        "text": "A lead agent that plans the work and spawns subagents for groups of competitors, each returning condensed findings",
+        "why": "Correct. Breadth, independence, more material than one context holds and high value are the conditions where a supervisor with subagents earns its cost."
+      },
+      {
+        "id": "c",
+        "text": "A prompt chain that summarizes each source in turn and folds it into one running summary passed to the next call",
+        "why": "A running summary is a game of telephone: each fold loses detail, and the chain cannot fan out across independent competitors."
+      },
+      {
+        "id": "d",
+        "text": "A three-level tree with a lead, a manager for each of the three topics, and workers per competitor under each manager",
+        "why": "The extra management layer adds another lossy summary and more tokens without solving anything one layer of workers cannot."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "This is the case a supervisor exists for: independent, breadth-first research over more material than one context can hold, with enough value to pay for the tokens. Anthropic's research system uses this shape. The three-level tree is tempting because it maps neatly onto the three topics, but depth adds lossy handoffs, so prefer one layer of workers.",
+    "cue": "far more than one context window can hold",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How we built our multi-agent research system",
+        "url": "https://www.anthropic.com/engineering/multi-agent-research-system"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-architecture-010",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [
+      "aa.hierarchies"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A research system grew from a lead agent with one layer of workers to three layers, adding topic managers between them. Since the change, final reports omit specific figures that the workers' logs show they found, and cost per report has doubled. Which two changes address the cause? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Add a quality-review agent above the managers to check their summaries for missing figures",
+        "why": "Another supervisory layer adds a further lossy handoff and more cost, and it sees only summaries in which the figures are already missing."
+      },
+      {
+        "id": "b",
+        "text": "Remove the manager layer so that workers report directly to the lead agent again",
+        "why": "Correct. Each layer is another lossy summary and another round of tokens, so flattening removes the handoff where the figures disappear."
+      },
+      {
+        "id": "c",
+        "text": "Have workers write full findings to shared storage and pass references back to the lead",
+        "why": "Correct. Passing references to stored outputs avoids the game of telephone, because the lead can read the exact figures rather than a summary of a summary."
+      },
+      {
+        "id": "d",
+        "text": "Give the topic managers a higher model tier so their summaries keep more of the detail",
+        "why": "A stronger summarizer may keep a little more, but the managers still compress the findings and the cost rises further."
+      },
+      {
+        "id": "e",
+        "text": "Raise max_tokens on the lead agent's final call so the report has room for every figure",
+        "why": "The figures are lost before the lead's final call, so giving that call more output room changes nothing upstream."
+      }
+    ],
+    "answer": [
+      "b",
+      "c"
+    ],
+    "explanation": "The figures exist in the workers' output and vanish on the way up, so the cause is lossy handoffs between layers. Flatten the tree and let workers store full outputs that the lead reads by reference. Adding a review layer is the tempting fix, but it adds one more handoff and can only see summaries that have already lost the detail.",
+    "cue": "omit specific figures that the workers' logs show they found",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How we built our multi-agent research system",
+        "url": "https://www.anthropic.com/engineering/multi-agent-research-system"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-architecture-011",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [
+      "aa.hierarchies"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A lead research agent spawns 30 or more subagents even for simple factual questions, and cost per query has climbed sharply. Simple questions should need one agent and a few tool calls, while broad comparisons may justify many workers. Which change fits best?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Fix the lead at five subagents for every query, so cost per query becomes predictable whatever the question",
+        "why": "A fixed count over-spends on simple questions and under-resources broad ones, so it fails both halves of the stated need."
+      },
+      {
+        "id": "b",
+        "text": "Run every subagent on a cheaper model tier, so that spawning 30 workers for a simple question costs much less",
+        "why": "Cheaper workers lower the price of each one but leave the 30-worker fan-out for a one-line answer in place."
+      },
+      {
+        "id": "c",
+        "text": "Drop the lead agent and answer all queries with a single agent, since multi-agent runs cost about 15 times as much as a chat",
+        "why": "That fixes simple questions but loses the breadth that broad comparisons need, which the stem says justifies many workers."
+      },
+      {
+        "id": "d",
+        "text": "Give the lead effort-scaling rules that tie worker count to query complexity, plus a hard cap enforced in the harness",
+        "why": "Correct. Anthropic fixed over-spawning by embedding effort-scaling rules in the lead's prompt, and a hard cap in code bounds the worst case."
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "The problem is effort that does not scale with the query, so the fix is scaling guidance for the lead plus a code-enforced cap. Anthropic's research system saw early agents spawn 50 subagents for simple queries and addressed it this way. Dropping multi-agent entirely is tempting given the token cost, but the stem says broad comparisons still need it.",
+    "cue": "even for simple factual questions",
+    "pattern": "tradeoff",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How we built our multi-agent research system",
+        "url": "https://www.anthropic.com/engineering/multi-agent-research-system"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-architecture-012",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [
+      "aa.hierarchies",
+      "aa.subagents"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team wants to speed up drafting a 30-page technical design document in which every section must reuse the terminology, decisions and numbers settled in the sections before it. A proposal assigns each of six sections to its own parallel subagent. What is the strongest objection?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Six subagents would each pay for their own system prompt and reading, so total tokens would exceed one agent's",
+        "why": "The token cost is real, but it is secondary: even at no extra cost, the parallel sections would be inconsistent."
+      },
+      {
+        "id": "b",
+        "text": "The sections depend on decisions made in earlier ones, and parallel subagents start fresh without seeing each other's choices",
+        "why": "Correct. Tightly coupled work that needs shared, evolving context is where multi-agent splits hurt; a single agent writing in order fits."
+      },
+      {
+        "id": "c",
+        "text": "Subagents inherit the parent's full conversation, so each section's subagent would be distracted by every other section's notes and drafts",
+        "why": "This inverts how subagents work: a non-fork subagent sees only its brief, which is the source of the real problem."
+      },
+      {
+        "id": "d",
+        "text": "Six subagents would make the run harder to trace, since each one's reasoning lives in a separate context window",
+        "why": "Tracing is harder with more agents, but that is an operational cost, not the reason the output would be wrong."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The cue is that each section must reuse what earlier sections settled, so the work is sequential and shares context. Anthropic notes that multi-agent systems fit poorly where agents must share the same context or depend on each other. Token cost is the tempting answer because it is true, but the stronger objection is that the result would be inconsistent at any price.",
+    "cue": "must reuse the terminology, decisions and numbers settled in the sections before it",
+    "pattern": "tradeoff",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How we built our multi-agent research system",
+        "url": "https://www.anthropic.com/engineering/multi-agent-research-system"
+      },
+      {
+        "label": "Agent SDK subagents",
+        "url": "https://code.claude.com/docs/en/agent-sdk/subagents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-architecture-013",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [
+      "aa.subagents"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team wants a review step in Claude Code that reads and searches the repository but cannot modify files, even when a file under review contains text telling it to make edits. The main conversation keeps its full tool set. Which approach enforces this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A CLAUDE.md rule telling Claude never to edit files while it is performing a review of the repository",
+        "why": "CLAUDE.md is context the model reads, so the rule is a request that instructions planted in a file can still override."
+      },
+      {
+        "id": "b",
+        "text": "A reviewer subagent whose system prompt says it is read-only and must refuse any request to modify files",
+        "why": "A system-prompt instruction is still a request; the edit tools remain available if the model is persuaded to use them."
+      },
+      {
+        "id": "c",
+        "text": "A reviewer subagent whose tools list contains only read and search tools, so edit tools are simply absent",
+        "why": "Correct. Restricting a subagent's tools is a deterministic constraint: a tool that is not in the list cannot be called, whatever the file says."
+      },
+      {
+        "id": "d",
+        "text": "A reviewer subagent assigned a faster, cheaper model, so that the review finishes before any edits happen",
+        "why": "Model choice is a cost and speed lever, and it does nothing to remove the ability to edit."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "The stem demands that edits be impossible even under instructions planted in a file, which calls for a control in configuration, not wording. Subagent tool restriction removes the edit tools, so no prompt can bring them back. The system-prompt subagent is tempting because it is also a subagent, but the constraint it adds is only a request.",
+    "cue": "cannot modify files, even when a file under review contains text telling it to make edits",
+    "pattern": "must-means-deterministic",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Claude Code subagents",
+        "url": "https://code.claude.com/docs/en/sub-agents"
+      },
+      {
+        "label": "Agent SDK subagents",
+        "url": "https://code.claude.com/docs/en/agent-sdk/subagents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-architecture-014",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [
+      "aa.subagents"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A developer asks Claude Code to read one value from a 40-line config file and then use that exact value in the next edit. A teammate suggests delegating the read to a subagent to keep the main context clean. Why is that a poor fit here?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A subagent returns its full transcript to the parent, so the main context would grow by more than if the parent had simply read the file itself",
+        "why": "The parent receives the subagent's final message, not its transcript, so this misstates what comes back."
+      },
+      {
+        "id": "b",
+        "text": "A subagent sees the main conversation's history anyway, so delegating saves no context compared with reading directly",
+        "why": "A non-fork subagent starts fresh with only its brief; it does not see the main conversation."
+      },
+      {
+        "id": "c",
+        "text": "Subagents cannot read configuration files themselves; they work only through search tools the parent passes to them",
+        "why": "Subagents can be given file read tools; tool access is configured per subagent, not limited to search."
+      },
+      {
+        "id": "d",
+        "text": "The read adds only a few hundred tokens, while a subagent adds a cold start, a brief and a summarized return of a value needed exactly",
+        "why": "Correct. Delegation costs a brief, a cold start and a lossy summary; for a tiny read whose exact output is needed next, those costs exceed the context saved."
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "Subagents pay off when the work they absorb is large and noisy; a single short read adds little to the main context. Here the parent also needs the value verbatim, and a summarized return risks altering it, while the subagent's fresh start adds latency. Use the main conversation for quick, targeted steps, as the Claude Code docs advise.",
+    "cue": "one value from a 40-line config file",
+    "pattern": "tradeoff",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Claude Code subagents",
+        "url": "https://code.claude.com/docs/en/sub-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-architecture-015",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [
+      "aa.subagents"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A Claude Code user runs a security audit that reads several hundred files and wants two things: the main conversation should stay focused for follow-up discussion, and the audit step should be unable to change anything. Which two subagent properties meet these needs? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Concurrent execution, so the audit finishes in the time of its slowest part",
+        "why": "Parallelism is a real subagent benefit, but neither of the stated needs is about speed."
+      },
+      {
+        "id": "b",
+        "text": "Its own context window, with only a summary returned to the main conversation",
+        "why": "Correct. Context isolation keeps hundreds of file reads out of the main conversation, which receives only the audit's summary."
+      },
+      {
+        "id": "c",
+        "text": "Routing to a cheaper model, which lowers the cost of reading several hundred files",
+        "why": "Cheaper models control cost, which is a real benefit but not something the user asked for."
+      },
+      {
+        "id": "d",
+        "text": "A tools list that can exclude every edit and write tool for that subagent",
+        "why": "Correct. A tool omitted from a subagent's tools list is unavailable to it, which makes the audit unable to modify files."
+      },
+      {
+        "id": "e",
+        "text": "Reuse across projects, by defining the auditor once as a user-level subagent",
+        "why": "Reuse is a real convenience, but it does nothing for context hygiene or for preventing changes."
+      }
+    ],
+    "answer": [
+      "b",
+      "d"
+    ],
+    "explanation": "The Claude Code docs list preserving context and enforcing tool constraints as the first two reasons to use subagents, and those match the two stated needs. The other options are genuine subagent benefits that answer questions the user did not ask. Matching a benefit to the stated need is the skill being tested.",
+    "cue": "stay focused for follow-up discussion",
+    "pattern": "scope-boundary",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Claude Code subagents",
+        "url": "https://code.claude.com/docs/en/sub-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
   }
 ]

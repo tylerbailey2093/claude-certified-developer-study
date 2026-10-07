@@ -3,294 +3,1160 @@
     "id": "legacy-006",
     "objective": "agent-patterns-and-frameworks",
     "domain": 1,
-    "subskills": [],
+    "subskills": [
+      "ap.tool-loops"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "An agent occasionally runs for hours, repeating the same tool call. What is the correct primary control?",
+    "stem": "A ticket-triage agent runs on a hand-written tool-use loop, and some runs go on for hours, calling the same search tool with slightly reworded queries. The loop exits only when Claude replies without requesting a tool, and one run cost more than a month of normal traffic. What is the right primary fix?",
     "options": [
       {
         "id": "a",
-        "text": "Lower the temperature so its choices are more consistent",
-        "why": ""
+        "text": "Route the agent to a higher-tier reasoning model",
+        "why": "A stronger model may loop less often, but nothing guarantees a stop, so the next unusual case can run up the same bill."
       },
       {
         "id": "b",
-        "text": "Bound the loop with maximum iterations, a wall-clock timeout, and a token budget",
-        "why": ""
+        "text": "Add a turn cap and a token or spend budget to the loop, returning a clear status when either limit is hit",
+        "why": "Correct. Termination is the harness's job; a turn cap and budget enforced in code stop any run, whatever the model does."
       },
       {
         "id": "c",
-        "text": "Route the agent to a higher-tier reasoning model",
-        "why": ""
+        "text": "Tell Claude in its instructions to give up after ten searches and summarize whatever it has found so far",
+        "why": "An instruction is a request the model usually follows; it is not a bound the harness enforces."
       },
       {
         "id": "d",
-        "text": "Increase max_tokens so it can complete its reasoning",
-        "why": ""
+        "text": "Raise max_tokens so Claude can reason through the problem fully and needs fewer turns to finish a run",
+        "why": "max_tokens caps the length of each response; it does not limit how many turns the loop runs."
       }
     ],
     "answer": [
       "b"
     ],
-    "explanation": "Unbounded loops are a harness design failure fixed with explicit bounds. A more capable model reduces but does not eliminate loops, and neither temperature nor max_tokens addresses termination.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
+    "explanation": "The cue is that the only exit is the model choosing to stop. A production loop needs harness-enforced exits: a turn cap, a spend or token budget, and ideally a timeout. A stronger model is the tempting fix because it reduces how often loops happen, but only code guarantees the stop.",
+    "cue": "The loop exits only when Claude replies without requesting a tool",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
     "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Agent SDK: how the agent loop works",
+        "url": "https://code.claude.com/docs/en/agent-sdk/agent-loop"
+      },
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
   },
   {
     "id": "legacy-007",
     "objective": "agent-patterns-and-frameworks",
     "domain": 1,
-    "subskills": [],
+    "subskills": [
+      "ap.memory"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "An agent needs information from a session that ended two days ago. How is this achieved?",
+    "stem": "A budgeting assistant built on the Messages API should recall each user's savings goals when they return days later. Every conversation currently starts with an empty messages array, and the team has enabled prompt caching on the system prompt. How should cross-session recall be achieved?",
     "options": [
       {
         "id": "a",
-        "text": "The model retains prior sessions in its weights automatically",
-        "why": ""
+        "text": "Rely on prompt caching, which keeps earlier conversations on the server so the model can draw on them later",
+        "why": "Prompt caching is a short-lived cost and latency optimization for repeated prefixes; it stores nothing the model can recall."
       },
       {
         "id": "b",
-        "text": "The application writes to and reads from an external store, since the API is stateless",
-        "why": ""
+        "text": "Use a model with a larger context window, so that earlier conversations stay available to it when the user comes back days later",
+        "why": "A larger window holds more of the current request; it carries nothing from one request to the next."
       },
       {
         "id": "c",
-        "text": "Prompt caching persists the earlier session for later retrieval",
-        "why": ""
+        "text": "Store each user's goals in an application-managed store and load them into every new conversation for that user",
+        "why": "Correct. The API is stateless, so anything that must survive between sessions is stored and reloaded by the application."
       },
       {
         "id": "d",
-        "text": "Setting a longer context window carries state between sessions",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "The API is stateless and the model has no memory between calls. Long-term memory is something the application designs and manages. Caching is a cost and latency optimization with a short TTL, not a persistence layer.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "legacy-008",
-    "objective": "agent-patterns-and-frameworks",
-    "domain": 1,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "Which consideration most favors starting with direct API calls rather than an agentic framework?",
-    "options": [
-      {
-        "id": "a",
-        "text": "Frameworks cannot support tool use",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "Direct calls keep the failure surface visible without an abstraction layer between the team and the model",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "Frameworks are only available for TypeScript",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "Direct calls are the only way to use streaming",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "Frameworks buy scaffolding at the cost of an abstraction that can obscure failures. Start direct and adopt a framework when the scaffolding earns its keep. The other options are factually false.",
-    "cue": "",
-    "pattern": "unclassified",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "legacy",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "new-agent-patterns-and-frameworks-01",
-    "objective": "agent-patterns-and-frameworks",
-    "domain": 1,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "A deployment agent must never make more than fifty tool calls in a single run, regardless of how capable the underlying model is or how the prompt is worded, because a runaway run has already caused a production incident. Which control actually guarantees that ceiling holds?",
-    "options": [
-      {
-        "id": "a",
-        "text": "A harness-level counter that stops the loop once fifty tool calls have been made, independent of the model's own judgment",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "Switching to a more capable model that is less likely to get stuck in a loop",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "Lowering the sampling temperature so the model's tool choices are more consistent",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "Adding a system-prompt instruction telling the model to stop after fifty tool calls",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "a"
-    ],
-    "explanation": "Only a harness-level counter enforced in code guarantees the ceiling, because it doesn't depend on the model choosing to comply. A more capable model reduces how often loops happen but never guarantees a hard limit. Lowering temperature changes variability, not termination. A system-prompt instruction is a request the model can fail to follow, not a guarantee -- the same distinction that makes unbounded loops a harness failure rather than a model failure.",
-    "cue": "",
-    "pattern": "must-means-deterministic",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "new-agent-patterns-and-frameworks-02",
-    "objective": "agent-patterns-and-frameworks",
-    "domain": 1,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "A long-running research agent writes short notes to a local file as it works through a forty-step investigation, and reads those notes back on later steps, even though this costs it extra tool calls it wouldn't otherwise need. What best explains why this design choice is worth that overhead?",
-    "options": [
-      {
-        "id": "a",
-        "text": "It permanently increases the size of the agent's underlying context window",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "It gives the agent persistent memory outside the context window, preserving progress and dependencies without keeping the full history in-context",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "It replaces the harness's responsibility to bound the loop with a timeout or iteration limit",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "It lets the underlying API retain state between two otherwise unrelated conversations",
-        "why": ""
-      }
-    ],
-    "answer": [
-      "b"
-    ],
-    "explanation": "Structured note-taking is a memory pattern: it persists progress and dependencies outside the context window at low overhead, so the agent doesn't need to keep everything in-context. It does not change context-window size, does not substitute for loop-termination bounds, and does not make the API stateful -- each wrong option borrows a real mechanism from an adjacent concern that note-taking doesn't actually touch.",
-    "cue": "",
-    "pattern": "scope-boundary",
-    "difficulty": 2,
-    "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
-  },
-  {
-    "id": "new-agent-patterns-and-frameworks-03",
-    "objective": "agent-patterns-and-frameworks",
-    "domain": 1,
-    "subskills": [],
-    "type": "single",
-    "select": 1,
-    "stem": "An agent's conversation has grown large enough that old tool outputs are consuming most of the available context, even though the agent no longer needs to re-inspect any of them. The team wants the lightest-touch fix available and specifically wants to avoid summarizing anything. Which lever fits?",
-    "options": [
-      {
-        "id": "a",
-        "text": "Compaction: summarize the whole conversation and reinitiate a new context window",
-        "why": ""
-      },
-      {
-        "id": "b",
-        "text": "Switch to a model with a larger context window so the old outputs simply fit",
-        "why": ""
-      },
-      {
-        "id": "c",
-        "text": "Tool-result clearing: drop the stale raw tool outputs from the message history",
-        "why": ""
-      },
-      {
-        "id": "d",
-        "text": "Rewrite the system prompt to be shorter",
-        "why": ""
+        "text": "Ask Claude at the end of each conversation to remember the user's goals for the next time they return",
+        "why": "The model keeps no state between requests, so an instruction to remember has nowhere to persist."
       }
     ],
     "answer": [
       "c"
     ],
-    "explanation": "Tool-result clearing is the lightest-touch lever and involves no summarization -- it just drops stale raw outputs the agent no longer needs. Compaction is exactly the summarization the team said to avoid. A larger context window doesn't manage anything, it just delays the same growth problem. The system prompt isn't what's consuming context in this scenario, so shortening it doesn't address the stated cause.",
-    "cue": "",
-    "pattern": "buried-constraint",
-    "difficulty": 2,
+    "explanation": "Every request contains everything the model sees, and here each conversation starts empty, so memory must come from the application: a memory tool backend, files or a database keyed by user. Prompt caching is the tempting distractor because it sounds like storage, but it only discounts repeated input for a short time.",
+    "cue": "starts with an empty messages array",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 1,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Memory tool",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
   },
   {
-    "id": "new-agent-patterns-and-frameworks-04",
+    "id": "legacy-008",
     "objective": "agent-patterns-and-frameworks",
     "domain": 1,
-    "subskills": [],
+    "subskills": [
+      "ap.frameworks"
+    ],
     "type": "single",
     "select": 1,
-    "stem": "A Python team wants every tool call and model response validated against typed schemas at development time, with as little custom parsing code as possible, and they explicitly do not need a general-purpose graph engine for branching, cyclical control flow. Which framework fits best?",
+    "stem": "A team is building its first agent: one tool-use loop, three tools, and no need to pause for approval or resume after crashes. A lead suggests adopting a full agent framework from day one for future flexibility. Following Anthropic's guidance, where should they start?",
     "options": [
       {
         "id": "a",
-        "text": "LangGraph, for its explicit graph of nodes and edges",
-        "why": ""
+        "text": "Adopt a graph framework now, so that approval steps and resumable runs are ready if they are ever needed",
+        "why": "Paying for scaffolding the team does not need adds an abstraction that can obscure prompts and responses during debugging."
       },
       {
         "id": "b",
-        "text": "Strands Agents, for its minimal-scaffolding model-driven loop",
-        "why": ""
+        "text": "Build it as a multi-agent system now, with one agent per tool, so each tool can be scaled independently later",
+        "why": "One agent per tool is the over-engineered multi-agent design, adding handoffs and tokens to a single small loop."
       },
       {
         "id": "c",
-        "text": "A hand-rolled loop with no framework at all",
-        "why": ""
+        "text": "Adopt a framework now but skip reading its internals, since the abstraction exists so the team need not",
+        "why": "Anthropic advises the reverse: if you use a framework, understand the underlying code, because wrong assumptions about it cause errors."
       },
       {
         "id": "d",
-        "text": "PydanticAI, for its typed, validated structured output built on Pydantic models",
-        "why": ""
+        "text": "Call the API directly with a short hand-written loop, and adopt a framework only if a concrete need appears",
+        "why": "Correct. Many patterns are a few lines of code, and starting direct keeps every prompt and response visible while the design settles."
       }
     ],
     "answer": [
       "d"
     ],
-    "explanation": "PydanticAI's core value is typed, validated structured output via Pydantic models, which is exactly the team's stated requirement. LangGraph is built around explicit graph orchestration for branching, stateful control flow -- the team explicitly said they don't need that. Strands centers on a thin, model-driven loop, not on schema validation. A hand-rolled loop maximizes the custom parsing and validation code the team wants to minimize, the opposite of what they asked for.",
-    "cue": "",
+    "explanation": "Anthropic recommends starting with the LLM API directly, because frameworks can obscure the underlying prompts and responses and tempt teams into needless complexity. With no approval or resume needs, a framework buys nothing yet. Future flexibility is the tempting argument, but adding the abstraction when a concrete need appears costs little.",
+    "cue": "no need to pause for approval or resume after crashes",
+    "pattern": "tradeoff",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-02",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.context-window",
+      "ap.memory"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An investigation agent uses server-side tool result clearing because each query returns several thousand tokens and the window must stay small. Once old results are cleared, it re-runs queries to recover figures it had already found, adding many calls per run. Which change fixes this while clearing keeps working?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Add the query tool to exclude_tools, so its results are never cleared and the figures stay available in context",
+        "why": "Excluding the main tool stops clearing its results at all, so the window grows unchecked, which the stem rules out."
+      },
+      {
+        "id": "b",
+        "text": "Add the memory tool, so Claude records key figures as notes outside the context before old results are cleared",
+        "why": "Correct. Structured note-taking persists what matters outside the window, and Claude gets a warning near the clearing threshold so it can save first."
+      },
+      {
+        "id": "c",
+        "text": "Raise the clearing trigger to a much higher token count, so results stay in context for more of each run",
+        "why": "A higher trigger delays the same loss and lets the window grow larger, against the stated need to keep it small."
+      },
+      {
+        "id": "d",
+        "text": "Replace clearing with compaction, so the figures are kept in a summary rather than dropped with the results",
+        "why": "Compaction summarizes the whole conversation and can lose exact figures; it also gives up the clearing the team relies on."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The figures matter but the raw results do not, so the fix is to persist the figures outside the window and let clearing continue. Pairing the memory tool with context editing is designed for this: Claude is warned before clearing and saves what it needs. exclude_tools is tempting because it stops the re-querying, but it defeats the reason for clearing in the first place.",
+    "cue": "the window must stay small",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Context editing",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/context-editing"
+      },
+      {
+        "label": "Memory tool",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-04",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.frameworks"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A Python team building an extraction agent wants every run to return an object validated against their own typed models, with tool arguments validated before their code runs. They do not need branching control flow they can draw or a model-planned multi-agent setup. Which framework's core idiom fits best?",
+    "options": [
+      {
+        "id": "a",
+        "text": "LangGraph, whose explicit graph of nodes and edges over persisted state supports pause, resume and approval",
+        "why": "LangGraph's strength is explicit, durable control flow, which the team said it does not need."
+      },
+      {
+        "id": "b",
+        "text": "Strands Agents, whose model-driven loop lets the model plan the steps from a prompt and a list of tools",
+        "why": "Strands centres on a thin, model-driven loop; typed validation is not its defining idea and the team did not ask for model-planned steps."
+      },
+      {
+        "id": "c",
+        "text": "PydanticAI, whose agents declare typed dependencies and an output type that every run is validated against",
+        "why": "Correct. Typed agents with validated structured output are PydanticAI's defining idiom, and its tools validate arguments from their signatures."
+      },
+      {
+        "id": "d",
+        "text": "A hand-written Messages API loop that parses Claude's text output into dictionaries with custom code",
+        "why": "Hand-parsing text rebuilds the validation the team wants with more custom code and more ways to fail."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "Typed, validated output in Python is PydanticAI's core contract: an output type per agent and tool arguments validated before the function runs. LangGraph is the tempting alternative because it is the best-known framework, but its idiom is explicit graphs over persisted state. Choose a framework for the problem its abstraction solves.",
+    "cue": "return an object validated against their own typed models",
     "pattern": "buried-constraint",
     "difficulty": 2,
     "tags": [],
-    "sources": [],
-    "author": "v1-new",
-    "status": "needs-rationale"
+    "sources": [
+      {
+        "label": "Pydantic AI README",
+        "url": "https://github.com/pydantic/pydantic-ai"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-001",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.tool-loops"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A stock-reconciliation agent's harness re-raises any tool exception, so one rate-limited call to the inventory API aborts a 40-step run that was nearly finished. The team wants runs to survive such failures without hiding them from the model. How should the harness handle a failed tool call?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Return an empty tool_result so the loop carries on, and log the exception for the on-call engineer",
+        "why": "An empty result looks like success with no data, so Claude guesses or retries blindly without knowing anything failed."
+      },
+      {
+        "id": "b",
+        "text": "Retry the call inside the tool handler until it succeeds, and return only the eventual successful result",
+        "why": "Unbounded retries inside the handler hide the failure from the model and can hang the run on a persistent error."
+      },
+      {
+        "id": "c",
+        "text": "Return a tool_result with is_error set to true and a message saying what failed and what to try next",
+        "why": "Correct. An instructive is_error result lets Claude wait, retry or work around the failure, and the run continues."
+      },
+      {
+        "id": "d",
+        "text": "Let the run fail, then restart the whole 40-step run from the beginning with exponential backoff",
+        "why": "Restarting long runs from scratch is expensive; Anthropic built resume and error feedback precisely to avoid it."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "Tool failures belong in the conversation as a tool_result with is_error true and an instructive message, for example a rate limit with a suggested wait. Raising discards the model's ability to adapt, and an empty result makes it guess. Retrying inside the handler is tempting because it hides transient errors, but unbounded it hangs on persistent ones and the model never learns why.",
+    "cue": "re-raises any tool exception",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Handle tool calls",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls"
+      },
+      {
+        "label": "How we built our multi-agent research system",
+        "url": "https://www.anthropic.com/engineering/multi-agent-research-system"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-002",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.tool-loops"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "After a refactor, an agent harness sends each tool result back in its own user message, one after another. Claude used to request several independent lookups per turn but now requests one at a time, and runs take twice as long. Which change fixes the cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Ask Claude in the system prompt to request independent lookups in parallel whenever it can",
+        "why": "Prompting can raise the likelihood of parallel calls, but the history keeps teaching the opposite, so the cause remains."
+      },
+      {
+        "id": "b",
+        "text": "Set disable_parallel_tool_use to false explicitly on every request so parallel calls are switched on",
+        "why": "Parallel tool use is already on by default, so setting the flag to false changes nothing about the malformed history."
+      },
+      {
+        "id": "c",
+        "text": "Return all of a turn's tool_result blocks together in a single user message, ahead of any text",
+        "why": "Correct. Separate result messages teach Claude to avoid parallel calls; one user message with every result restores the pattern."
+      },
+      {
+        "id": "d",
+        "text": "Upgrade the agent to a newer model generation that plans several tool calls per turn by itself",
+        "why": "Recent models already make parallel calls by default; the regression came from the harness, not the model."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "The regression started with the refactor that split tool results into separate messages. Anthropic's docs show that pattern teaching Claude to stop making parallel calls, and the fix is all results in one user message with the tool_result blocks first. The prompt nudge is tempting because it can help, but it treats a symptom while the history keeps causing it.",
+    "cue": "sends each tool result back in its own user message",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Parallel tool use",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use"
+      },
+      {
+        "label": "Handle tool calls",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-003",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.tool-loops"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A team moves overnight research jobs to the Claude Agent SDK, assuming the SDK limits each run by default. Several jobs given open-ended prompts ran for hours and spent far more than planned. Which two settings bound these runs in code? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "max_turns, which caps the number of tool-use round trips in a run",
+        "why": "Correct. The SDK sets no turn limit by default; max_turns ends the run with an error_max_turns result."
+      },
+      {
+        "id": "b",
+        "text": "max_tokens, which caps the length of each individual model response",
+        "why": "max_tokens limits output per response, not how many turns the loop takes or what the run costs in total."
+      },
+      {
+        "id": "c",
+        "text": "max_budget_usd, which stops the run once spend reaches a threshold",
+        "why": "Correct. Budget is also unlimited by default, and the docs call setting one a good default for production agents."
+      },
+      {
+        "id": "d",
+        "text": "A lower effort setting, so that Claude reasons less on each turn",
+        "why": "Lower effort can cut tokens per turn, but it does not stop an open-ended run from taking more turns."
+      },
+      {
+        "id": "e",
+        "text": "An instruction in the prompt to finish within twenty tool calls",
+        "why": "A prompt instruction is a request the model may not follow; it is not enforced by the harness."
+      }
+    ],
+    "answer": [
+      "a",
+      "c"
+    ],
+    "explanation": "In the Agent SDK neither turns nor budget is limited by default, so open-ended prompts can run long. max_turns and max_budget_usd are the code-enforced bounds, each ending the run with its own result subtype. max_tokens is the tempting distractor because it sounds like a limit, but it caps a single response.",
+    "cue": "assuming the SDK limits each run by default",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Agent SDK: how the agent loop works",
+        "url": "https://code.claude.com/docs/en/agent-sdk/agent-loop"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-004",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.sub-agents"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A parent agent spends ten turns agreeing with a user that a usage analysis must exclude internal test accounts. It then delegates the calculation to a subagent with the prompt 'Compute weekly active users for Q3', and the figure that comes back includes the test accounts. What is the most direct fix?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Rely on a stronger subagent tier to infer the exclusion from the wording of the request",
+        "why": "No model can infer a decision from a conversation it never saw; the subagent starts fresh with only its brief."
+      },
+      {
+        "id": "b",
+        "text": "Write the exclusion rule and the other agreed decisions into the delegation prompt the subagent receives",
+        "why": "Correct. The delegation prompt is the only content passed from parent to subagent, so decisions it needs must be written into it."
+      },
+      {
+        "id": "c",
+        "text": "Give the subagent the same tools as the parent so it can look up what was agreed earlier on its own",
+        "why": "Tools do not give access to the parent's conversation, so there is nothing for the subagent to look up."
+      },
+      {
+        "id": "d",
+        "text": "Have the parent re-run the calculation itself whenever a subagent's figure looks higher than the parent expected it to be",
+        "why": "Re-checking catches some errors after the fact, but the subagent will keep omitting a rule it was never given."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "A non-fork subagent sees its own system prompt and the delegation prompt, not the parent's conversation. Constraints agreed earlier must be copied into the brief, along with objective, output format and boundaries. The stronger-model option is tempting because the miss looks like a reasoning failure, but it is an information failure.",
+    "cue": "delegates the calculation to a subagent with the prompt",
+    "pattern": "diagnosis",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Agent SDK subagents",
+        "url": "https://code.claude.com/docs/en/agent-sdk/subagents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-005",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.sub-agents"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team defines a sql-reviewer subagent with a detailed system prompt, but its description field just says 'SQL helper'. When developers ask Claude to check a migration for unsafe queries, it almost never delegates to that subagent. Which change most directly fixes this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Lengthen the subagent's system prompt with more review rules and examples, so that its SQL expertise becomes more obvious",
+        "why": "The system prompt shapes how the subagent behaves once called; it is not what Claude reads when choosing whether to call it."
+      },
+      {
+        "id": "b",
+        "text": "Restrict the subagent's tools to read and search, so it looks like the safer choice for reviews",
+        "why": "Tool restriction controls what the subagent can do, not whether the parent chooses to delegate to it."
+      },
+      {
+        "id": "c",
+        "text": "Assign the subagent a more capable model than the parent's, so Claude favours it for review work",
+        "why": "The subagent's model affects its quality and cost, not the parent's decision about when to delegate."
+      },
+      {
+        "id": "d",
+        "text": "Rewrite the description to say when to use the subagent, such as reviewing SQL and migrations for unsafe queries",
+        "why": "Correct. Claude decides which subagent to invoke from its description, which is meant to state when the agent should be used."
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "The description is the field Claude matches against the task when choosing a subagent, so 'SQL helper' gives it little to match. A description that states when to use the agent fixes delegation. The system prompt is the tempting fix because it holds the expertise, but Claude only reads it after delegating.",
+    "cue": "its description field just says 'SQL helper'",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Agent SDK subagents",
+        "url": "https://code.claude.com/docs/en/agent-sdk/subagents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-006",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.sub-agents"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A lead agent split a market scan between two subagents with the briefs 'research EU competitors' and 'research pricing trends'. Both covered the same German vendors, and neither looked at the Nordic markets the user cared about. Which two changes to the delegation address this? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "State explicit task boundaries in each brief, naming which markets and vendors belong to which subagent",
+        "why": "Correct. Clear boundaries prevent duplicated effort and gaps; Anthropic found vague briefs caused exactly this kind of overlap."
+      },
+      {
+        "id": "b",
+        "text": "Let each subagent read the other's transcript as it works, so they can avoid overlapping on their own",
+        "why": "Subagents do not share context, and wiring transcripts between them adds tokens and coupling instead of fixing the vague briefs."
+      },
+      {
+        "id": "c",
+        "text": "Add a third subagent with a broad brief to sweep up whatever the first two happen to miss",
+        "why": "A third vague brief adds cost and may duplicate work again; the gap came from unclear boundaries, not too few agents."
+      },
+      {
+        "id": "d",
+        "text": "Give each brief a concrete objective, the sources to use and the format its findings should come back in",
+        "why": "Correct. Each brief needs an objective, guidance on tools and sources, and an output format, or subagents guess what is wanted."
+      },
+      {
+        "id": "e",
+        "text": "Upgrade both subagents' reasoning power so terse briefs are interpreted more charitably",
+        "why": "A stronger model still cannot know which markets the user cared about if the brief never mentions them."
+      }
+    ],
+    "answer": [
+      "a",
+      "d"
+    ],
+    "explanation": "Anthropic's research system found that short, vague briefs led subagents to duplicate work and leave gaps. Each brief needs an objective, an output format, guidance on tools and sources, and clear task boundaries. Adding another subagent is tempting because it seems to cover the gap, but it repeats the same vague delegation.",
+    "cue": "Both covered the same German vendors",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How we built our multi-agent research system",
+        "url": "https://www.anthropic.com/engineering/multi-agent-research-system"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-007",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.memory"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A support agent uses the memory tool, and the team's handler maps /memories to one directory shared by every customer. A customer was greeted with notes about another customer's open order. Which change prevents this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Add a system-prompt rule telling Claude to read only the notes that belong to the current customer",
+        "why": "A prompt rule is a request, and every customer's notes would still be one view command away."
+      },
+      {
+        "id": "b",
+        "text": "Have the handler map /memories to separate storage per customer, chosen from the authenticated session",
+        "why": "Correct. The memory tool is client-side, so the application decides where /memories points, such as a per-user directory chosen in code."
+      },
+      {
+        "id": "c",
+        "text": "Add path-traversal checks so that no memory request can resolve to a location outside the /memories directory root",
+        "why": "Traversal checks keep requests inside /memories, but here every customer's notes are already inside the same directory."
+      },
+      {
+        "id": "d",
+        "text": "Delete the whole memory directory at the end of every conversation so that no notes carry over",
+        "why": "Wiping memory prevents the leak only by discarding the cross-session recall the memory tool exists to provide."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Memory lives in storage the application controls, and the handler maps /memories onto it, so isolation between customers is a handler decision made from the authenticated identity. Path-traversal protection is the tempting answer because it is the memory tool's best-known security control, but it guards the directory boundary, not the boundary between customers.",
+    "cue": "maps /memories to one directory shared by every customer",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Memory tool",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-008",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.memory",
+      "ap.context-window"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A field-service agent must answer from 12,000 equipment manuals and should also remember each technician's preferred units and recurring sites across sessions. The manuals change monthly and are far too large for any context window. Which two design choices fit? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Place all the manuals in a cached system prompt so every session can read them at a discount",
+        "why": "Caching discounts repeated input but does not make 12,000 manuals fit in a window, which the stem rules out."
+      },
+      {
+        "id": "b",
+        "text": "Index the manuals in a retrieval store that the agent queries with a tool when a question needs them",
+        "why": "Correct. Large corpora belong in retrieval queried just in time, so only the relevant passages enter the context."
+      },
+      {
+        "id": "c",
+        "text": "Rely on the conversation history to carry each technician's preferences into later sessions",
+        "why": "Each session starts from whatever the application sends, so history from earlier sessions is gone unless it is stored."
+      },
+      {
+        "id": "d",
+        "text": "Keep a small per-technician memory store that the application loads at the start of each session",
+        "why": "Correct. Preferences are small, durable facts the application must store and reload, since the API keeps no state between sessions."
+      },
+      {
+        "id": "e",
+        "text": "Enable compaction so manuals and preferences survive in summary form from one session to the next",
+        "why": "Compaction summarizes within one long session; it does not persist anything into the next session."
+      }
+    ],
+    "answer": [
+      "b",
+      "d"
+    ],
+    "explanation": "Different memory needs call for different stores: a large, changing corpus goes into retrieval queried on demand, and small per-user facts go into an application-managed store reloaded each session. Caching is the tempting option for the manuals, but it lowers price without changing size limits.",
+    "cue": "far too large for any context window",
+    "pattern": "scope-boundary",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Memory tool",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool"
+      },
+      {
+        "label": "Effective context engineering for AI agents",
+        "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-009",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.context-window"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An agent's context editing clears old tool results whenever input passes 30,000 tokens, and in practice it removes one result per turn once that threshold is crossed. Since enabling it, cache reads have fallen sharply and input cost has risen, though the window stays small. Which change fixes this while keeping clearing?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Replace tool result clearing with compaction, since replacing the history with a summary leaves the prompt cache intact",
+        "why": "Compaction also replaces earlier history, so it invalidates the cached prefix too, and it loses detail that clearing would keep."
+      },
+      {
+        "id": "b",
+        "text": "Add every tool to exclude_tools so earlier results stay put and the cached prefix is never disturbed",
+        "why": "Excluding every tool disables clearing in effect, so the window grows again, which defeats the reason for enabling it."
+      },
+      {
+        "id": "c",
+        "text": "Remove the cache breakpoints from the conversation, since caching and context editing cannot be combined",
+        "why": "Caching and context editing do work together; the docs advise clearing enough tokens to make each invalidation worthwhile."
+      },
+      {
+        "id": "d",
+        "text": "Set clear_at_least so each clearing removes a large block of tokens, making cache invalidation infrequent",
+        "why": "Correct. Clearing invalidates the cached prefix from the cleared point, so clearing in larger chunks trades one cache write for many later reads."
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "Each clearing changes the prompt prefix and invalidates the cache from that point, so clearing a little on every turn pays a cache write every turn. clear_at_least makes each clearing remove enough tokens to be worth the write. Compaction is tempting as an alternative, but it rewrites history too, so it does not protect the cache.",
+    "cue": "removes one result per turn",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Context editing",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/context-editing"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-010",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.context-window"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A code-question agent preloads the full text of all 400 files in a service into its first message so that it has everything. Answers are slower and less accurate than in an earlier version that started with only the file tree and a read tool. Which approach should the team return to?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Keep preloading the files but cache that block, so each later request reads all 400 files at a fraction of the price",
+        "why": "Caching lowers cost and latency for the repeated prefix, but the model still attends over 400 files of mostly irrelevant text."
+      },
+      {
+        "id": "b",
+        "text": "Keep lightweight identifiers such as file paths in context and let the agent read files when it needs them",
+        "why": "Correct. Just-in-time retrieval keeps the context small and relevant, which is why the leaner version answered better."
+      },
+      {
+        "id": "c",
+        "text": "Keep preloading the files but compact the conversation whenever it nears the context window limit",
+        "why": "Compaction would summarize the preloaded code, losing exact lines, and it does not address the dilution that already hurts accuracy."
+      },
+      {
+        "id": "d",
+        "text": "Keep preloading the files on a model with a bigger context window, so all of them fit with room to spare",
+        "why": "A bigger window lets more fit, but recall degrades as context grows, well before the limit is reached."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Context is a finite attention budget, and loading everything up front dilutes it. Anthropic describes just-in-time strategies where agents keep identifiers like file paths and load content with tools as needed. Caching is the tempting fix because the slowdown is real and caching speeds it up, but it does nothing for accuracy.",
+    "cue": "started with only the file tree and a read tool",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Effective context engineering for AI agents",
+        "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-011",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.frameworks",
+      "ap.multi-step"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A loan-processing team needs a flow that mixes deterministic validation steps with two model-driven steps, pauses for an underwriter's approval that can take days, and resumes exactly where it stopped after a worker restart. They want that control flow expressed as nodes and edges they can review. Which framework's core idiom fits best?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Strands Agents, which hands the model a prompt and tools and lets it plan and drive the steps itself",
+        "why": "A model-driven loop makes the path less explicit, which conflicts with wanting a reviewable graph of steps."
+      },
+      {
+        "id": "b",
+        "text": "PydanticAI, whose core contract is an agent that returns output validated against a typed model",
+        "why": "PydanticAI does offer durable execution and approvals, but its defining idiom is typed output, not a drawn graph of steps."
+      },
+      {
+        "id": "c",
+        "text": "A single Agent SDK query with a high max_turns, letting Claude carry the approval wait in its context",
+        "why": "A days-long wait cannot live in a model's context, and turn limits do nothing to make a restart resume cleanly."
+      },
+      {
+        "id": "d",
+        "text": "LangGraph, which models the flow as an explicit graph over persisted state with durable execution and interrupts",
+        "why": "Correct. LangGraph's idiom is an explicit graph of nodes and edges over persisted state, with durable execution and human-in-the-loop interrupts."
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "The stem asks for control flow you can draw, mixing code and model steps, with pause, approval and resume. Those are LangGraph's documented strengths: durable execution and human-in-the-loop over an explicit graph. PydanticAI is the near miss because it also supports durable execution and deferred approvals, but its core idiom is typed agents, not a reviewable graph.",
+    "cue": "expressed as nodes and edges they can review",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "LangGraph README",
+        "url": "https://github.com/langchain-ai/langgraph"
+      },
+      {
+        "label": "Pydantic AI README",
+        "url": "https://github.com/pydantic/pydantic-ai"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-012",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.frameworks"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A small platform team wants an agent written in a few lines of code: hand it a model, a system prompt and a list of tools, and let the model plan and drive its own steps. They do not need a drawn control-flow graph or typed output models. Which framework's core idiom fits best?",
+    "options": [
+      {
+        "id": "a",
+        "text": "LangGraph, whose explicit nodes and edges let the team script every transition between steps",
+        "why": "Scripting every transition is the opposite of letting the model plan, and the team said it does not need a graph."
+      },
+      {
+        "id": "b",
+        "text": "Strands Agents, whose model-driven approach builds an agent from a model, a prompt and its tools",
+        "why": "Correct. Strands describes itself as a model-driven approach to building agents in a few lines of code, which is exactly the stated preference."
+      },
+      {
+        "id": "c",
+        "text": "PydanticAI, whose agents return output that is validated against a declared typed model",
+        "why": "Typed, validated output is PydanticAI's defining idea, and the team said it does not need typed output models."
+      },
+      {
+        "id": "d",
+        "text": "A prompt chain written in code, with each step and its order fixed before the run begins",
+        "why": "A fixed chain removes the model's control over the steps, which the team explicitly wants it to have."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The cue is wanting the model to plan and drive its own steps with minimal scaffolding, which is Strands' model-driven idiom. LangGraph and PydanticAI can both run tool loops, but their defining ideas are explicit graphs and typed output, neither of which the team needs. Pick the framework whose abstraction matches the need.",
+    "cue": "let the model plan and drive its own steps",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Strands Agents README",
+        "url": "https://github.com/strands-agents/sdk-python"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-013",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.frameworks"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team's agent runs on an agent framework and sometimes calls a pricing tool with the wrong currency. Nobody can tell what system prompt or tool descriptions the framework actually sends to the model, and a teammate proposes migrating to a better-reviewed framework. What should the team do first?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Migrate to the better-reviewed framework, since its defaults may describe the currency parameter of the pricing tool properly",
+        "why": "Swapping frameworks trades one opaque layer for another without finding out what was actually sent."
+      },
+      {
+        "id": "b",
+        "text": "Capture and inspect the raw API requests and tool calls, then fix the prompt or tool description they reveal",
+        "why": "Correct. Anthropic warns that frameworks can obscure prompts and responses; seeing the actual requests is what makes the bug diagnosable."
+      },
+      {
+        "id": "c",
+        "text": "Route the pricing step to a stronger model that is less likely to misread an ambiguous parameter",
+        "why": "A stronger model might mask the symptom, but the unexamined prompt or tool description that causes it stays in place."
+      },
+      {
+        "id": "d",
+        "text": "Patch the agent's instructions to say that every pricing call must use USD as its currency",
+        "why": "Patching blind may conflict with what the framework already sends, and the team still cannot see why the wrong currency was chosen."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "When nobody can see what the framework sends, the first step is to look: trace the raw requests, tool definitions and results. Anthropic's guidance is that frameworks can obscure the underlying prompts and responses, and that teams using one should understand the code beneath it. Migrating is tempting because it feels decisive, but it replaces one opaque layer with another.",
+    "cue": "Nobody can tell what system prompt or tool descriptions the framework actually sends",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-014",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.multi-step"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A long-running coding agent works through a feature checklist across many sessions and marks each item done once its code is written. The next session builds on those items, but QA later finds that a third of the done features fail when exercised end to end. Which change addresses this most directly?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Require an end-to-end test of each feature to pass before the agent may mark it done in the progress file",
+        "why": "Correct. Completion should rest on ground truth from the environment, and Anthropic's harness marks features passing only after testing them."
+      },
+      {
+        "id": "b",
+        "text": "Add a reviewer subagent that reads each diff and approves the item before it is marked done",
+        "why": "A reviewer reading diffs gives another model's opinion, not evidence that the feature works end to end."
+      },
+      {
+        "id": "c",
+        "text": "Instruct the agent to double-check its work carefully before it marks any checklist item done",
+        "why": "Asking for care is a request with no ground truth behind it, so premature completion can continue."
+      },
+      {
+        "id": "d",
+        "text": "Use a stronger model tier so the code it writes for each feature is more often correct first time",
+        "why": "A better model lowers the error rate, but done would still mean written rather than verified."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Marking items done when code is written, not when it works, is the premature-completion failure Anthropic documented in long-running agents. The fix is verification against the environment, such as an end-to-end test, before an item can be marked passing. The reviewer subagent is tempting because it adds a check, but reading code is not running it.",
+    "cue": "marks each item done once its code is written",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Effective harnesses for long-running agents",
+        "url": "https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-015",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.multi-step"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An account-management agent drafts and sends renewal emails to customers. Legal requires that no email reaches a customer without a named person signing off, and the agent currently calls send_email directly. Which control meets that requirement?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A rule in the agent's instructions to ask the user for approval before it sends any email",
+        "why": "An instruction is a request; nothing stops the agent from calling send_email if it decides not to ask."
+      },
+      {
+        "id": "b",
+        "text": "A reviewer subagent that checks each draft for tone and accuracy before send_email is called",
+        "why": "A model reviewer is not a named person, and the agent can still call the tool whether or not the review passes."
+      },
+      {
+        "id": "c",
+        "text": "A log of every sent email with its draft, reviewed by the legal team at the end of each week",
+        "why": "Weekly review happens after customers have already received the emails, so it audits rather than prevents."
+      },
+      {
+        "id": "d",
+        "text": "An approval step in the harness that blocks every send_email call until a person approves the draft",
+        "why": "Correct. A gate in code, such as a PreToolUse hook or an approval check, blocks the action itself, so sign-off cannot be skipped."
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "The requirement is that sending never happens without human sign-off, which calls for a deterministic gate on the tool call. In the Agent SDK, a PreToolUse hook that rejects the call prevents it from executing. The instruction is tempting because the agent usually complies, but legal asked for a guarantee.",
+    "cue": "no email reaches a customer without a named person signing off",
+    "pattern": "must-means-deterministic",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Agent SDK: how the agent loop works",
+        "url": "https://code.claude.com/docs/en/agent-sdk/agent-loop"
+      },
+      {
+        "label": "Building effective agents",
+        "url": "https://www.anthropic.com/engineering/building-effective-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-016",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.multi-step"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A six-hour backfill agent rewrites partitions of a large table one at a time. At hour four a bad step corrupted several partitions that could not be rolled back, and when the process crashed at hour five the rerun started again from the first partition. Which two changes address these failures? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Raise the turn cap and timeout so the whole backfill can finish within one uninterrupted run",
+        "why": "Longer limits do not prevent crashes or corruption; they only let a failing run go on for longer."
+      },
+      {
+        "id": "b",
+        "text": "Checkpoint after each verified partition, with a snapshot or commit that a bad step can be reverted to",
+        "why": "Correct. Committing or snapshotting after each verified unit means a bad step costs one revert, not a corrupted table."
+      },
+      {
+        "id": "c",
+        "text": "Remind the agent, through its instructions, to work slowly and carefully on each partition",
+        "why": "Asking for care adds no ability to undo or resume, which are the two things that were missing."
+      },
+      {
+        "id": "d",
+        "text": "Record progress after each partition and resume from the last checkpoint instead of restarting",
+        "why": "Correct. A progress record lets the next run continue from the failure point, which Anthropic built because restarts are expensive."
+      },
+      {
+        "id": "e",
+        "text": "Split the backfill across parallel subagents so it finishes before a crash is likely to happen",
+        "why": "Parallelism shortens the run but leaves no rollback point and no resume, so both failures can recur."
+      }
+    ],
+    "answer": [
+      "b",
+      "d"
+    ],
+    "explanation": "Two separate gaps appear: no rollback point and no resume. Checkpoints after each verified unit solve the first, and a progress record that the next run reads solves the second. Parallel subagents are tempting because a shorter run seems less exposed, but speed does not create recovery.",
+    "cue": "could not be rolled back",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Effective harnesses for long-running agents",
+        "url": "https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents"
+      },
+      {
+        "label": "How we built our multi-agent research system",
+        "url": "https://www.anthropic.com/engineering/multi-agent-research-system"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
+  },
+  {
+    "id": "agent-patterns-and-frameworks-017",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [
+      "ap.multi-step",
+      "ap.context-window"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An agent asked to build a 30-feature internal app tries to implement everything in its first session, runs out of context mid-change, and leaves half-written code the next session cannot make sense of. The features depend on each other in places. Which change fits best?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Spawn 30 parallel subagents, one per feature, so that each one has a fresh context for its own feature",
+        "why": "The features depend on each other, so independent fresh contexts would build inconsistent pieces, and the cost multiplies."
+      },
+      {
+        "id": "b",
+        "text": "Run the work on a model with a larger context window so the whole app fits within one session",
+        "why": "A bigger window postpones the overflow but keeps the attempt to build everything at once, which is the actual failure."
+      },
+      {
+        "id": "c",
+        "text": "Write a feature list first, then work one feature per session, ending each with a commit and a progress note",
+        "why": "Correct. Incremental work with a feature list and a clean handoff at the end of each session counters the do-too-much-at-once failure."
+      },
+      {
+        "id": "d",
+        "text": "Enable compaction so the first session can keep going past the context limit until every feature of the app is complete",
+        "why": "Compaction mid-change can lose the detail of half-finished edits, and the next session still finds no structured handoff."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "Anthropic's long-running harness work names this failure: the agent tries to do too much at once and runs out of context mid-change. The counter is decomposition into a feature list, one feature at a time, leaving the environment committed and documented for the next session. The parallel-subagent option is the tempting elegant design, but dependent features need shared context.",
+    "cue": "tries to implement everything in its first session",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Effective harnesses for long-running agents",
+        "url": "https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-agents",
+    "status": "active"
   }
 ]
