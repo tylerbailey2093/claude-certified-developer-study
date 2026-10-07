@@ -6,138 +6,454 @@ name: "Output Handling"
 weight: 2.6
 tier: 2
 hot: false
+summary: "Producing and consuming Claude output safely: structured outputs and strict tools instead of asking for JSON, stop_reason before parsing, text blocks found by type, semantic validation with bounded retries, streamed JSON parsed only when complete, citations for grounding, and model output treated as untrusted before it is rendered or executed."
+subskills: ["out.structured", "out.validation", "out.defensive-parsing", "out.skepticism"]
+related: ["claude-application-design", "claude-api-mechanics", "ai-application-security", "prompt-engineering", "tool-implementation", "debugging-and-error-handling", "guardrails-and-safe-deployment"]
 scope:
   - "structured output patterns"
   - "response validation"
   - "defensive parsing"
   - "skepticism toward confident output"
 traps:
-  - "schema-valid and semantically correct are different things"
-  - "never index content[0] blindly"
+  - name: "Schema-valid and semantically correct are different things"
+    looksRight: "Structured outputs guarantee the response matches the schema, so a response that parsed is a response that is right."
+    failsBecause: "Constrained decoding guarantees shape: valid JSON, required fields, correct types. It says nothing about whether a value is true, consistent with other fields, or refers to something that exists. A column name that is not in the table is a perfectly valid string."
+    cue: "Stem says responses 'always pass validation' or 'parse cleanly' yet downstream data is wrong, and one option adds a business-rule or source-of-truth check in code."
+  - name: "Never index content[0] blindly"
+    looksRight: "Simple text responses put the answer first, and the quickstart code reads the first block, so content[0].text works."
+    failsBecause: "content is a list of typed blocks. With thinking on (adaptive by default on current models), a thinking block can come first; tool_use, server tool and citation-bearing text blocks also appear. Iterate and select type == text."
+    cue: "Intermittent AttributeError or KeyError 'only after enabling thinking' or 'only when the model calls a tool'."
+  - name: "Repairing a truncated response"
+    looksRight: "The JSON failed to parse, so send it back and ask Claude to fix the malformed JSON."
+    failsBecause: "If stop_reason is max_tokens the output was cut off, not malformed. A repair request asks the model to invent the missing tail, and structured outputs explicitly do not guarantee schema compliance on a max_tokens stop. Raise max_tokens, lower effort, or split the task."
+    cue: "Parse failures that correlate with long inputs or stop_reason max_tokens, and an option that says 'repair' or 'fix the JSON'."
+  - name: "Asking for JSON is not a guarantee"
+    looksRight: "A clear system prompt with an example object gets valid JSON nearly every time, which is good enough."
+    failsBecause: "A prompt is a request. When a stem says output must always parse, the answer is a deterministic control: output_config.format for the final answer, or strict true for tool inputs, both enforced by constrained decoding."
+    cue: "'Must always', 'every response', 'downstream parser breaks occasionally', next to an option that adds stronger wording or more examples."
+  - name: "Self-review is not independent verification"
+    looksRight: "Asking Claude to double-check its answer, or to attach a confidence score, catches its own mistakes."
+    failsBecause: "The same model rereading the same context tends to repeat the same blind spot, and fluent or confident wording is not a correctness signal. Verification needs something independent: a source-of-truth lookup, a deterministic check, citations into provided documents, or a human for consequential actions."
+    cue: "An option that adds 'verify your answer' or 'rate your confidence' as the safety mechanism for a high-stakes output."
+  - name: "Rendering or executing model output as trusted"
+    looksRight: "The text came from our own model call, so inserting it into HTML, a SQL string or a shell command is safe."
+    failsBecause: "Model output can carry content injected through documents, web pages or tool results. Escape before rendering, parameterize queries, allowlist commands and URLs, and never eval generated code outside a sandbox."
+    cue: "Generated text flows into innerHTML, string-built SQL, os.system, or a link the user clicks."
 sources:
-  - label: "Structured outputs"
-    url: "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+  - { label: "Structured outputs", url: "https://platform.claude.com/docs/en/build-with-claude/structured-outputs", kind: "docs", verified: "2026-10-07" }
+  - { label: "Strict tool use", url: "https://platform.claude.com/docs/en/agents-and-tools/tool-use/strict-tool-use", kind: "docs", verified: "2026-10-07" }
+  - { label: "Handling stop reasons", url: "https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons", kind: "docs", verified: "2026-10-07" }
+  - { label: "Refusals and fallback", url: "https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback", kind: "docs", verified: "2026-10-07" }
+  - { label: "Citations", url: "https://platform.claude.com/docs/en/build-with-claude/citations", kind: "docs", verified: "2026-10-07" }
+  - { label: "Streaming messages", url: "https://platform.claude.com/docs/en/build-with-claude/streaming", kind: "docs", verified: "2026-10-07" }
+lastReviewed: "2026-10-07"
 authored: true
 ---
 
-## What this objective actually tests
+## Concept
 
-This objective tests the discipline of consuming Claude's output as a structurally variable, untrusted-by-default payload — not whether you can write a JSON parser. The recurring exam pattern is code that trusts the response's shape or its confidence without checking either first: `content[0]` indexed blindly, a truncated response sent back for "repair," a fluent answer accepted because it read cleanly.
+The guide frames this objective as "producing, validating, and consuming Claude output", naming structured output patterns, response validation, defensive parsing, and skepticism toward confident output. The common thread: **Claude's output is a variable, untrusted payload until your code has checked it.** Its shape varies (a list of typed blocks, not a string), its ending varies (seven stop reasons, all on HTTP 200), and its content can be fluent, well-formed and wrong.
+
+Items here are short and code-flavoured. A snippet reads `content[0].text`; a pipeline sends truncated JSON back for "repair"; a validator passes everything yet the warehouse fills with bad rows; a reviewer trusts an answer because it sounded sure. The right option is almost always the one that moves a check from the prompt into code, or from the model's opinion of itself into an independent source of truth.
+
+**Scope boundary.**
+
+- Designing the schema itself (nullable fields, escape enums, evidence fields, versioning): <ObjLink id="claude-application-design" hash="ss-cad-schema" />.
+- The wire format, every stop reason and streaming events in depth: <ObjLink id="claude-api-mechanics" />.
+- Prompt wording, examples and XML structure that make good output likely: <ObjLink id="prompt-engineering" />.
+
+Not this:
+
+- Injection defence in depth and least privilege as policy: <ObjLink id="ai-application-security" />.
+- Retrying HTTP errors (429, 529, timeouts) and SDK retry behaviour: <ObjLink id="debugging-and-error-handling" />.
+- Validating tool inputs inside a dispatch loop: <ObjLink id="tool-implementation" />.
+
+<Callout type="key" title="The one idea">
+Three checks, in order, every time: **why did it stop** (`stop_reason`), **where is the answer** (find blocks by `type`), **is it right** (semantic checks against something other than the model). Constrained decoding removes parse errors, which makes the third check more important, not less: the failures that remain are the ones that look valid.
+</Callout>
 
 ## Mechanism
 
-### Why skepticism toward confident output is a named concept
-
-An LLM does not flag its own wrong answers. Fluency and hedging language aren't reliable proxies for correctness — a confidently wrong answer looks, on the page, identical to a confidently correct one, unlike most software bugs, which announce themselves as an exception or a crash. Because the failure doesn't announce itself, mitigation has to be structural, not conversational: **require citations** to provided source material for anything that must be trusted; **make fields nullable** so "unknown" is representable instead of forcing a fabricated best guess; **cross-check high-stakes values** against a source of truth outside the model; **gate consequential actions behind human review**. Asking the model to double-check its own answer is not independent verification — it's the same reasoning process re-run, prone to the same blind spot.
-
 ### Structured output patterns
 
-Two mechanisms exist beyond asking for a format in prose. **`output_config.format`** with a `json_schema`-typed schema constrains Claude's text response via grammar-constrained decoding — the sampler is restricted so every emitted token keeps the response inside the schema, making malformed JSON and missing or mistyped required fields structurally impossible, not just unlikely. **`strict: true`** on a tool definition gives the equivalent guarantee for `tool_use` blocks. Both cache their compiled grammar for roughly 24 hours (schema or tool-set changes invalidate it), and the constraint machinery adds to input tokens and first-request latency — a real cost/latency tradeoff, not a reason to avoid the feature. SDK helpers wrap this into a typed object rather than a string to re-parse: `client.messages.parse()` with Pydantic in Python, the Zod equivalent in TypeScript.
+<SubskillAnchor id="out.structured" />
 
-### Response validation — schema-valid is not semantically correct
+Three ways to get machine-readable output, in rising order of guarantee:
 
-The sharpest named trap here. Schema validation checks *shape*: correct types, required fields present, values from an allowed enum. It does not check *truth*. A response can put a name in the `email` field and an email in the `name` field, pass every structural check, and still be nonsense. Two passes are required — structural (largely solved by constrained decoding) and semantic (still the application's job: plausible ranges, cross-field consistency, referential checks against known IDs). "It validated against the schema" is not "it's correct."
+| Pattern | Guarantee | Use when |
+|---|---|---|
+| Ask for JSON in the prompt, with an example | None; usually works | Prototypes, free-text answers with light structure |
+| `strict: true` on a tool | Tool `input` matches `input_schema` and the tool `name` is valid [Certain] | The structured data is an action Claude takes |
+| `output_config.format` with `type: "json_schema"` | The final text is valid JSON matching the schema, with required fields and types [Certain] | The structured data is the answer itself |
+
+Both enforced patterns use grammar-constrained decoding: sampling is restricted so only schema-valid tokens can be emitted. The docs promise "No more `JSON.parse()` errors" and "No retries needed for schema violations" [Certain]. They also list exactly where the guarantee ends [Certain]:
+
+- **Refusal**: on `stop_reason: "refusal"` the output may not match the schema, because the refusal takes precedence.
+- **Truncation**: on `max_tokens` the output may be incomplete and not match.
+- **Enum casing**: capitalization of string `enum` and `const` values is not guaranteed, so compare case-insensitively.
+
+**Schema limits.** Not supported: recursive schemas, numeric bounds (`minimum`, `maximum`, `multipleOf`), string length bounds, `minItems` other than 0 or 1, `additionalProperties` other than `false`, external `$ref`. Supported: basic types, `enum`, `const`, `anyOf`, `allOf`, local `$ref`, common string formats. Required properties are emitted first, then optional ones, regardless of schema order. Per-request ceilings (20 strict tools, 24 optional parameters, 16 union-typed parameters) return a 400 "Schema is too complex for compilation" when exceeded [Certain; numbers drift].
+
+**Costs.** The first request with a new schema pays compilation latency; compiled grammars are cached for 24 hours from last use, and changing schema structure invalidates the cache while editing only `name` or `description` does not [Certain]. Structured outputs and citations cannot be combined: enabling citations on a document while setting `output_config.format` returns a 400, because citations interleave citation blocks with text [Certain].
+
+**SDK helpers** (Pydantic in Python, Zod in TypeScript) strip unsupported constraints from the schema they send, append them to the field description, and validate the response locally against your original schema [Certain]. That is the pattern to copy by hand: send what the grammar can enforce, check the rest in code.
+
+<PostGuide since="2026-08">
+- `output_format` is deprecated in favour of `output_config.format`, which needs no beta header [Certain].
+- Assistant prefill (starting the assistant turn with `{` to force JSON) returns a 400 on the 4.6 generation and later. Older material teaches it as a JSON-forcing trick; on current models use structured outputs instead.
+- Forced `tool_choice` (`any` or a named tool) returns a 400 on Opus 5.5, Sonnet 5.5 and Fable 5.1. The replacement is `auto` plus strict tools, or structured outputs.
+- These landed after the guide; know them as engineering facts, not as the basis of an exam answer.
+</PostGuide>
+
+**Exam angle:** cues are "must always parse", "downstream parser breaks", "type errors in tool arguments". Distractors are stronger prompt wording, more few-shot examples, and a regex-based repair step.
+
+### Response validation
+
+<SubskillAnchor id="out.validation" />
+
+Validation has layers, and constrained decoding only does the first:
+
+1. **Structural.** Shape, types, required fields. Enforced by the grammar when you use structured outputs; still worth re-checking with your model class (Pydantic, Zod), because the SDK checks constraints the grammar could not enforce.
+2. **Semantic.** Ranges (a percentage between 0 and 100), cross-field consistency (line items sum to the total; end date after start date), and format rules the schema subset cannot express.
+3. **Referential.** Every ID, column, SKU or citation points at something that exists in your source of truth. This is where fabrication shows up: an invented value is still a valid string.
+4. **Policy.** Content that must not reach a user or a downstream system (secrets, disallowed categories, PII in a public field).
+
+**Retry design.** A semantic failure is often worth one or two targeted retries: append the assistant output and a user message naming the exact violation ("Column `cust_ssn` is not in the table; valid columns are ..."), then re-validate. Bound it, log every attempt, and route persistent failures to a human or a dead-letter table rather than looping. Not every failure is retryable in the same way:
+
+| Outcome | Retry? | Instead |
+|---|---|---|
+| Semantic or referential violation | Yes, bounded, with the specific error | Route to review after N attempts |
+| `max_tokens` | Not as-is | Raise `max_tokens`, lower effort, or split the input |
+| `refusal` | Not the same request on the same model | Read `stop_details`; fallback model or change the request |
+| HTTP 429, 5xx, timeout | The SDK already retries | Do not stack your own loop on top |
+
+**Exam angle:** cues are "passes validation but", "values in the wrong field", "IDs that do not exist", "totals do not add up". Distractors are "enable strict mode" (already structurally valid), "upgrade the model" (lowers the rate, does not check), and unbounded retry.
 
 ### Defensive parsing
 
-**`content` is a list of blocks, not a string.** A response can hold a `text` block, a `thinking` block (extended thinking enabled), one or more `tool_use` blocks, and server-tool-result blocks, in an order that is not guaranteed to put `text` first. `response.content[0].text` is a landmine; iterate the blocks and dispatch by `type`.
+<SubskillAnchor id="out.defensive-parsing" />
 
-**Check `stop_reason` before parsing.** `end_turn` is a natural finish; `stop_sequence` hit a configured stop string; `tool_use` means the model is mid-tool-call; `max_tokens` means generation was cut off mid-stream — content after that point was never produced. Treating a `max_tokens` truncation as "malformed JSON to repair" asks the model to invent the missing tail, which is exactly how fabricated content enters a pipeline that thinks it's just cleaning up. Reading `stop_reason` first turns an opaque parse error into a known condition with a known fix: raise the budget, decompose the task, or continue the tool loop.
+**Check why it stopped before reading what it said.** Every stop reason arrives on HTTP 200 [Certain]:
+
+| `stop_reason` | Meaning for parsing |
+|---|---|
+| `end_turn` | Natural finish; parse normally |
+| `max_tokens`, `model_context_window_exceeded` | Truncated; never parse as complete |
+| `stop_sequence` | Ended at your stop string (read `stop_sequence`) |
+| `tool_use` | Mid-loop; run tools, there is no final answer yet |
+| `pause_turn` | Server-tool loop paused; send the content back to continue |
+| `refusal` | Declined; discard partial output and read `stop_details` |
+
+On a refusal, `stop_details` carries a `category` and a human-readable `explanation`; both can be `null`, the explanation text is not stable (display it, do not parse it), and `stop_details` is `null` for every other stop reason [Certain]. A refusal can arrive before any output or mid-stream after partial output; either way, treat partial output as incomplete and discard it [Certain]. Branch on `stop_reason`, not on whether `content` looks empty.
+
+**Find blocks by type.** `content` is a list: `thinking`, `text`, `tool_use`, server tool blocks, and text blocks carrying `citations`. Current models think adaptively by default, so a thinking block can precede the text. A helper that joins all `type == "text"` blocks (or selects the first one) is the safe default.
+
+**Streaming.** Text arrives as `text_delta` events; tool input arrives as `input_json_delta` events whose `partial_json` strings are fragments, while the final `tool_use.input` is always an object [Certain]. Accumulate and parse at `content_block_stop`, or use the SDK helpers, which accumulate the full message for you. Render streamed text progressively if you like, but run JSON parsing and validation on the accumulated final message. An `error` event (for example `overloaded_error`) can arrive after the 200, so the final `stop_reason` and error handling still apply [Certain].
+
+<Flow title="Consuming one response" steps={[{label: "stop_reason", kind: "decision", note: "truncated, refused, tool_use, or done"}, {label: "Text blocks by type", kind: "client", note: "skip thinking and tool blocks"}, {label: "Parse", kind: "client", note: "full message, never stream fragments"}, {label: "Semantic + referential checks", kind: "guard", note: "source of truth, not the model"}, {label: "Escape or parameterize", kind: "guard", note: "before render or execute"}]} />
+
+**Sanitize before use.** Treat generated text like user input when it crosses into another interpreter: HTML-escape before rendering (or render Markdown with raw HTML disabled), allowlist link and image hosts, pass values to SQL as parameters, map generated "commands" onto an allowlist instead of running them, and execute generated code only in a sandbox. A document or tool result can steer what the model writes, so output is an injection vector (<ObjLink id="ai-application-security" />).
+
+<PostGuide since="2026-08">
+Recovering an interrupted stream on Claude 4.6 and later: capture the partial response, then send a new request with a user message containing it and an instruction to continue. The earlier technique of putting the partial text in an assistant turn is prefill, which current models reject [Certain on the streaming page].
+</PostGuide>
+
+**Exam angle:** cues are "intermittent AttributeError", "only after enabling thinking", "JSON error on long documents", "parse each delta". Distractors index a fixed position, repair truncated JSON, or parse every streaming fragment.
+
+### Skepticism toward confident output
+
+<SubskillAnchor id="out.skepticism" />
+
+A model's tone carries no information about its accuracy. A wrong answer reads exactly like a right one; unlike a crashing service, nothing announces the failure. So the controls are structural:
+
+- **Ground it.** Supply source documents and enable citations. The API parses citations into `char_location`, `page_location` or `content_block_location` with `cited_text`, and the docs state citations "are guaranteed to contain valid pointers to the provided documents"; `cited_text` does not count toward output tokens [Certain]. Valid pointer means the quote exists, not that it supports the claim, so spot-check, and treat text blocks with no citation as unsupported.
+- **Make "I don't know" legal.** Nullable fields and an `insufficient_evidence` option let the model decline instead of inventing (schema design is on <ObjLink id="claude-application-design" />).
+- **Check against something independent.** A database lookup, a deterministic rule, a second retrieval, or a different evaluator. Asking the same model in the same context "are you sure?" re-runs the same reasoning.
+- **Gate consequences.** The higher the cost of a wrong answer, the more an output needs human review before it changes money, permissions or production data (<ObjLink id="guardrails-and-safe-deployment" />).
+- **Distrust self-reported confidence** as a control. A score the model writes is more generated text, not a calibrated probability [Likely].
+
+**Exam angle:** cues are "sounds authoritative", "the model said it was confident", "no source", "will be published" or "will trigger a payment". Distractors are "ask the model to verify", "require a confidence score", and "use a larger model".
 
 ## Decision table
 
-| When the stem says... | ...the answer is |
-|---|---|
-| Code reads `response.content[0].text` and intermittently throws | Iterate `content` blocks and dispatch by `type` — shape isn't guaranteed |
-| A JSON parse error correlates with `stop_reason: max_tokens` | Truncated, not malformed — raise the budget or decompose; don't send it back for "repair" |
-| Schema validation passed but values sit in the wrong fields | Expected — schema-valid and semantically correct differ; add domain-level validation |
-| "Output must always be valid, parseable JSON, structurally" | `output_config.format` or `strict: true` — constrained decoding, not a prompt instruction |
-| A high-stakes field must never be fabricated when the model isn't sure | Make it nullable; cross-check against a source of truth |
-| A pipeline's verification step is "ask the model to check its answer again" | Not independent verification — the same process re-run; use a structural check |
+| If the stem says... | Choose | Why the runner-up loses |
+|---|---|---|
+| A nightly extraction must produce parseable JSON for every record | `output_config.format` with a JSON schema | A stricter prompt with examples is still a request; occasional breaks remain |
+| Code reads `response.content[0].text` and fails only since thinking was enabled | Select blocks where `type == "text"` | Disabling thinking hides the bug and is rejected on some current models |
+| JSON parse errors cluster on the longest inputs, `stop_reason` is `max_tokens` | Raise `max_tokens` or split the input; treat as truncated | "Repair the JSON" asks the model to invent the missing tail |
+| Every response passes schema validation, but some reference IDs do not exist | Referential check in code against the source table, bounded retry with the specific error, then review | `strict: true` or a bigger model does not check existence |
+| Users must be able to verify each claim in a generated answer against provided PDFs | Citations on the document blocks | Prompting for quotes gives no valid-pointer guarantee and costs output tokens; citations cannot combine with `output_config.format` |
+| A UI streams tool input and calls `json.loads` on each delta | Accumulate `input_json_delta` and parse at `content_block_stop` (or use the SDK helper) | Each fragment is partial JSON and will fail to parse |
+| A response stops with `refusal` inside a schema-bound pipeline | Branch on `stop_reason`, read `stop_details`, discard partial output, fall back | Parsing it as a normal record treats a refusal as data |
+| A summary is inserted into the dashboard with `innerHTML` | Escape or sanitize, allowlist links | "It came from our own model" ignores injected content upstream |
 
-## Code examples
+## Worked walkthrough
 
-Both check `stop_reason` before parsing, iterate blocks by type, and validate the result against the schema — three separate checks, not one.
+<Walkthrough title="Scenario: PII tags for columns that do not exist">
+
+<Step title="Read the scenario">
+A governance job sends each table's DDL and column comments to Claude and asks for PII classifications, using `output_config.format` with a schema of `column_name` (string) and `classification` (enum). Results are written as catalog tags. Every response passes schema validation, yet the tagging step fails a few times a week because some returned column names are not in the table. Which change best fixes this?
+
+- A. Add "Only use column names that appear in the DDL" to the system prompt.
+- B. Switch from `output_config.format` to a strict tool with the same schema.
+- C. After parsing, compare every `column_name` with the table's actual column list; on a mismatch, retry once with the specific invalid names and the valid list, then route remaining failures to review.
+- D. Add a `confidence` field and drop entries below 0.8.
+</Step>
+
+<Step title="Find the constraint">
+"Every response passes schema validation" rules out a structural problem. "Column names that are not in the table" is a referential failure: the value is a valid string that points at nothing. The fix has to check existence against the source of truth, and only code can do that.
+</Step>
+
+<Step title="Eliminate the distractors">
+- **A** is a request. It may lower the rate, but the stem needs the tagging step to stop failing, and a prompt cannot guarantee that.
+- **B** moves the same schema to a different enforcement point. Strict tool use also guarantees shape, not existence; the invented names would still be valid strings.
+- **D** asks the model to grade itself. A fabricated column can arrive with a high confidence score; the number is generated text, not calibration.
+</Step>
+
+<Step title="Choose">
+**C.** The column list comes from the catalog, not the model. A targeted retry gives Claude the exact error to correct, the bound prevents loops, and review catches the remainder. A complementary option is to build the `column_name` enum per request from the DDL, which makes the check structural; the tradeoff is a new grammar compile per distinct table schema.
+</Step>
+
+<Step title="The deciding cue">
+"Every response passes schema validation" plus "names that are not in the table". The deciding cue was **valid shape, nonexistent referent**: schema-valid and semantically correct are different things, so the answer is a referential check in code.
+</Step>
+
+</Walkthrough>
+
+## Code
+
+**Stop reason, text block, parse, then meaning.** Structured output for shape, a referential check for meaning, and one bounded retry that names the exact error. Refusals and truncation are never parsed.
 
 ```python
-from anthropic import Anthropic
-from pydantic import BaseModel, ValidationError
+import json
+import anthropic
 
-client = Anthropic()
+client = anthropic.Anthropic()
+MODEL = "claude-sonnet-5-5"
 
-class ExtractedInvoice(BaseModel):
-    invoice_id: str
-    amount_usd: float
-    vendor_name: str | None  # nullable: "unknown" must be representable
+SCHEMA = {
+    "type": "object",
+    "properties": {
+        "tags": {"type": "array", "items": {
+            "type": "object",
+            "properties": {
+                "column_name": {"type": "string"},
+                "classification": {"type": "string", "enum": ["none", "direct_pii", "quasi_pii", "unknown"]},
+            },
+            "required": ["column_name", "classification"],
+            "additionalProperties": False,
+        }},
+    },
+    "required": ["tags"],
+    "additionalProperties": False,
+}
 
-def extract_invoice(document_text: str) -> ExtractedInvoice | None:
-    msg = client.messages.create(
-        model="claude-opus-5",
-        max_tokens=300,
-        output_config={"format": {"type": "json_schema",
-                                   "schema": ExtractedInvoice.model_json_schema()}},
-        messages=[{"role": "user", "content": document_text}],
-    )
-    if msg.stop_reason == "max_tokens":  # 1. truncated is not malformed
-        raise RuntimeError("response truncated; raise max_tokens or split the task")
+def text_of(resp) -> str:
+    return "".join(b.text for b in resp.content if b.type == "text")
 
-    text_blocks = [b.text for b in msg.content if b.type == "text"]  # 2. by type
-    if not text_blocks:
-        return None
-
-    try:  # 3. semantic validation beyond schema shape
-        invoice = ExtractedInvoice.model_validate_json(text_blocks[0])
-    except ValidationError:
-        return None
-    if invoice.amount_usd < 0 or invoice.amount_usd > 1_000_000:
-        return None  # plausibility check before trusting it
-    return invoice
+def classify(ddl: str, real_columns: set[str], max_attempts: int = 2) -> list[dict]:
+    messages = [{"role": "user", "content": f"Classify every column for PII.\n<ddl>\n{ddl}\n</ddl>"}]
+    for _ in range(max_attempts):
+        resp = client.messages.create(model=MODEL, max_tokens=2048, messages=messages,
+                                      output_config={"format": {"type": "json_schema", "schema": SCHEMA}})
+        if resp.stop_reason == "refusal":
+            raise RuntimeError(f"refused: {resp.stop_details}")      # do not parse, do not blind-retry
+        if resp.stop_reason in ("max_tokens", "model_context_window_exceeded"):
+            raise RuntimeError("truncated: raise max_tokens or split the table")  # not 'malformed'
+        tags = json.loads(text_of(resp))["tags"]                      # shape is guaranteed here
+        bad = sorted({t["column_name"] for t in tags} - real_columns)  # meaning is not
+        if not bad:
+            return tags
+        messages += [{"role": "assistant", "content": resp.content},
+                     {"role": "user", "content": f"These columns do not exist: {bad}. "
+                                                 f"Use only: {sorted(real_columns)}."}]
+    raise ValueError(f"unresolved invalid columns after {max_attempts} attempts: route to review")
 ```
 
 ```typescript
 import Anthropic from "@anthropic-ai/sdk";
-import { z } from "zod";
 
 const client = new Anthropic();
+const MODEL = "claude-sonnet-5-5";
 
-const ExtractedInvoice = z.object({
-  invoiceId: z.string(),
-  amountUsd: z.number(),
-  vendorName: z.string().nullable(), // nullable: "unknown" must be representable
-});
+const SCHEMA = {
+  type: "object",
+  properties: {
+    tags: { type: "array", items: {
+      type: "object",
+      properties: {
+        column_name: { type: "string" },
+        classification: { type: "string", enum: ["none", "direct_pii", "quasi_pii", "unknown"] },
+      },
+      required: ["column_name", "classification"],
+      additionalProperties: false,
+    } },
+  },
+  required: ["tags"],
+  additionalProperties: false,
+};
 
-async function extractInvoice(documentText: string) {
-  const msg = await client.messages.create({
-    model: "claude-opus-5",
-    max_tokens: 300,
-    output_config: { format: { type: "json_schema", schema: ExtractedInvoice } },
-    messages: [{ role: "user", content: documentText }],
-  });
+type Tag = { column_name: string; classification: string };
 
-  if (msg.stop_reason === "max_tokens") {  // 1. truncated is not malformed
-    throw new Error("response truncated; raise max_tokens or split the task");
+const textOf = (resp: Anthropic.Message): string =>
+  resp.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
+
+export async function classify(ddl: string, realColumns: Set<string>, maxAttempts = 2): Promise<Tag[]> {
+  const messages: Anthropic.MessageParam[] = [
+    { role: "user", content: `Classify every column for PII.\n<ddl>\n${ddl}\n</ddl>` },
+  ];
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const resp = await client.messages.create({
+      model: MODEL, max_tokens: 2048, messages,
+      output_config: { format: { type: "json_schema", schema: SCHEMA } },
+    });
+    const stop: string | null = resp.stop_reason; // widened: newer values may be missing from older SDK types
+    if (stop === "refusal") throw new Error(`refused: ${JSON.stringify(resp.stop_details)}`);
+    if (stop === "max_tokens" || stop === "model_context_window_exceeded") {
+      throw new Error("truncated: raise max_tokens or split the table");
+    }
+    const tags: Tag[] = JSON.parse(textOf(resp)).tags;
+    const bad = [...new Set(tags.map((t) => t.column_name))].filter((c) => !realColumns.has(c)).sort();
+    if (bad.length === 0) return tags;
+    messages.push(
+      { role: "assistant", content: resp.content },
+      { role: "user", content: `These columns do not exist: ${bad.join(", ")}. Use only: ${[...realColumns].sort().join(", ")}.` },
+    );
   }
-
-  const textBlock = msg.content.find((b) => b.type === "text");  // 2. by type
-  if (!textBlock || textBlock.type !== "text") return null;
-
-  const parsed = ExtractedInvoice.safeParse(JSON.parse(textBlock.text));  // 3.
-  if (!parsed.success) return null;
-  if (parsed.data.amountUsd < 0 || parsed.data.amountUsd > 1_000_000) return null;
-  return parsed.data;
+  throw new Error(`unresolved invalid columns after ${maxAttempts} attempts: route to review`);
 }
 ```
 
-## Named traps, expanded
+<Output kind="illustrative">
+[\{"column_name": "customer_id", "classification": "quasi_pii"\}, \{"column_name": "email", "classification": "direct_pii"\}, \{"column_name": "order_total", "classification": "none"\}]
+</Output>
 
-**"Schema-valid and semantically correct are different things."** Easy to miss because constrained decoding genuinely eliminates parse errors, missing fields, and wrong types, and it's tempting to assume that means the response is right. Wrong because the schema constrains shape, not meaning — a value can sit in a structurally valid position and still be the wrong value. Recognize this whenever a stem treats schema validation as the final check in a high-stakes pipeline; the correct answer adds a domain-level check after it.
+**Stream for display, validate the final message.** Text renders as it arrives; the stop reason and any parsing come from the accumulated message, never from fragments.
 
-**"Never index `content[0]` blindly."** Attractive because in a simple text-only response it works every time, which makes it feel safe until thinking or a tool call shows up first and the assumption breaks in production. Recognize this whenever a stem describes code reading a fixed position that fails intermittently or only under certain configurations — the fix is always to iterate and dispatch by block `type`.
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+with client.messages.stream(
+    model="claude-sonnet-5-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Explain the three most common causes of skewed Spark joins."}],
+) as stream:
+    for chunk in stream.text_stream:
+        print(chunk, end="", flush=True)          # progressive display only
+    final = stream.get_final_message()            # accumulated Message
+
+if final.stop_reason != "end_turn":
+    print(f"\n[incomplete: {final.stop_reason}]")  # truncated or refused: do not store as complete
+answer = "".join(b.text for b in final.content if b.type == "text")
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+const stream = client.messages.stream({
+  model: "claude-sonnet-5-5",
+  max_tokens: 1024,
+  messages: [{ role: "user", content: "Explain the three most common causes of skewed Spark joins." }],
+});
+stream.on("text", (chunk) => process.stdout.write(chunk)); // progressive display only
+const final = await stream.finalMessage();                  // accumulated Message
+
+if (final.stop_reason !== "end_turn") console.log(`\n[incomplete: ${final.stop_reason}]`);
+const answer = final.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
+```
+
+**Citations, then escape before rendering.** Each text block carries its citations; uncited blocks are flagged, and everything is HTML-escaped before it reaches a page.
+
+```python
+import html
+import anthropic
+
+client = anthropic.Anthropic()
+
+RUNBOOK = "Restart the ingest job only after the upstream export has finished. Never truncate bronze tables."
+resp = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": [
+        {"type": "document", "source": {"type": "text", "media_type": "text/plain", "data": RUNBOOK},
+         "title": "Ingest runbook", "citations": {"enabled": True}},
+        {"type": "text", "text": "When may I restart the ingest job?"},
+    ]}],
+)
+
+parts = []
+for b in resp.content:
+    if b.type != "text":
+        continue
+    cites = getattr(b, "citations", None) or []
+    marker = " [source: " + "; ".join(c.cited_text for c in cites) + "]" if cites else " [uncited]"
+    parts.append(html.escape(b.text + marker))     # escape: output is untrusted input to the browser
+print("".join(parts))
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+const RUNBOOK = "Restart the ingest job only after the upstream export has finished. Never truncate bronze tables.";
+const resp = await client.messages.create({
+  model: "claude-sonnet-5-5",
+  max_tokens: 1024,
+  messages: [{ role: "user", content: [
+    { type: "document", source: { type: "text", media_type: "text/plain", data: RUNBOOK },
+      title: "Ingest runbook", citations: { enabled: true } },
+    { type: "text", text: "When may I restart the ingest job?" },
+  ] }],
+});
+
+const parts: string[] = [];
+for (const b of resp.content) {
+  if (b.type !== "text") continue;
+  const cites = b.citations ?? [];
+  const marker = cites.length ? ` [source: ${cites.map((c) => c.cited_text).join("; ")}]` : " [uncited]";
+  parts.push(escapeHtml(b.text + marker)); // escape: output is untrusted input to the browser
+}
+console.log(parts.join(""));
+```
 
 ## Recall checks
 
-- Why is a confidently wrong LLM answer harder to catch than a typical software bug?
-- Name two structural mitigations for overconfident output, and why "double-check yourself" doesn't count as one.
-- A response passes JSON Schema validation but has an email address in the `name` field. What did the schema guarantee, and what didn't it?
-- What should change once `stop_reason` reads `max_tokens` instead of `end_turn`, and why is "repair" the wrong move?
-- Why is `response.content[0].text` unsafe in general, even though it often works in testing?
+<Recall q="What exactly does output_config.format guarantee, and name the three documented exceptions.">
+Valid JSON matching the schema, with required fields present and correct types, through constrained decoding. The exceptions: a refusal may not match the schema, a max_tokens stop may be incomplete, and string enum or const capitalization is not guaranteed.
+</Recall>
+
+<Recall q="A response is schema-valid but references a customer ID that does not exist. Which validation layer failed, and what fixes it?">
+The referential layer: the grammar guarantees a string, not that it points at a real record. Check every ID against the source of truth in code, retry once with the specific error, then route persistent failures to review.
+</Recall>
+
+<Recall q="Why is response.content[0].text unsafe on current models?">
+content is a list of typed blocks, and with adaptive thinking a thinking block can come first; tool and server tool blocks also appear. Iterate and select blocks whose type is text.
+</Recall>
+
+<Recall q="stop_reason is max_tokens and the JSON does not parse. What do you do, and what must you not do?">
+Treat it as truncated: raise max_tokens, lower effort, or split the input. Do not send it back as malformed JSON to repair, which asks the model to invent the missing tail.
+</Recall>
+
+<Recall q="How should streamed tool input be parsed?">
+input_json_delta events carry partial JSON strings, so accumulate them and parse at content_block_stop, or use the SDK helper that accumulates the final message. Parsing each delta fails because fragments are not valid JSON.
+</Recall>
+
+<Recall q="What does the citations feature guarantee, and what does it not?">
+Each citation is a valid pointer into the provided documents, with cited_text that does not count toward output tokens. It does not guarantee the quoted passage actually supports the claim, and it cannot be combined with structured outputs.
+</Recall>
+
+<Recall q="Why is asking the model to rate its own confidence a weak control for a high-stakes output?">
+The score is more generated text from the same context, not a calibrated probability, and fluent wording is not evidence of accuracy. Use an independent check: a source of truth, a deterministic rule, citations, or human review.
+</Recall>
+
+<Recall q="Why HTML-escape a summary your own backend generated?">
+Model output can carry content injected through documents, web pages or tool results, so it is untrusted input to the browser. Escaping (and allowlisting links) stops it from becoming script or a phishing link.
+</Recall>
