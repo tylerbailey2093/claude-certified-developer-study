@@ -221,6 +221,30 @@
       "models": "Fable 5, Fable 5.1",
       "asOfGuide": false,
       "source": "https://platform.claude.com/docs/en/manage-claude/api-and-data-retention"
+    },
+    {
+      "fact": "Refusal stop_details categories: cyber, bio, frontier_llm, reasoning_extraction, general_harms, or null; discard partial output",
+      "models": "current",
+      "asOfGuide": "unknown",
+      "source": "https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback"
+    },
+    {
+      "fact": "Server-side fallback on refusal (beta server-side-fallback-2026-07-01); not on Batch, Bedrock, Google Cloud or Foundry",
+      "models": "current",
+      "asOfGuide": "unknown",
+      "source": "https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback"
+    },
+    {
+      "fact": "Admin API keys (sk-ant-admin) are provisioned only by admins and cannot create API keys",
+      "models": "all",
+      "asOfGuide": true,
+      "source": "https://platform.claude.com/docs/en/manage-claude/admin-api"
+    },
+    {
+      "fact": "Key types, expiration, workload identity federation and App Attest for direct client calls",
+      "models": "all",
+      "asOfGuide": "unknown",
+      "source": "https://platform.claude.com/docs/en/manage-claude/authentication"
     }
   ],
   "deprecations": [
