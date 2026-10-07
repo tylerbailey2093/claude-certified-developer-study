@@ -1,9 +1,11 @@
 [
   "agent-architecture",
+  "agent-construction-with-claude",
   "agent-patterns-and-frameworks",
   "claude-api-mechanics",
   "claude-application-design",
   "claude-code-operation",
+  "claude-hooks",
   "configuration-management",
   "context-engineering",
   "cost-and-token-management",
