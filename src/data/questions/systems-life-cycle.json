@@ -28,17 +28,17 @@
       },
       {
         "id": "d",
-        "text": "Write a new in-house life cycle from scratch, because no existing framework accounts for model variance",
-        "why": "This overstates the gap; variance is handled by grading against criteria in the existing test gate, not by a new process."
+        "text": "Adopt ITIL alone as the life cycle, since its practices already cover release, change and live operation",
+        "why": "ITIL governs a live service (change, incident, release) but does not sequence how development work is planned and built."
       }
     ],
     "answer": [
       "c"
     ],
-    "explanation": "The objective is generic IT life cycle management, and a Claude feature walks the same plan, build, test, deploy, operate and maintain arc as any system. Evals replace exact-match tests as the quality gate, which is a change of instrument, not of process. The vendor framework is the planted trap: it sounds rigorous but invents what Agile and DevOps already provide.",
-    "cue": "from concept through development, release and ongoing operation",
+    "explanation": "The vendor's claim that generic frameworks cannot handle non-deterministic output is the planted cue: a Claude feature walks the same plan, build, test, deploy, operate and maintain arc as any system. Evals replace exact-match tests as the quality gate, a change of instrument, not of process. ITIL alone is tempting because it covers release and operation, but it does not sequence development work, which is what Agile or DevOps adds.",
+    "cue": "arguing that generic IT frameworks predate language models and cannot handle non-deterministic output",
     "pattern": "scope-boundary",
-    "difficulty": 1,
+    "difficulty": 2,
     "tags": [],
     "sources": [
       {
@@ -50,7 +50,7 @@
         "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents"
       }
     ],
-    "verified": "2026-10-06",
+    "verified": "2026-10-07",
     "author": "agent:q-requirements-lifecycle",
     "status": "active"
   },
@@ -103,9 +103,13 @@
       {
         "label": "GitHub Actions: deployments and environments reference (docs source)",
         "url": "https://github.com/github/docs/blob/main/content/actions/reference/workflows-and-actions/deployments-and-environments.md"
+      },
+      {
+        "label": "DORA capability: streamlining change approval (dora.dev source)",
+        "url": "https://github.com/dora-team/dora.dev/blob/main/hugo/content/capabilities/streamlining-change-approval/index.md"
       }
     ],
-    "verified": "2026-10-06",
+    "verified": "2026-10-07",
     "author": "agent:q-requirements-lifecycle",
     "status": "active"
   },
@@ -211,9 +215,13 @@
       {
         "label": "SRE keeps digging to prevent problems",
         "url": "https://cloud.google.com/blog/products/management-tools/sre-keeps-digging-to-prevent-problems"
+      },
+      {
+        "label": "GDS Way: incident management",
+        "url": "https://github.com/alphagov/gds-way/blob/main/source/standards/incident-management.html.md.erb"
       }
     ],
-    "verified": "2026-10-06",
+    "verified": "2026-10-07",
     "author": "agent:q-requirements-lifecycle",
     "status": "active"
   },
@@ -265,9 +273,13 @@
       {
         "label": "Incident management at Google",
         "url": "https://cloud.google.com/blog/products/gcp/incident-management-at-google-adventures-in-sre-land/"
+      },
+      {
+        "label": "DORA capability: streamlining change approval (dora.dev source)",
+        "url": "https://github.com/dora-team/dora.dev/blob/main/hugo/content/capabilities/streamlining-change-approval/index.md"
       }
     ],
-    "verified": "2026-10-06",
+    "verified": "2026-10-07",
     "author": "agent:q-requirements-lifecycle",
     "status": "active"
   },
@@ -310,7 +322,7 @@
     "explanation": "The cue is a retirement date nine weeks out: a scheduled dependency end-of-life is adaptive maintenance, not an emergency. Anthropic gives at least 60 days' notice, offers a usage export by API key and model to find callers, and recommends testing replacements well before the date. The emergency change is tempting because the retirement is certain, but certainty with notice is exactly what planning is for.",
     "cue": "retires in nine weeks",
     "pattern": "buried-constraint",
-    "difficulty": 3,
+    "difficulty": 2,
     "tags": [],
     "sources": [
       {
@@ -322,7 +334,7 @@
         "url": "https://platform.claude.com/docs/en/models/overview"
       }
     ],
-    "verified": "2026-10-06",
+    "verified": "2026-10-07",
     "author": "agent:q-requirements-lifecycle",
     "status": "active"
   },
@@ -616,7 +628,7 @@
     ],
     "type": "single",
     "select": 1,
-    "stem": "A Claude-backed search service has an SLO of 99.5% successful responses over a rolling 28 days. By day 18 the error budget is already spent, mostly because of timeouts introduced by the last two releases, and the product manager wants to ship two new prompt features next week. What does an SRE approach call for?",
+    "stem": "A Claude-backed search service has an SLO of 99.5% successful responses per calendar month. By the 18th of the month the error budget is already spent, mostly because of timeouts introduced by the last two releases, and the product manager wants to ship two new prompt features next week. What does an SRE approach call for?",
     "options": [
       {
         "id": "a",
@@ -625,7 +637,7 @@
       },
       {
         "id": "b",
-        "text": "Lower the SLO to 99% for this window so that the two features can still ship without breaching the target",
+        "text": "Lower the SLO to 99% for this month so that the two features can still ship without breaching the target",
         "why": "Moving the target mid-window hides the user impact instead of fixing it, and defeats the purpose of the budget."
       },
       {
@@ -642,12 +654,16 @@
     "answer": [
       "a"
     ],
-    "explanation": "The cue is the error budget spent by day 18, with recent releases as the cause. The error budget is the gap between the SLO and 100%, and when it is gone the team shifts from feature work to reliability work. The canary is tempting because it is safe-release practice, but even a small rollout spends budget that no longer exists.",
-    "cue": "By day 18 the error budget is already spent",
+    "explanation": "The cue is the error budget spent by the 18th, with recent releases as the cause. The error budget is the gap between the SLO and 100%, and the canonical response to releases overspending it is a feature freeze while the team works on reliability. The canary is tempting because it is safe-release practice, but even a small rollout spends budget that no longer exists.",
+    "cue": "By the 18th of the month the error budget is already spent",
     "pattern": "buried-constraint",
     "difficulty": 2,
     "tags": [],
     "sources": [
+      {
+        "label": "Good housekeeping for error budgets (CRE life lessons)",
+        "url": "https://cloud.google.com/blog/products/devops-sre/good-housekeeping-error-budgetscre-life-lessons"
+      },
       {
         "label": "SRE error budgets and maintenance windows",
         "url": "https://cloud.google.com/blog/products/management-tools/sre-error-budgets-and-maintenance-windows"
@@ -657,7 +673,7 @@
         "url": "https://cloud.google.com/blog/products/devops-sre/sre-fundamentals-slis-slas-and-slos"
       }
     ],
-    "verified": "2026-10-06",
+    "verified": "2026-10-07",
     "author": "agent:q-requirements-lifecycle",
     "status": "active"
   },
@@ -690,7 +706,7 @@
       {
         "id": "d",
         "text": "Share of requests that return HTTP 200 within the 30-second client timeout",
-        "why": "The failing calls already return 200 quickly, so this indicator would stay green throughout."
+        "why": "The failing calls already return HTTP 200 well within the timeout, so this indicator would stay green throughout."
       },
       {
         "id": "e",
@@ -717,7 +733,7 @@
         "url": "https://cloud.google.com/blog/products/devops-sre/sre-fundamentals-slis-slas-and-slos"
       }
     ],
-    "verified": "2026-10-06",
+    "verified": "2026-10-07",
     "author": "agent:q-requirements-lifecycle",
     "status": "active"
   }

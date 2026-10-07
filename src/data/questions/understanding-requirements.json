@@ -118,7 +118,7 @@
     ],
     "type": "single",
     "select": 1,
-    "stem": "An HR tool brief says Claude should draft a personalised onboarding email from each new hire's role and start date. The same brief says the first token of each draft must appear within one second even when 200 hires start on the same day. How should an analyst classify these two statements?",
+    "stem": "An HR tool brief says Claude should draft a personalised onboarding email from each new hire's role and start date. The same brief says the first token of each draft must appear within one second while up to 200 coordinators are drafting at the same time during intake week. How should an analyst classify these two statements?",
     "options": [
       {
         "id": "a",
@@ -132,7 +132,7 @@
       },
       {
         "id": "c",
-        "text": "Drafting the email is functional; the one-second first token across 200 concurrent hires is infrastructure",
+        "text": "Drafting the email is functional; the one-second first token with 200 coordinators drafting at once is infrastructure",
         "why": "Correct. One statement describes behaviour, the other a latency and throughput envelope that shapes configuration, not features."
       },
       {
@@ -145,7 +145,7 @@
       "c"
     ],
     "explanation": "Functional requirements state what the system does; infrastructure requirements state the envelope it must do it within. The cue is a time budget under concurrent load, which is latency plus throughput. The tempting error is treating anything users notice as functional.",
-    "cue": "the first token of each draft must appear within one second even when 200 hires start on the same day",
+    "cue": "the first token of each draft must appear within one second",
     "pattern": "scope-boundary",
     "difficulty": 1,
     "tags": [],
@@ -159,7 +159,7 @@
         "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-latency"
       }
     ],
-    "verified": "2026-10-06",
+    "verified": "2026-10-07",
     "author": "agent:q-requirements-lifecycle",
     "status": "active"
   },
@@ -303,7 +303,7 @@
     "answer": [
       "a"
     ],
-    "explanation": "The deciding clause is that no workload may step outside zero data retention. Stateful features (Files, code execution containers, Batch) are documented as not ZDR-eligible because they must store data, while inline Messages requests and prompt caching are eligible. The Files API is the tempting choice because deleting the file feels like zero retention, but the file is still stored between turns. [Likely: eligibility lists drift, check the retention page.]",
+    "explanation": "The deciding clause is that no workload may step outside zero data retention. Stateful features (Files, code execution containers, Batch) are documented as not ZDR-eligible because they must store data, while inline Messages requests and prompt caching are eligible. The Files API is the tempting choice because deleting the file feels like zero retention, but the file is still stored between turns. [Certain] on the retention page; eligibility lists drift, so recheck it before relying on them.",
     "cue": "zero data retention arrangement that no workload may step outside",
     "pattern": "buried-constraint",
     "difficulty": 3,
@@ -314,7 +314,7 @@
         "url": "https://platform.claude.com/docs/en/manage-claude/api-and-data-retention"
       }
     ],
-    "verified": "2026-10-06",
+    "verified": "2026-10-07",
     "author": "agent:q-requirements-lifecycle",
     "status": "active"
   },
@@ -356,7 +356,7 @@
     "explanation": "The cue is 'the same three steps in the same order': known steps mean a workflow, not an agent. Anthropic's guidance is to use the simplest system that works and reserve agents for open-ended problems where the steps cannot be predicted. The single call with a tool is the tempting distractor, but it leaves the mandatory sanctions check to the model's discretion.",
     "cue": "Every applicant goes through the same three steps in the same order",
     "pattern": "buried-constraint",
-    "difficulty": 3,
+    "difficulty": 2,
     "tags": [],
     "sources": [
       {
@@ -364,7 +364,7 @@
         "url": "https://www.anthropic.com/engineering/building-effective-agents"
       }
     ],
-    "verified": "2026-10-06",
+    "verified": "2026-10-07",
     "author": "agent:q-requirements-lifecycle",
     "status": "active"
   },
@@ -487,7 +487,7 @@
       {
         "id": "a",
         "text": "As a required string field, with a prompt instruction to write N/A whenever the invoice shows no PO number",
-        "why": "A sentinel string is just another PO-shaped value to the billing service, and the instruction to use it is not enforced."
+        "why": "A non-empty sentinel such as N/A looks like a present PO to the billing service, so the invoice skips the manual queue, and the instruction is not enforced."
       },
       {
         "id": "b",
@@ -511,7 +511,7 @@
     "explanation": "The cue is 'must never invent one' combined with a downstream consumer. A required string field pressures the model to fill something in, while a nullable field in an enforced schema makes absence a first-class, machine-readable answer that code can route. The regex option is tempting, but format validation cannot detect a plausible fabricated number.",
     "cue": "must never invent one",
     "pattern": "wrong-place-mechanism",
-    "difficulty": 3,
+    "difficulty": 2,
     "tags": [],
     "sources": [
       {
@@ -523,7 +523,7 @@
         "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
       }
     ],
-    "verified": "2026-10-06",
+    "verified": "2026-10-07",
     "author": "agent:q-requirements-lifecycle",
     "status": "active"
   },
@@ -545,8 +545,8 @@
       },
       {
         "id": "b",
-        "text": "Test a faster model tier against the accuracy eval and switch to it if the eval still passes",
-        "why": "Correct. A faster tier lowers latency, and gating the switch on the eval respects the no-regression constraint."
+        "text": "Trial a faster model tier and adopt it only if it scores as well on the existing quality tests",
+        "why": "Correct. A faster tier lowers latency, and gating the switch on the existing tests respects the no-regression constraint."
       },
       {
         "id": "c",
@@ -561,7 +561,7 @@
       {
         "id": "e",
         "text": "Raise max_tokens so that long answers are never truncated before they reach the shopper",
-        "why": "Truncation is not the complaint, and allowing longer outputs can only make full responses slower."
+        "why": "Truncation is not the complaint; max_tokens only caps length, and allowing longer outputs can only make full responses slower."
       }
     ],
     "answer": [
@@ -579,7 +579,7 @@
         "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-latency"
       }
     ],
-    "verified": "2026-10-06",
+    "verified": "2026-10-07",
     "author": "agent:q-requirements-lifecycle",
     "status": "active"
   },
@@ -618,7 +618,7 @@
       {
         "id": "e",
         "text": "An instruction for the agent to explain its reasoning to the customer so each decision is documented",
-        "why": "Customer-facing explanations are not an audit record; they are unstructured, can be wrong and are not stored for review."
+        "why": "Model-written explanations can be wrong and do not record the tool inputs or who approved the credit, so they cannot reconstruct a decision."
       }
     ],
     "answer": [
@@ -640,7 +640,7 @@
         "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
       }
     ],
-    "verified": "2026-10-06",
+    "verified": "2026-10-07",
     "author": "agent:q-requirements-lifecycle",
     "status": "active"
   },
@@ -802,6 +802,61 @@
       }
     ],
     "verified": "2026-10-06",
+    "author": "agent:q-requirements-lifecycle",
+    "status": "active"
+  },
+  {
+    "id": "understanding-requirements-013",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [
+      "ur.infrastructure",
+      "ur.architecture"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A contract-review assistant uploads each contract once through the Files API and then references the file ID across a dozen follow-up questions. The company's cloud board has now mandated that all AI workloads run on Amazon Bedrock inside its existing AWS account, and the team must keep the feature working. Which change fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Send the contract text inline in each request and place a prompt-caching breakpoint after it to keep repeat turns cheap",
+        "why": "Correct. Inline content and explicit cache breakpoints are supported on Bedrock, so the reused file becomes a cached prefix."
+      },
+      {
+        "id": "b",
+        "text": "Keep the Files API calls and change only the base URL and AWS credentials, since the Messages request shape is the same",
+        "why": "Bedrock does not offer the Files API, so the upload and file-ID references fail even though the message shape matches."
+      },
+      {
+        "id": "c",
+        "text": "Replace the file ID with a presigned S3 link passed as a URL document source so each turn fetches the contract",
+        "why": "URL sources for documents are also unsupported on Bedrock, so this hits the same feature gap from a different direction."
+      },
+      {
+        "id": "d",
+        "text": "Submit each contract with its questions as one Message Batches job so the document is sent only once per review",
+        "why": "Message Batches is not available on Bedrock either, and an asynchronous job cannot serve an interactive question-and-answer flow."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is the mandate to run on Amazon Bedrock in the existing AWS account: the hosting surface is an infrastructure requirement that decides which features exist. Bedrock lacks the Files API, URL sources and Message Batches, while inline content and explicit prompt caching are supported, so the reusable-file pattern becomes an inline, cached prefix. The URL-source option is tempting because it avoids resending the document, but it runs into the same gap.",
+    "cue": "mandated that all AI workloads run on Amazon Bedrock inside its existing AWS account",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Claude in Amazon Bedrock",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock"
+      },
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "verified": "2026-10-07",
     "author": "agent:q-requirements-lifecycle",
     "status": "active"
   }
