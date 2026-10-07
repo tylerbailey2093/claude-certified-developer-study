@@ -8,7 +8,7 @@ tier: 2
 hot: false
 summary: "Turn a business ask into testable functional requirements, a non-functional envelope (latency, throughput, residency, retention, cost) and the least complex Claude architecture that satisfies both. One buried constraint usually decides the answer."
 subskills: ["ur.functional", "ur.infrastructure", "ur.business", "ur.architecture"]
-related: ["claude-application-design", "agent-patterns-and-frameworks", "claude-api-mechanics", "model-selection-and-tradeoffs", "systems-life-cycle"]
+related: ["claude-application-design", "agent-architecture", "agent-patterns-and-frameworks", "claude-api-mechanics", "model-selection-and-tradeoffs", "systems-life-cycle"]
 scope:
   - "derived from business requirements"
   - "functional requirements"
@@ -33,8 +33,12 @@ traps:
     cue: "'Every request follows the same steps', 'auditors must be able to trace each decision', or a fixed rule table."
   - name: "Choosing a stateful feature under a no-retention requirement"
     looksRight: "The Message Batches API halves the price, and the workload does not need instant answers."
-    failsBecause: "Under a zero data retention arrangement, stateful features such as batch jobs and stored files are not covered: Anthropic documents Batch as not ZDR-eligible because jobs must be stored. [Likely: eligibility lists drift]"
+    failsBecause: "Under a zero data retention arrangement, stateful features such as batch jobs and stored files are not covered: Anthropic documents Batch and the Files API as not ZDR-eligible because jobs and files must be stored. [Certain]"
     cue: "'Zero data retention', 'the vendor may not store prompts or outputs' alongside a cost-saving option."
+  - name: "Choosing a hosting platform without checking its feature list"
+    looksRight: "The company already runs on AWS (or Google Cloud), so its managed model service is the obvious home, and the design stays the same."
+    failsBecause: "The hosting surface is an infrastructure requirement with consequences. Bedrock and Vertex do not offer Message Batches, the Files API, the Models API or URL sources, and on Bedrock and Google Cloud the region comes from the endpoint, so inference_geo does not apply."
+    cue: "'Must run in our existing AWS account' or 'must use our Azure subscription' next to an option that relies on Batch, Files or inference_geo."
   - name: "Taking stakeholder adjectives at face value"
     looksRight: "The sponsor said 'real-time', so design for sub-second streaming."
     failsBecause: "Business language is not a specification. 'Real-time' may mean 'before the morning stand-up'. Requirements come from how the output is consumed, stated as a number."
@@ -47,19 +51,27 @@ sources:
   - { label: "API and data retention", url: "https://platform.claude.com/docs/en/manage-claude/api-and-data-retention", kind: "docs", verified: "2026-10-06" }
   - { label: "Structured outputs", url: "https://platform.claude.com/docs/en/build-with-claude/structured-outputs", kind: "docs", verified: "2026-10-06" }
   - { label: "Models overview", url: "https://platform.claude.com/docs/en/models/overview", kind: "docs", verified: "2026-10-06" }
-lastReviewed: "2026-10-06"
+  - { label: "Claude in Amazon Bedrock", url: "https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock", kind: "docs", verified: "2026-10-07" }
+  - { label: "Claude on Google Cloud (Vertex AI)", url: "https://platform.claude.com/docs/en/build-with-claude/claude-on-vertex-ai", kind: "docs", verified: "2026-10-07" }
+  - { label: "Claude in Microsoft Foundry", url: "https://platform.claude.com/docs/en/build-with-claude/claude-in-microsoft-foundry", kind: "docs", verified: "2026-10-07" }
+  - { label: "Claude Platform on AWS", url: "https://platform.claude.com/docs/en/build-with-claude/claude-platform-on-aws", kind: "docs", verified: "2026-10-07" }
+  - { label: "Building effective agents", url: "https://www.anthropic.com/engineering/building-effective-agents", kind: "engineering", verified: "2026-10-07" }
+lastReviewed: "2026-10-07"
 authored: true
 ---
 
 ## Concept
 
-The guide asks for "functional and infrastructure requirements based on business requirements and solution architecture." In practice that is one skill: translating a business ask into decisions. A sponsor says what outcome they want. You turn that into **functional requirements** (what the system must do, stated so it can be tested), **infrastructure requirements** (the envelope it must do it within: latency, throughput, availability, residency, retention, security, cost), and a **solution architecture** that satisfies both with the least machinery.
+The guide asks for "functional and infrastructure requirements based on business requirements and solution architecture." In practice that is one skill: translating a business ask into decisions. A sponsor says what outcome they want. You turn that into **functional requirements** (what the system must do, stated so it can be tested), **infrastructure requirements** (the envelope it must do it within: hosting platform, latency, throughput, availability, residency, retention, security, cost), and a **solution architecture** that satisfies both with the least machinery.
+
+The guide does not define "infrastructure". At minimum it covers where and on which platform the system runs; reading it as the full non-functional envelope is this page's interpretation **[Likely]**, and it is the reading that makes the scenarios below answerable.
 
 Items rarely ask you to write a requirements document. They hand you a 2 to 4 sentence scenario that already contains the requirement, usually buried mid-stem, and ask for the architectural consequence. Three options are defensible engineering in general. One answers the constraint actually stated. This objective has no home module in the official course, so the cue-reading habit has to come from practice.
 
 **Scope boundary.** This objective decides *which* shape the solution takes and *why*. The mechanics of each shape live elsewhere.
 
 Not this:
+- Workflow-vs-agent decision criteria in their own right: <ObjLink id="agent-architecture"/> (Domain 1). This page applies that decision only as a consequence of stated requirements.
 - How to build chains, routers and agent loops: <ObjLink id="agent-patterns-and-frameworks"/> (Domain 1).
 - Where an instruction lives, content boundaries and schema field design: <ObjLink id="claude-application-design"/>.
 - Request parameters, streaming events and batch mechanics: <ObjLink id="claude-api-mechanics"/>.
@@ -109,26 +121,33 @@ Infrastructure (non-functional) requirements do not change what the feature does
 
 | Dimension | Question to ask | Claude design lever | Verified detail |
 |---|---|---|---|
+| Hosting platform | Which cloud account, procurement channel, identity system or private network is mandated? | Claude API, Claude Platform on AWS, Amazon Bedrock, Google Cloud Vertex AI or Microsoft Foundry | Bedrock and Vertex lack Message Batches, the Files API, the Models API and URL sources; Foundry lacks Message Batches and the Models API **[Certain]** |
 | Latency | Is a person waiting on this output? | Streaming, faster tier, shorter output, `max_tokens` | Docs separate baseline latency from time to first token; streaming improves perceived responsiveness **[Certain]** |
 | Throughput | Peak requests and tokens per minute? | Request queueing, prompt caching, spreading load across models, async processing | Limits are RPM, ITPM and OTPM per model, token bucket replenishment, 429 with `retry-after` **[Certain]** |
 | Availability | What happens when a call fails? | SDK retries, timeouts, fallback model or provider, degrade gracefully | Global routing is the default "for optimal performance and availability" **[Certain]** |
 | Data residency | Where may inference run? | `inference_geo`, workspace allowed geos, or regional endpoints on Bedrock and Google Cloud | `"us"` or `"global"`; US-only priced at 1.1x on 4.6+ models **[Certain]**, values drift **[Likely]** |
-| Retention | May the vendor store prompts or outputs, and for how long? | ZDR arrangement; avoid stateful features | Batch and Files are stateful and not ZDR-eligible **[Certain]** |
+| Retention | May the vendor store prompts or outputs, and for how long? | ZDR arrangement; avoid stateful features | Batch and Files are stateful and not ZDR-eligible **[Certain]** (eligibility and platform feature lists drift; recheck the cited pages) |
 | Security | Which data classes, which identities, which actions? | Least-privilege tools, key handling, input separation | See Domain 7 |
 | Cost ceiling | Per-unit or monthly limit? | Tier choice, caching, batching, output length, workspace spend limits | Spend caps return errors when hit, so a ceiling is enforceable **[Certain]** |
 
-Three details here are worth knowing as engineering facts, even though the guide tests the concepts rather than parameter names:
+Four details here are worth knowing as engineering facts, even though the guide tests the concepts rather than parameter names:
 
 - **Cached reads raise effective throughput.** For most current models only uncached input tokens count toward ITPM, so a high cache hit rate multiplies usable input volume without a limit increase. **[Certain]**
 - **Residency can eliminate a model.** `inference_geo` is supported on Claude 4.6 and later; sending it to Haiku 4.5 or earlier returns a 400. **[Certain]** A "US-only inference" requirement on the first-party API therefore rules out the cheapest tier until a supported fast model exists. Workspace `allowed_inference_geos` turns the requirement into an enforced setting rather than a per-request convention.
 - **Retention can eliminate a feature or a model.** ZDR covers the Messages and token counting endpoints for eligible features. Batch carries 29-day retention because jobs are stored. **[Certain]**
 - **Cost ceilings fail loudly, and retries do not help.** When an organization reaches its tier spend cap, requests return a 429 `rate_limit_error` with no `retry-after` header and an `enforced_spend_limit_reached` code, and automatic retries keep failing until access resumes. A spend limit you set yourself returns a 400. **[Certain]** An availability requirement therefore needs spend alerting well before the cap, not a longer retry policy.
 
+**The hosting surface is a requirement, not a deployment detail.** Teams pick a platform because of an existing cloud account and committed spend, a marketplace procurement channel, IAM or Entra ID as the identity system, or a private-network mandate (Claude Platform on AWS supports PrivateLink; Foundry resources can sit in an Azure Virtual Network). **[Certain]** The choice then constrains the design:
+
+- **Features.** The gaps in the table above remove Batch-based backfills, Files-based document reuse and URL sources on Bedrock and Vertex. Claude Platform on AWS is Anthropic-operated with typically same-day feature access. **[Certain]**
+- **Region.** On Bedrock and Google Cloud the inference region comes from the endpoint URL or inference profile, so `inference_geo` does not apply; it is available on the Claude API and Claude Platform on AWS. **[Certain]**
+- **Retention.** On Bedrock and Google Cloud the cloud provider is the data processor, so their retention controls apply instead of Anthropic's ZDR arrangement. **[Certain]**
+
 <PostGuide>
-The data retention page lists the Fable 5 family as requiring 30-day retention and as unavailable under ZDR unless expressly authorized. These models postdate the guide, so treat this as engineering knowledge, not exam content.
+The data retention page designates Claude Fable 5.1, Claude Mythos 5.1, Claude Fable 5 and Claude Mythos 5 as Covered Models: they require 30-day retention and are unavailable under ZDR unless expressly authorized by Anthropic. **[Certain]** These models postdate the guide, so treat this as engineering knowledge, not exam content.
 </PostGuide>
 
-**Exam angle:** "the user is waiting", "peak of N requests", "must stay in region", "may not be stored" and "budget of" each name one lever. The distractor is a lever for a different dimension, usually a cheaper or more capable model offered against a residency or retention constraint.
+**Exam angle:** "the user is waiting", "peak of N requests", "must stay in region", "may not be stored", "budget of" and "our existing AWS account" each name one lever. The distractor is a lever for a different dimension, usually a cheaper or more capable model offered against a residency or retention constraint.
 
 ### Deriving requirements from business requirements
 
@@ -203,7 +222,8 @@ Also mark where untrusted content enters: customer uploads, emails, retrieved pa
 | "Payout must follow the published table" | Compute in code, let Claude explain it | The model can do arithmetic but cannot guarantee a rule |
 | "Every case follows the same four steps" | Workflow with fixed steps | An agent adds autonomy nobody asked for |
 | "Approval required before money moves" | Human review gate in the flow | A system prompt telling the model to ask first is unenforced |
-| "Same lookup needed by three internal apps" | MCP server exposing the capability | Copying a tool definition into each app duplicates and drifts |
+| "The same ticketing actions are needed in Claude Code, Claude Desktop and a custom agent" | One MCP server exposing those actions | Re-implementing the tool inside each client duplicates code and drifts |
+| "All workloads must run in the company's existing AWS account" | Bedrock or Claude Platform on AWS, then check the design against that platform's feature list | The first-party API may have every feature, but it runs and bills outside the mandated account |
 | Peak traffic hits 429s with a large repeated prefix | Prompt caching on the prefix, plus queueing | Raising `max_tokens` or switching to a bigger model does nothing for ITPM |
 
 ## Worked walkthrough
@@ -436,6 +456,10 @@ The monthly deadline. Requirements come from how output is consumed, so asynchro
 
 <Recall q="When does an agent beat a workflow for a business process?">
 Only when the path cannot be known in advance because each step depends on what the previous one discovers. If the steps are fixed, a workflow is cheaper, faster, more predictable and easier to audit.
+</Recall>
+
+<Recall q="A design relies on the Batch API for nightly backfills. Procurement then mandates Amazon Bedrock. What changes?">
+Bedrock does not offer Message Batches, so the backfill must become rate-limited asynchronous Messages calls in your own queue, or the team must choose Claude Platform on AWS, which keeps near-parity with the Claude API. The hosting mandate is a hard constraint that filters features before cost is considered.
 </Recall>
 
 <Recall q="Why is a cheaper Batch design wrong for an organization whose policy is zero data retention?">
