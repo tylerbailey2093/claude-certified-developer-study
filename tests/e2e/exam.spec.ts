@@ -21,8 +21,10 @@ test('exam: answers and flags survive reload; timeout grades the real answers', 
   await expect(page.locator('.navgrid button.is-answered')).toHaveCount(3);
   await expect(page.locator('.navgrid button.is-flagged')).toHaveCount(1);
 
-  // run the clock past the deadline
-  await page.clock.runFor(121 * 60 * 1000);
+  // jump past the absolute deadline; stepping every timer for 121 minutes is
+  // slow enough to time out on CI runners. The next tick sees the deadline.
+  await page.clock.fastForward(121 * 60 * 1000);
+  await page.clock.runFor(2000);
   await expect(page.getByText(/time expired, answered items were scored/)).toBeVisible();
   const rec = await page.evaluate(() => JSON.parse(localStorage.getItem('ccdvf:v2:exam:history') || '[]').at(-1));
   expect(rec.reason).toBe('timeout');
