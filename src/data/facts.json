@@ -329,5 +329,13 @@
       }
     ],
     "source": "https://github.com/modelcontextprotocol/modelcontextprotocol/tree/main/docs/specification"
+  },
+  "skills": {
+    "apiMaxSkillsPerRequest": 20,
+    "apiContainer": "code execution tool required; no network, no runtime package install",
+    "customSkillScope": "workspace-wide on the API; per user on claude.ai; no cross-surface sync",
+    "frontmatter": "name (<=64, lowercase/digits/hyphens) and description (<=1024, what + when)",
+    "asOfGuide": "likely",
+    "source": "https://platform.claude.com/docs/en/build-with-claude/skills-guide"
   }
 }
