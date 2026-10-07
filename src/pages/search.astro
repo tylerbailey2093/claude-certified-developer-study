@@ -1,0 +1,12 @@
+---
+import Base from '../layouts/Base.astro';
+import SearchPalette from '../islands/SearchPalette.tsx';
+const base = import.meta.env.BASE_URL;
+---
+<Base title="Search" crumbs={[{ label: 'Search' }]} grid="dim" narrow>
+  <header class="page-head">
+    <h1>Search</h1>
+    <p class="lede">Full-text search across every objective, lab and page. Works offline once the app is installed.</p>
+  </header>
+  <SearchPalette client:load base={base} inline />
+</Base>

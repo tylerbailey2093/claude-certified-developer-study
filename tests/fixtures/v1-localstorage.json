@@ -1,0 +1,13 @@
+{
+  "ccdvf:v1:misses": [
+    { "questionId": "legacy-001", "objective": "Agent Architecture", "domain": 1, "missedAt": 1756000000000, "dueAt": 1756086400000, "streak": 0 },
+    { "questionId": "new-claude-application-design-03", "objective": "Claude Application Design", "domain": 2, "missedAt": 1756100000000, "dueAt": 1756359200000, "streak": 2 }
+  ],
+  "ccdvf:v1:mockHistory": [
+    { "id": "mock-1", "takenAt": 1756200000000, "scorePct": 0.66, "scaledEstimate": 694,
+      "byDomain": { "1": { "correct": 5, "total": 8 }, "2": { "correct": 12, "total": 17 } } }
+  ],
+  "ccdvf:v1:confidence": { "Claude Application Design": 4, "Claude Hooks": 2 },
+  "ccdvf:v1:checklist": { "ck-0-0": true, "ck-6-3": true, "ck-1-2": false },
+  "ccdvf:v1:theme": "dark"
+}

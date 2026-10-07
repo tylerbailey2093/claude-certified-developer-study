@@ -1,0 +1,296 @@
+[
+  {
+    "id": "legacy-059",
+    "objective": "tool-implementation",
+    "domain": 8,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A logistics company runs three separate Claude applications. All three need to query the same warehouse routing service, and the routing team wants to own and version that capability on its own release cycle. Which approach fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Duplicate the routing tool definition inside each application",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Expose the routing operations through an MCP server that all three applications connect to",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Paste the routing rules into every application's prompt text and skip the shared service",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Have each application call the routing service through a built-in tool",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Two phrases decide this: reusable across multiple applications, and maintained independently on its own cycle. That combination is the MCP server signal. Duplicated definitions drift apart the moment one team edits theirs, prompt-embedded rules are neither live nor maintainable, and built-in tools do not reach arbitrary internal services.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-060",
+    "objective": "tool-implementation",
+    "domain": 8,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A custom tool receives a malformed customer ID and its implementation raises an unhandled exception, ending the agent run. What is the better design?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Catch the exception and return an empty result so the agent continues",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Return a tool_result marked as an error with a message the model can act on, such as the expected ID format",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Retry the tool call three times before failing",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Add the ID format to the system prompt so the model never sends a bad one",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Returning an actionable error lets the model correct itself and retry, which is the point of the tool-result error channel. An empty result silently hides the failure, blind retries repeat the same bad input, and a system prompt note is a request rather than a handled failure path.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-061",
+    "objective": "tool-implementation",
+    "domain": 8,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An agent has 40 registered tools and frequently selects the wrong one. Which change addresses the root cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Increase the effort level so the model reasons harder about selection",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Consolidate overlapping tools and sharpen each description to say when to use it and when not to",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Rename the tools alphabetically so selection is deterministic",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Move the tool definitions from the request into the system prompt",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The model selects tools by reading their descriptions, so ambiguity between overlapping tools is a description and tool-set design problem. A large surface also costs tokens on every request. Effort does not fix ambiguous documentation.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-tool-implementation-01",
+    "objective": "tool-implementation",
+    "domain": 8,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A team's weather-alerting tool calls an external forecasting API. The tool definition hardcodes the API key as a default value directly inside the tool's input schema so the agent can pass it through automatically, and the same tool definition is deployed unchanged straight from staging into production.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Move the API key into the tool's description field so the model can see that it is required",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Ask the model to redact the API key from its own responses whenever it appears",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Pull the API key from a secret manager at execution time, scoped to the minimum access needed, and treat the endpoint as per-environment configuration rather than a value baked into the schema",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Increase the tool's timeout so staging and production behave identically",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "Credentials belong in a secret manager scoped to least privilege, and endpoints belong in per-environment configuration, never embedded in a schema the model reads and that ships unchanged between environments. Putting the key in the description field makes the leak risk worse, since that text is model-readable context that can be echoed back. Asking the model to redact the key is a detective patch on a problem that should never have put a secret in context in the first place. Timeout has nothing to do with credential handling or environment separation.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-tool-implementation-02",
+    "objective": "tool-implementation",
+    "domain": 8,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An engineer is designing an agent that runs shell commands on a customer's machine using Anthropic's own Bash tool schema, and separately searches the web using Anthropic's web search tool. She assumes that because both tools come from Anthropic, both are executed on Anthropic's infrastructure and neither requires her own code to run anything.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Both assumptions are correct; Anthropic executes any tool whose schema it defines",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "The Bash tool is a client tool that her own infrastructure must execute and return as a tool_result; web search is a server tool that Anthropic's infrastructure executes and returns as a server_tool_use result",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Neither tool requires execution at all; both return results directly from the model's training data",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Web search is a client tool she must execute herself, while the Bash tool runs entirely on Anthropic's infrastructure",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Whether a tool is client-side or server-side depends on who executes it, not who authored the schema. The Bash tool is Anthropic-defined but still a client tool: her own harness has to run the command and return a tool_result. Web search is genuinely server-side; Anthropic's infrastructure executes it internally and surfaces a server_tool_use result with no tool_result required from her. The first option wrongly assumes authorship implies execution. The third ignores that tools by definition act on something outside the model's parameters. The fourth reverses the actual client/server assignment of the two tools named.",
+    "cue": "",
+    "pattern": "scope-boundary",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-tool-implementation-03",
+    "objective": "tool-implementation",
+    "domain": 8,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An agent has both a read-only list_invoices tool and a void_invoice tool that permanently cancels a customer invoice with no undo. The team originally required a human to confirm every single tool call, but within days support staff started reflexively clicking \"approve\" on every prompt, including for void_invoice.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Keep requiring approval on every call, but add a warning icon next to destructive ones",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Remove the approval step entirely, since staff aren't reading the prompts anyway",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Require two separate staff members to approve every tool call, including read-only ones",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Auto-approve read-only calls like list_invoices, and keep an explicit, separate confirmation step only for irreversible actions like void_invoice",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "Approval fatigue happens when every call, regardless of risk, demands identical attention, so oversight collapses into a reflex click; narrowing confirmation to genuinely irreversible actions restores the signal. A warning icon doesn't change the volume of approvals causing the fatigue, and a fatigued reviewer can ignore a visual cue as easily as the prompt itself. Removing approval entirely abandons oversight on the one action that most needs it. Requiring two approvers on every call, including read-only ones, adds friction without addressing why staff stopped reading prompts in the first place, making the fatigue worse.",
+    "cue": "",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-tool-implementation-04",
+    "objective": "tool-implementation",
+    "domain": 8,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A platform team maintains one shared tool set used by every agent session, including a rarely used purge_tenant_data tool invoked by only two administrators a few times a year. Every session pays the token cost of that tool's full definition on every request regardless of who is logged in, and tool-selection accuracy has been degrading as the shared set has grown.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Move purge_tenant_data out of the default set and load it only into the small number of sessions run by the administrators who actually need it",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Shorten the tool's name to reduce its token count",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Add a longer, more detailed description to purge_tenant_data so the model understands it better",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Convert purge_tenant_data into an MCP server so it no longer counts against the context window",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Every registered tool definition is sent on every request whether or not it's used, and a larger shared set also increases selection ambiguity; scoping a rarely needed, high-privilege tool to only the sessions that need it removes both costs at once. Shortening the name saves a negligible number of tokens and does nothing about ambiguity. A longer description makes the per-request token cost worse without addressing who needs the tool. Moving the tool to MCP is a common misconception: MCP tool definitions are still declared to the model on every request and still consume context tokens, so this doesn't exempt it from the cost described.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  }
+]

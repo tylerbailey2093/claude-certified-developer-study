@@ -1,0 +1,128 @@
+[
+  {
+    "id": "legacy-062",
+    "objective": "mcp-server-development",
+    "domain": 8,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An MCP server must run on a developer's own machine, spawned by the client, with no network exposure. Which transport applies?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Streamable HTTP with OAuth",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "stdio, communicating over standard input and output",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "HTTP with Server-Sent Events",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "WebSocket with a bearer token",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "stdio is the local transport where the client spawns the server as a subprocess and communicates over standard streams, with no network involved. Streamable HTTP is the current standard for remote servers, and the older HTTP+SSE transport is deprecated.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "legacy-063",
+    "objective": "mcp-server-development",
+    "domain": 8,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An MCP server exposes a read-only database schema that the client should pull into context. Which primitive fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A tool, since the model needs to retrieve it",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "A resource, which exposes read-only data controlled by the application",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "A prompt, since it provides reference context",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "A sampling request back to the client",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Resources are the read-only data primitive, controlled by the application or client. Tools are model-controlled actions, and prompts are user-invoked reusable templates. Knowing which party controls each primitive is the testable distinction.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-mcp-server-development-01",
+    "objective": "mcp-server-development",
+    "domain": 8,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An MCP server for a legal-document workflow exposes a saved instruction such as \"Summarize this contract's indemnification clauses,\" which users pick from a menu inside the Claude application rather than the model deciding to run it on its own. Which primitive does this capability map to?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A tool, because it performs an action within the document workflow",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "A prompt, a user-controlled reusable template invoked explicitly rather than by model decision",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "A resource, since it packages reference content for the model to read",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "A sampling request, since the server is asking the client to generate a completion",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Prompts are the user-controlled primitive: reusable templates a user explicitly selects, never triggered automatically. Tools are model-controlled actions the LLM invokes on its own judgment, which doesn't match a capability chosen from a menu. Resources are application-controlled read-only data pulled into context, not something a user runs. Sampling is a separate MCP mechanism where the server asks the client's model to complete something, unrelated to user-selected templates.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  }
+]

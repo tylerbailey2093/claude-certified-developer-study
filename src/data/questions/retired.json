@@ -1,0 +1,930 @@
+[
+  {
+    "id": "new-llm-fundamentals-02",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "multi",
+    "select": 2,
+    "stem": "A study guide author is deciding where to place four related topics inside a blueprint that separates a 'Model Selection and Optimization' domain from a 'Prompt and Context Engineering' domain: zero-shot, single-shot, and multi-shot prompting; and structuring a prompt with XML tags plus managing long conversation history via context compaction. Select the two statements below that correctly describe where each topic belongs.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Zero-shot, single-shot, and multi-shot prompting belong in Prompt and Context Engineering, since choosing how many examples to include is fundamentally about crafting the prompt's text.",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Zero-shot, single-shot, and multi-shot prompting belong in Model Selection and Optimization, not Prompt and Context Engineering, despite reading like a general prompting topic.",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "XML tag structuring belongs in Model Selection and Optimization because it affects which model tier is chosen for a task.",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "XML tag structuring and context compaction both belong in Prompt and Context Engineering, since they concern how a single request's content is organized and managed.",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b",
+      "d"
+    ],
+    "explanation": "Correct answers B and D. B is correct because the blueprint deliberately places example-count prompting techniques (zero/single/multi-shot) under Model Selection and Optimization rather than Prompt and Context Engineering, even though it reads like a pure prompt-writing topic. D is correct because XML tag structuring and context compaction are exactly the kind of within-request content organization that Prompt and Context Engineering does own. Option A fails because it states the intuitive-but-wrong placement directly contradicted by the blueprint's explicit scope split. Option C fails because XML tags are a formatting technique with no connection to model tier selection, which is a separate objective entirely.",
+    "cue": "",
+    "pattern": "scope-boundary",
+    "difficulty": 2,
+    "tags": [
+      "retired:Meta-item about blueprint placement that encoded a wrong claim (few-shot is NOT D5-only; guide p7 lists few-shot examples under D6 Prompt Engineering)."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "legacy-009",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A nightly job must classify 80,000 records. Results are reviewed the next business morning. Cost is the main concern. Which approach fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Synchronous Messages API calls issued in parallel",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "The Message Batches API, which processes asynchronous workloads at reduced cost",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Streaming requests to reduce total wall-clock time",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Reducing max_tokens on synchronous calls",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Nothing consumes results until morning, the signal for batch and its 50% discount. Parallel synchronous calls don't lower per-token cost, streaming optimizes a dimension nobody measures here, and trimming max_tokens ignores the realtime-versus-batch tradeoff.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [
+      "retired:Reskin of published Sample 1 (overnight cost-driven batch job; same distractor set). Semantic copying of a published item."
+    ],
+    "sources": [],
+    "author": "legacy",
+    "status": "retired"
+  },
+  {
+    "id": "new-understanding-requirements-01",
+    "objective": "understanding-requirements",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A telehealth company routes post-visit session summaries through Claude for clinician review. A newly passed data protection law in the patient's home country prohibits any processing of health data outside that country's borders, even momentarily in transit. Which infrastructure requirement should the solution architecture satisfy?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Encrypt the session summary with a customer-managed key before it leaves the clinic's network",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Route the request through a regional API endpoint that guarantees in-country processing",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Shorten the retention window on stored session summaries to reduce exposure",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Increase the request timeout budget to accommodate cross-border network latency",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The constraint is where processing happens, not how long data is kept or how fast a response arrives. A regional endpoint pins inference to the required jurisdiction. Encryption protects confidentiality in transit but doesn't control the country in which the model actually runs, so it fails the residency requirement outright. Shortening retention addresses how long data is stored, a different requirement dimension than where it's processed. Increasing the timeout is a latency parameter with no bearing on jurisdiction.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicative of legacy-010 (same residency to regional endpoint concept); legacy-010 was repaired instead."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "legacy-011",
+    "objective": "systems-life-cycle",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An enterprise requires every production model version change to be recorded, reviewed, and approved before release. Which framework does this requirement come from?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Agile, which mandates sprint review of all changes",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "ITIL-style service management, where change and release management govern production changes",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Waterfall, which requires phase gate sign-off",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "DevOps, which automates approvals away",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Change records, approval boards, and release management are service management concepts, and a model version change is a production change like any other. Agile and Waterfall describe how work is planned and delivered rather than how production change is governed.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicative of new-systems-life-cycle-02 (same ITIL change-management concept); its DevOps distractor was a strawman."
+    ],
+    "sources": [],
+    "author": "legacy",
+    "status": "retired"
+  },
+  {
+    "id": "new-cost-and-token-management-01",
+    "objective": "cost-and-token-management",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A real-time chat assistant carries a 40KB frozen system prompt and receives traffic all day. Every response must still return to the user immediately, so nothing in the pipeline can tolerate an asynchronous delay. The team wants to cut cost without breaking that latency requirement. Which change fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Route the requests through the Batch API for its 50% token discount",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Add a cache_control breakpoint after the frozen system prompt",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Downgrade the chat assistant to a cheaper model tier",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Cut max_tokens in half to shrink every response",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "A cache breakpoint after the stable, unchanging system prompt is the highest-return, lowest-risk lever here, and it doesn't touch response timing at all. The Batch API is wrong for a nameable reason beyond just being scored in Domain 2 API Mechanics rather than this objective: batch processing is inherently asynchronous and can't satisfy an 'answer must return immediately' constraint, so it fails the stem's own requirement regardless of its 50% discount. A model downgrade is the last lever in the optimization order, not the first, because it invalidates existing evals. Cutting max_tokens risks truncating legitimate responses and doesn't address the actual cost driver, which is the repeated 40KB prefix.",
+    "cue": "",
+    "pattern": "scope-boundary",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicates legacy-047 (cache a large stable prefix before downgrading); its batch-versus-realtime framing for a cost decision sits too close to published Sample 1. Rewritten coverage lives in legacy-047."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-context-engineering-02",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An agentic pipeline calls a search API that returns full HTML pages and a code-execution tool that returns entire stdout logs. Token spend and latency have grown steadily as the pipeline chains more tool calls per task, even though none of the pipeline's instructions have changed. Which change is most likely to produce the largest reduction in context consumed per task?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Switch to a model with a larger context window so the same payloads fit more comfortably",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Summarize the conversation history every five turns",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Filter and truncate the raw tool outputs to only the fields the next step actually needs, before they enter context",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Lower the sampling temperature so responses are shorter",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "Tool output pruning is usually the largest single source of bloat in agentic systems, and the stem points straight at it: growth tracks tool calls, not turn count. A larger window (A) tolerates the waste rather than eliminating it, and cost still scales with it. Summarizing history every five turns (B) is compaction, which targets accumulated turns, not the raw tool payloads the stem identifies as the actual bulk. Temperature (D) affects sampling randomness, not payload size, and isn't a reliable lever on output length.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicates legacy-049 (prune verbose tool output at the source); kept the clearer item and moved the remaining pruning coverage to context-engineering-008 and -009."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-technical-fundamentals-01",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A team is building an internal tool in a language with no official Anthropic SDK, so they call the Messages API directly over HTTPS. Midway through planning, someone notes that network calls occasionally time out under load and the client must recover without surfacing an error to the user. What have they taken on that the SDK would have handled for them?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Nothing — raw HTTP calls behave identically to SDK calls in every respect",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Retry-with-backoff logic, SSE event parsing, and typed response handling",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "A different pricing tier reserved for raw REST access",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "A separate authentication scheme required only for non-SDK clients",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Correct: the SDKs wrap the same REST API but add retries with backoff, SSE assembly, and typed models — none of that exists over raw HTTP unless you build it. (A) is wrong because raw HTTP and SDK calls hit the identical endpoint but the SDK adds real behavior on top; they are not equivalent. (C) is wrong because pricing is per-token and identical regardless of transport. (D) is wrong because authentication (the API key) is unchanged whether you use an SDK or call REST directly.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [
+      "retired:duplicate: same concept as legacy-043 (what raw REST takes on vs the SDK); folded into its repair"
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-technical-fundamentals-03",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A support engineer is troubleshooting a chat app where the context window fills up mid-conversation, forcing older turns to be dropped. Separately, the app needs to display Claude's reply token-by-token as it's generated. Which mechanism does the Claude API itself use to deliver those tokens to the caller?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A persistent WebSocket connection opened by the SDK to api.anthropic.com",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Long polling, with the client re-requesting the endpoint every 500ms",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "A gRPC bidirectional stream negotiated during authentication",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Server-Sent Events (SSE), one-way from the API to the caller",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "Correct: the context-window detail is scenery — the actual question is which transport delivers streamed tokens, and the Messages API only ever streams over SSE, one-way server to client. (A) is the classic bait: 'streaming' primes people toward websockets, but Anthropic hosts no websocket endpoint. (B) and (C) are real transports elsewhere in software but neither is what `stream: true` actually uses on this API.",
+    "cue": "",
+    "pattern": "scope-boundary",
+    "difficulty": 2,
+    "tags": [
+      "retired:duplicate: same concept as legacy-042 (Claude streams over SSE); stem padded with irrelevant context-window scenery"
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-technical-fundamentals-06",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "During a traffic spike, a client starts receiving 429 responses and the team debates how to handle it. Which part of that debate is actually decided by SDK and websocket mechanics — this objective — rather than by rate-limit or token-budget reasoning tested elsewhere?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The exact backoff curve to use once a 429 is received",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "How many tokens per minute the account's rate limit allows",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Whether the SDK's default retry configuration already retries 429s automatically, versus a raw HTTP call needing that logic written by hand",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Whether truncating conversation history would reduce the 429 rate",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "Correct: 'does the SDK already handle this, or do I have to write it myself for a raw HTTP call' is exactly the SDK-vs-REST mechanics this objective covers. (A) is backoff-curve tuning and (B) is rate-limit capacity planning — both real questions, but they live in Applications & Integration / LLM Fundamentals, not here. (D) is a token-budget mitigation strategy, also outside this objective's narrow scope.",
+    "cue": "",
+    "pattern": "scope-boundary",
+    "difficulty": 2,
+    "tags": [
+      "retired:meta question about which objective owns a topic; tests the site's taxonomy rather than an exam competency"
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-claude-api-mechanics-02",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [],
+    "type": "multi",
+    "select": 2,
+    "stem": "A data team submits 40,000 documents to the Message Batches API for classification, expecting the batch to finish well inside their six-hour reporting window. To save engineering time, they write the results-processing code to zip the downloaded results directly against the original 40,000-item input list by array position, and they build no handling for a batch that doesn't fully complete. Which two of the following are real risks in this design? (Select two.)",
+    "options": [
+      {
+        "id": "a",
+        "text": "Results can return in a different order than requests were submitted, so a positional zip can silently pair a result with the wrong input document",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "A batch that hasn't finished processing within 24 hours expires, losing whatever requests are still unfinished, so a design with no fallback for that case can silently lose data",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "The Batches API only applies its cost discount to requests that finish within the first hour, so slower requests are billed at full synchronous price",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "A single batch submission is capped at 1,000 requests, so the 40,000-document submission would be rejected outright",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Correct (both): batch requests are processed independently and concurrently, so completion order carries no relationship to submission order -- only a custom_id join is safe, making a positional zip a real data-integrity bug; separately, a batch that has not finished within 24 hours expires and drops unfinished requests, so skipping fallback handling for that case risks silent data loss even though most batches finish in under an hour. Option C fails because the batch discount is a flat percentage off standard pricing applied to all usage in the batch, not a time-boxed promotion tied to how fast a given request completes. Option D fails because the per-batch request ceiling is far larger than 1,000 -- the number is fabricated and would not cause 40,000 documents to be rejected at submission.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicates legacy-014 (positional join of unordered batch results); its distractors rested on fabricated limits. Expiry and errored-result handling now live in claude-api-mechanics-018."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "legacy-038",
+    "objective": "llm-fundamentals",
+    "domain": 5,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "Which statement about tokens is correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Token counts are identical across all Claude models",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Token counts are model-specific and should be re-measured when migrating models",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "One token always equals one word",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Only input text is tokenized; output is billed by character",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Tokenization is model-specific, so counts measured against one model don't transfer. Newer models use a different tokenizer that can produce meaningfully more tokens for identical text, which changes effective cost even at a flat rate.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicative recall item (\"which statement about tokens is correct\"); the model-specific token count concept is covered by scenario items new-llm-fundamentals-04 and llm-fundamentals-001."
+    ],
+    "sources": [],
+    "author": "legacy",
+    "status": "retired"
+  },
+  {
+    "id": "new-software-engineering-foundations-03",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A nightly reconciliation script kicks off at 1 AM and immediately submits all 900 of the day's transaction records to Claude for anomaly review at once, using asyncio.gather with no concurrency cap. Within the first thirty seconds most requests fail with 429 responses, and the on-call engineer's instinct is to just add a longer fixed delay before each retry. What is the more durable fix?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Bound concurrency with a semaphore or queue and ramp the request rate up gradually instead of firing all 900 at once",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Keep the current fan-out pattern but add a longer fixed delay before each retry",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Switch the reconciliation job to a larger, higher-throughput model so more requests succeed per second",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Disable the SDK's built-in retry behavior so failed requests fail fast instead of queuing",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The root cause is unbounded fan-out, not slow retries — bounding concurrency and ramping traffic gradually is what actually keeps the request rate under the limit. A longer fixed delay treats the symptom on each failed call but the next batch still fires all 900 at once and trips the same limit. Model tier does not change organization-level rate limits, so a larger model doesn't help. Disabling the SDK's own retry/backoff removes a mechanism that was already helping and makes the failure mode worse, not better.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicate of legacy-021 (unbounded fan-out then 429s, semaphore fix); the 1 AM bulk-job framing also drifts toward the published Sample 1 skeleton."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-software-engineering-foundations-07",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A three-line change to a repository's settings.json disables a permission rule that had been blocking a Claude Code agent from running shell commands as root, and it gets merged straight to main because 'it's just a config tweak, not real code.' Two weeks later the same agent runs an unreviewed destructive command in a teammate's branch. Which practice would most directly have prevented this outcome?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Require CLAUDE.md and settings.json changes to go through the same pull-request review and CI gates as source code, since they govern what the system is allowed to do",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Add a system-prompt instruction telling the agent never to run destructive commands",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Rotate the API key used by the agent on a monthly schedule",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Move the permission setting into a code comment inside CLAUDE.md instead of settings.json",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "settings.json and CLAUDE.md are versioned configuration artifacts that determine what the system is allowed to do, and gating them through the same review and CI pipeline as source code is what would have caught the permission change before merge. A system-prompt instruction is a request the agent can still fail to follow; a permission rule is the deterministic control the prompt instruction can't replace. Key rotation is a credential-hygiene practice unrelated to a permission bypass. Moving the setting into a comment removes its enforcement entirely, making the problem worse.",
+    "cue": "",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [
+      "retired:Out of scope for Software Engineering Foundations: reviewing settings.json permission changes is Configuration Management / Claude Code Operation, and the scenario (a rule blocking root shell commands) was implausible."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-software-engineering-foundations-08",
+    "objective": "software-engineering-foundations",
+    "domain": 2,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A team asks Claude Code to migrate a 40,000-line billing module from a deprecated ORM to its replacement. Partway through, the agent proposes finishing the whole migration in one sweeping commit that also fixes several unrelated bugs it noticed along the way, reasoning that touching each file only once saves review time. The team is under a hard deadline and finds the one-pass approach tempting. What should they require instead?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Approve the single large commit, since touching each file only once reduces total review overhead",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Let the agent proceed as proposed, but add a longer QA cycle at the very end to catch any issues",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Split the migration into bounded increments with tests passing between each step, and keep the unrelated bug fixes in separate changes",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Postpone the migration until after the deadline, since large-scale refactors are inherently too risky to attempt under time pressure",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "The correct discipline for large-scale refactoring is bounded increments with tests green between each step, and never mixing a refactor with a behavior change in the same commit — the unrelated bug fixes are behavior changes and must be split out. Approving the single sweep trades safety for review convenience and mixes concerns. Deferring all verification to one QA pass at the end loses the between-step safety net, making any failure hard to attribute to a specific change. Large-scale refactoring is explicitly in scope and doable under deadline pressure; the fix is incremental discipline, not avoidance.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicate of legacy-023 (big-bang refactor mixed with unrelated bug fixes); merged into the repaired legacy-023."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-claude-application-design-02",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.interfaces"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team is building a research assistant that runs in Claude Desktop. They want the assistant to always be able to call the company's internal ticket-lookup service in every conversation the user starts on that machine, without the user re-explaining what the service is or how to call it each time they open a new chat. Where should this capability be defined?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Restate the ticket-lookup service's API in the first message of every conversation",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Add the service description to a claude.ai Project's custom instructions",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Connect the ticket-lookup service as an MCP server in Claude Desktop's local configuration",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Paste the service's documentation into the system prompt of a single raw API call",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "On Claude Desktop, the instruction surface for tool capability is the connected tooling itself; an MCP server configured locally persists across every conversation on that machine without the user restating anything.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [
+      "retired:Tracks published Sample 3 (internal service exposed to Claude through an MCP server, answer 'connect it as an MCP server'). Desktop surface coverage moved to claude-application-design-018."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "legacy-055",
+    "objective": "ai-application-security",
+    "domain": 7,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A support agent reads customer tickets and can call a refund tool. A customer pastes text into a ticket that reads like an internal instruction authorising a full refund. The agent issues it. Which change prevents recurrence?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Add a system prompt line telling Claude that ticket text is never authoritative",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Require an approval step for refunds and scope the tool so the agent cannot issue one unilaterally",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Lower the temperature so the agent behaves more predictably",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Move to a larger model with stronger instruction following",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Ticket content is untrusted input and the injection succeeded because the tool permitted an irreversible financial action without a gate. Least privilege at the tool boundary plus human approval is the enforceable control. A system prompt line is a request, temperature is unrelated to injection, and a model that follows instructions better can follow injected ones better too.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [
+      "retired:tracks-sample-2-skeleton"
+    ],
+    "sources": [],
+    "author": "legacy",
+    "status": "retired"
+  },
+  {
+    "id": "new-ai-application-security-01",
+    "objective": "ai-application-security",
+    "domain": 7,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A document-review assistant reads legal contracts uploaded by outside counsel and drafts summaries for the internal legal team. The company cannot control how outside counsel formats these documents before upload, and one uploaded contract contains a paragraph formatted to look like a system instruction telling the assistant to also send a copy to an external address. The team wants to keep processing contracts from any outside counsel without manual pre-screening of every upload.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Switch the assistant to a larger, more capable model so it better recognizes manipulation attempts",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Deliver the uploaded contract text only inside tool_result content, and give the assistant no email-sending tool at all",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Increase the sampling temperature so responses are less predictable to an attacker",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Add a line to the system prompt asking the model to ignore instructions embedded in uploaded documents",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The correct fix combines content isolation (the untrusted document text stays in tool_result, distinguishable from real instructions) with least-privilege tooling: with no email-sending capability, an injected instruction to email a copy has nowhere to go, regardless of whether the model complies with it. A larger model is a trap distractor — better instruction-following can make a model more susceptible to embedded injected instructions, not less. Temperature has no bearing on whether embedded instructions are followed. A system-prompt request not to follow embedded instructions is advisory only; it is not an enforced control and can be talked around by a sufficiently crafted injection.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [
+      "retired:tracks-sample-2-skeleton"
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-agent-architecture-02",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An engineering-metrics agent must read a 200,000-line CI log to isolate the root cause of a flaky test, then hand a two-paragraph summary back to the parent conversation. The team wants to guarantee the parent's context never fills up with raw log lines, no matter how long the log-scanning takes. Which choice best satisfies that guarantee?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Increase the parent's context window so it can hold the entire log alongside the rest of the conversation",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Enable prompt caching on the log content so repeated reads are cheaper",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Run the log-scanning in a subagent with its own context window and return only the distilled summary",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Run the log-scanning in a subagent so it can execute in parallel with the rest of the pipeline",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "A subagent with its own window keeps the raw log isolated; only the condensed summary re-enters the parent's context, which is the guarantee the team wants. A bigger window still fills up with raw lines eventually and doesn't prevent pollution. Prompt caching is a cost/latency optimization -- cached content still occupies context, it doesn't isolate it. Framing the subagent's value as parallel execution names the secondary benefit, not the primary reason, and there's nothing else described running concurrently for it to parallelize against.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicates legacy-002 (subagent for context isolation of a large raw input); the guarantee framing was muddled."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-agent-architecture-05",
+    "objective": "agent-architecture",
+    "domain": 1,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A document-tagging task applies the exact same three tags via the same three tools to every document, with no variation across runs. A colleague argues for building this as an autonomous agent instead of a fixed workflow because, in their words, agents are 'more flexible and more modern.' What is the strongest architectural counterargument?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Flexibility has no payoff when the steps and tools are already fully known and identical every run; a fixed workflow gets the same result with less cost and less unpredictable behavior",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Agents are structurally incapable of reliable tool use, so a workflow is the only option that works at all",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Only a workflow can use the Claude API's tool-use feature; agents cannot register tools",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "An agent architecture always requires a manager delegating to a subagent hierarchy, which this simple task doesn't justify",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The correct counterargument is a cost/complexity one: identical, fully-known steps get no benefit from agent flexibility, so the workflow wins on cost and predictability. The other three options invent false technical limitations -- agents can call tools reliably, both workflows and agents use the same tool-use feature, and a single agent never requires a manager/subagent hierarchy. Each sounds like a plausible technical fact but fails on that basis alone.",
+    "cue": "",
+    "pattern": "scope-boundary",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicates legacy-001 (fixed identical steps mean a workflow), and its distractors were false technical claims rather than real mechanisms misapplied."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-01",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A deployment agent must never make more than fifty tool calls in a single run, regardless of how capable the underlying model is or how the prompt is worded, because a runaway run has already caused a production incident. Which control actually guarantees that ceiling holds?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A harness-level counter that stops the loop once fifty tool calls have been made, independent of the model's own judgment",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Switching to a more capable model that is less likely to get stuck in a loop",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Lowering the sampling temperature so the model's tool choices are more consistent",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Adding a system-prompt instruction telling the model to stop after fifty tool calls",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Only a harness-level counter enforced in code guarantees the ceiling, because it doesn't depend on the model choosing to comply. A more capable model reduces how often loops happen but never guarantees a hard limit. Lowering temperature changes variability, not termination. A system-prompt instruction is a request the model can fail to follow, not a guarantee -- the same distinction that makes unbounded loops a harness failure rather than a model failure.",
+    "cue": "",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicates legacy-006 (harness-enforced loop bounds); the hard-cap concept is kept there and in agent-patterns-and-frameworks-003."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  },
+  {
+    "id": "new-agent-patterns-and-frameworks-03",
+    "objective": "agent-patterns-and-frameworks",
+    "domain": 1,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An agent's conversation has grown large enough that old tool outputs are consuming most of the available context, even though the agent no longer needs to re-inspect any of them. The team wants the lightest-touch fix available and specifically wants to avoid summarizing anything. Which lever fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Compaction: summarize the whole conversation and reinitiate a new context window",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "Switch to a model with a larger context window so the old outputs simply fit",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Tool-result clearing: drop the stale raw tool outputs from the message history",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "Rewrite the system prompt to be shorter",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "Tool-result clearing is the lightest-touch lever and involves no summarization -- it just drops stale raw outputs the agent no longer needs. Compaction is exactly the summarization the team said to avoid. A larger context window doesn't manage anything, it just delays the same growth problem. The system prompt isn't what's consuming context in this scenario, so shortening it doesn't address the stated cause.",
+    "cue": "",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [
+      "retired:Duplicates context-engineering-008 (tool result clearing versus compaction for stale tool output)."
+    ],
+    "sources": [],
+    "author": "v1-new",
+    "status": "retired"
+  }
+]

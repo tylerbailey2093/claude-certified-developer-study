@@ -1,0 +1,925 @@
+[
+  {
+    "id": "legacy-049",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.pruning"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A fulfilment agent checks dozens of orders per task through a get_order tool that returns the full order record as JSON, about 40,000 tokens per call. The next step needs only about 200 of those tokens: the status, carrier and promised ship date. Which change most reduces the context this consumes?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Change the get_order wrapper to project status, carrier and promised ship date, plus the order ID for follow-up lookups",
+        "why": "Correct. Pruning at the source keeps the bulk out of the window on every call, and the ID keeps full detail one call away."
+      },
+      {
+        "id": "b",
+        "text": "Enable server-side compaction so older turns holding the full order records are summarized automatically once the window fills up",
+        "why": "Compaction summarizes after the fact and loses detail, while each new get_order call still brings 40,000 tokens back."
+      },
+      {
+        "id": "c",
+        "text": "Add a cache breakpoint after each tool result so repeated order records are served from the prompt cache",
+        "why": "Caching lowers the price of repeated tokens but cached tokens still occupy the window, so the bloat is unchanged."
+      },
+      {
+        "id": "d",
+        "text": "Move the agent to a model with a larger context window so dozens of full order records fit in one task",
+        "why": "A larger window lets the bloat grow; recall still degrades as tokens accumulate, well before the limit."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is a 200-to-40,000 ratio: almost every token the tool returns is waste. Tool output is usually the largest source of bloat in agents, and pruning at the source is the strongest fix because the waste never enters the window. Compaction is the tempting distractor, but it treats the symptom later and the next call refills the window.",
+    "cue": "needs only about 200 of those tokens",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Effective context engineering for AI agents",
+        "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "legacy-050",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.compaction"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A procurement assistant runs long negotiation sessions with server-side compaction using the default summarization prompt. After a compaction, it starts quoting wrong purchase-order numbers and drops a payment-terms limit the user set in the first hour. The session must keep running past the context limit. Which change addresses the cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Supply compaction instructions requiring exact identifiers, figures and user-set limits to be kept verbatim",
+        "why": "Correct. Compaction is lossy by design; custom instructions replace the default prompt and decide what must survive."
+      },
+      {
+        "id": "b",
+        "text": "Put a cache breakpoint on the system prompt so the earlier conversation is preserved when compaction runs",
+        "why": "Caching the system prompt is a cost measure for compaction; it does not keep conversation details out of the summary."
+      },
+      {
+        "id": "c",
+        "text": "Enable pause_after_compaction so the application receives control right after each summary is produced",
+        "why": "Pausing lets you re-insert recent turns, but the early identifiers were already lost from the summary by then."
+      },
+      {
+        "id": "d",
+        "text": "Raise the compaction trigger to a much higher token count so the lossy summarization step happens less often",
+        "why": "Compacting later still loses the same details when it fires, and a fuller window adds context rot in between."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is exact numbers and an early user constraint vanishing right after compaction, the signature of a lossy summary written by a default prompt. What survives compaction is a design decision: the instructions parameter replaces the summarization prompt, and anything that must persist regardless can also go to memory. Delaying compaction is tempting but changes when the loss happens, not whether.",
+    "cue": "using the default summarization prompt",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Compaction at a token threshold",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/compaction-threshold"
+      },
+      {
+        "label": "Effective context engineering for AI agents",
+        "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "new-context-engineering-01",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.drift-bloat"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A coding agent works in very long Claude Code sessions, and CLAUDE.md says never to edit files under the migrations directory. Late in long sessions it occasionally edits migration files anyway. The rule must hold every time, however long the session runs. Which change meets that requirement?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Add a PreToolUse hook or a permission deny rule that blocks edits to paths under the migrations directory",
+        "why": "Correct. Hooks and permission rules are enforced by the harness on every call, independent of how diluted the instruction has become."
+      },
+      {
+        "id": "b",
+        "text": "Repeat the migrations rule near the top of CLAUDE.md in capital letters and mark it as critical",
+        "why": "Emphasis may improve adherence, but CLAUDE.md is context the model reads, not enforcement, so it cannot guarantee the rule."
+      },
+      {
+        "id": "c",
+        "text": "Run /compact every hour so the rule stays a larger share of the context that the model is attending to",
+        "why": "Compaction may reduce dilution, but the rule is still a request the model can miss; nothing blocks the edit."
+      },
+      {
+        "id": "d",
+        "text": "Start a fresh session at each task boundary so the agent reloads CLAUDE.md into a short, clean context",
+        "why": "Fresh sessions reduce drift and are good hygiene, but they still rely on the model choosing to follow the rule."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that the rule must hold every time. Drift fixes such as re-anchoring, compaction and fresh sessions make adherence more likely, but CLAUDE.md is treated as context, not enforced configuration. Only a deterministic control in the harness, a PreToolUse hook or a deny rule, blocks the action regardless of what the model decides.",
+    "cue": "must hold every time",
+    "pattern": "must-means-deterministic",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How Claude remembers your project",
+        "url": "https://code.claude.com/docs/en/memory"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "new-context-engineering-03",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.compaction",
+      "ctx.memory"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Early in a Claude Code session, a developer typed that all timestamps in this repository are stored in UTC. After auto-compaction runs, Claude begins writing code that converts to local time. The developer wants the convention in force from the first turn after any future compaction, before Claude reads any file. Where should it live?",
+    "options": [
+      {
+        "id": "a",
+        "text": "In the project-root CLAUDE.md, which Claude Code re-injects from disk after compaction",
+        "why": "Correct. Project-root CLAUDE.md is reloaded after /compact, while chat-only instructions are summarized like everything else."
+      },
+      {
+        "id": "b",
+        "text": "In a path-scoped rule file whose paths frontmatter matches the repository's source directories",
+        "why": "Path-scoped rules are summarized away by compaction and reload only on demand when a matching file is read again, so they are missing from the turns before any file is read."
+      },
+      {
+        "id": "c",
+        "text": "In the first message of each new session, restated in capitals so the summary is more likely to keep it",
+        "why": "It is still conversation content, so whether it survives depends on what the lossy summary happens to keep."
+      },
+      {
+        "id": "d",
+        "text": "Nowhere new: raise the auto-compaction threshold so compaction runs later in each session",
+        "why": "Compacting later only delays the same loss; the convention still lives in conversation content."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is an instruction typed in chat that disappeared after auto-compaction. Compaction is lossy, and Claude Code re-injects only certain sources from disk afterwards, including the project-root CLAUDE.md, unscoped rules and auto memory. Path-scoped rules are the tempting distractor because they are files too, but they load into message history and get summarized.",
+    "cue": "typed that all timestamps",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Explore the context window",
+        "url": "https://code.claude.com/docs/en/context-window"
+      },
+      {
+        "label": "How Claude remembers your project",
+        "url": "https://code.claude.com/docs/en/memory"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "new-context-engineering-04",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.isolation"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A coding agent must find every caller of a deprecated function across a large monorepo before it changes the signature. The raw search results can run to tens of thousands of tokens per query, and the team requires that they never enter the parent agent's context. Only a list of file paths and line numbers should come back. Which design meets that requirement?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Delegate the search to a subagent with its own context window that returns only the condensed list",
+        "why": "Correct. The raw results stay in the subagent's window, and only its final summary returns to the parent."
+      },
+      {
+        "id": "b",
+        "text": "Tell the parent in its system prompt to keep tool results brief and to summarize search output",
+        "why": "An instruction is a request, and the raw results still land in the parent's window before any summarizing."
+      },
+      {
+        "id": "c",
+        "text": "Truncate the search tool's output to its first 500 tokens before returning it to the parent",
+        "why": "Truncated raw output still enters the parent's context, and cutting it off can silently drop callers."
+      },
+      {
+        "id": "d",
+        "text": "Enable tool result clearing so the parent's search results are removed once newer calls arrive",
+        "why": "Clearing removes results after they have entered the parent's window, which the requirement forbids."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that raw results must never enter the parent's context, which rules out every remedy that acts after the fact. Isolation is stronger than removal: a subagent explores in a fresh window and hands back only a condensed result. Clearing is tempting because it removes the tokens, but only after the parent has already seen them.",
+    "cue": "never enter the parent agent's context",
+    "pattern": "must-means-deterministic",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Create custom subagents",
+        "url": "https://code.claude.com/docs/en/sub-agents"
+      },
+      {
+        "label": "Effective context engineering for AI agents",
+        "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "context-engineering-001",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.memory"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team adds the memory tool to a customer-facing agent so it can keep notes across conversations. During review, security asks where the memory files are physically stored and what stops a request for a path such as /memories/../config/.env. Which answer is correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The files live in storage the application controls, and the application's handler must reject any path that resolves outside the memory root",
+        "why": "Correct. The memory tool is client-side: Claude only requests operations, and your handler executes them and must block traversal."
+      },
+      {
+        "id": "b",
+        "text": "Anthropic stores the files server-side per workspace and rejects any path outside /memories before the call reaches the application",
+        "why": "Memory lives entirely in your application; nothing on Anthropic's side stores the files or validates the paths for you."
+      },
+      {
+        "id": "c",
+        "text": "The files live in the application's storage, and a system prompt rule telling Claude to stay inside /memories is enough protection",
+        "why": "A prompt rule is advisory, and traversal is an input-validation problem that only the handler's code can enforce."
+      },
+      {
+        "id": "d",
+        "text": "The memory tool's built-in input schema restricts paths to /memories, so the handler can trust every path it receives",
+        "why": "The tool type has no schema you control; the docs require the handler itself to reject paths outside /memories."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is what stops a traversal path, which is a question about who executes memory operations. The memory tool is client-side: Claude asks to view, create or edit files under /memories, and your handler maps that prefix onto real storage and must validate every path. Trusting the model or the tool definition to stay inside the directory is the tempting mistake.",
+    "cue": "what stops a request for a path",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Memory tool",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "context-engineering-002",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.memory"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A purchasing agent works on a sourcing task over several days and keeps notes in memory between sessions. Supplier unit prices live in the ERP system and change several times a week, and on day 5 the agent quoted a price it had saved on day 1. Which two kinds of information should it persist in memory? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Decisions already made, such as the shortlisted suppliers, with the reason each was chosen",
+        "why": "Correct. Conclusions and their rationale are expensive to re-derive and do not go stale when source data changes."
+      },
+      {
+        "id": "b",
+        "text": "Pointers back to the source, such as supplier IDs and the ERP query used to fetch their prices",
+        "why": "Correct. A pointer lets the agent re-fetch the current price just in time instead of trusting a stored copy."
+      },
+      {
+        "id": "c",
+        "text": "The unit prices returned by the ERP, so later sessions can quote without repeating the lookup",
+        "why": "A stored copy of a mutable fact goes stale silently, which is exactly how the day 1 price was quoted on day 5."
+      },
+      {
+        "id": "d",
+        "text": "The full raw ERP responses, so every field is available if a later step happens to need it",
+        "why": "Raw payloads bloat memory and context and go stale just like the prices; persist pointers, not payloads."
+      },
+      {
+        "id": "e",
+        "text": "The prices placed in the system prompt and refreshed weekly, so every session starts with them",
+        "why": "Weekly refresh is slower than prices that change several times a week, and it adds tokens to every request."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is source data that changes several times a week. Persist conclusions and pointers, and re-fetch anything that has a changing source of truth when it is needed. Saving the prices is tempting because it avoids a lookup, but a stored copy of a mutable fact goes stale without warning.",
+    "cue": "change several times a week",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Effective context engineering for AI agents",
+        "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+      },
+      {
+        "label": "Memory tool",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "context-engineering-003",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.memory"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A research agent audits hundreds of sources over several days, and its worker process restarts every night, discarding the conversation history. Each morning it re-checks sources it already finished. Which change lets it resume where it left off?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Keep a progress file in memory listing checked sources and next steps, read at the start of each session",
+        "why": "Correct. Memory persists outside the window and survives the restart, so a fresh session can rebuild its state by reading it."
+      },
+      {
+        "id": "b",
+        "text": "Write the list of checked sources into a longer system prompt that is sent along with every request to the agent",
+        "why": "A system prompt is static per deployment and cannot record progress the agent makes during the day."
+      },
+      {
+        "id": "c",
+        "text": "Cache the conversation history with the 1-hour TTL so the next morning's session can read it back",
+        "why": "Prompt caching changes the price of a prefix you resend; it is not storage, and the entry expires overnight."
+      },
+      {
+        "id": "d",
+        "text": "Enable server-side compaction so the history is summarized before the worker restarts each night",
+        "why": "A compaction summary lives in the conversation history, which the restart discards along with everything else."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that the restart discards the conversation history, so any state must live outside the window. The memory tool, or progress files read at session start, is how multi-session agents carry checklists and decisions across fresh contexts. Caching is the tempting distractor, but it stores nothing you can read back and expires long before morning.",
+    "cue": "discarding the conversation history",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Memory tool",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool"
+      },
+      {
+        "label": "Effective context engineering for AI agents",
+        "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "context-engineering-004",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.window"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A document Q&A service sends a long contract and question to a model with a 200,000-token context window. One request carries 180,000 input tokens with max_tokens set to 32,000, and the answer stops partway with stop_reason model_context_window_exceeded. What should the service do?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Count tokens before sending and trim or retrieve less input so input plus the needed output fits the window",
+        "why": "Correct. Input and generated output share one window, so reserve output headroom by measuring and shrinking the input."
+      },
+      {
+        "id": "b",
+        "text": "Raise max_tokens to 64,000 so the model has more room to finish its answer on the next attempt",
+        "why": "The limit is the window, not the cap; a larger max_tokens cannot create room that 180,000 input tokens already use."
+      },
+      {
+        "id": "c",
+        "text": "Treat it as a transient API error and retry the same request with exponential backoff",
+        "why": "It is a stop reason on a successful response, and the same request will hit the same window limit again."
+      },
+      {
+        "id": "d",
+        "text": "Add a cache breakpoint after the contract so the cached contract tokens no longer count against the model's context window",
+        "why": "Cached tokens still occupy the context window; caching changes the price, not the size."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is 180,000 input tokens in a 200,000-token window: only about 20,000 tokens remain for the answer, so generation hits the window before max_tokens. Window management means budgeting input against reserved output, measured with count_tokens before the call. Caching is the tempting fix, but cached tokens count against the window like any others.",
+    "cue": "180,000 input tokens",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Context windows",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+      },
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "context-engineering-005",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.window",
+      "ctx.drift-bloat"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A contract-analysis agent answers precisely in short sessions. In sessions where it has loaded about 300,000 tokens of clauses on a model with a 1M-token window, it overlooks clauses it was given, though no errors occur. What best explains the behaviour?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Recall degrades as the token count grows, well before the window limit, so the agent should load fewer, higher-signal tokens",
+        "why": "Correct. Context rot is a gradient, not a cliff at the limit, so the fix is a smaller, more relevant context."
+      },
+      {
+        "id": "b",
+        "text": "The API silently truncates the oldest input once a request passes an internal limit set below the advertised window size",
+        "why": "Input over the window is rejected with a 400 error; the API does not quietly drop tokens below the limit."
+      },
+      {
+        "id": "c",
+        "text": "Clauses served from the prompt cache are given less attention than clauses sent as uncached input",
+        "why": "Caching changes price and latency only; the model processes cached tokens the same as uncached ones."
+      },
+      {
+        "id": "d",
+        "text": "Thinking blocks from earlier turns push the clauses out of the window once the session passes 200,000 tokens",
+        "why": "Prior thinking counts toward the window, but at 300,000 of 1M tokens nothing is being pushed out."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is degradation with no errors at under a third of the window, which is context rot rather than a capacity limit. Anthropic's guidance treats context as a finite attention budget: aim for the smallest set of high-signal tokens, retrieving clauses just in time. Silent truncation is the tempting explanation, but over-limit input fails loudly with a 400.",
+    "cue": "about 300,000 tokens of clauses",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Effective context engineering for AI agents",
+        "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+      },
+      {
+        "label": "Context windows",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "context-engineering-006",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.window",
+      "ctx.pruning"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "An agent's requests now fail with a 400 prompt is too long error, because input alone exceeds the model's context window. Most of that input is 60 tool definitions sent on every request and old tool results from earlier steps. Which two changes reduce the tokens counted against the window? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Load rarely used tools on demand through tool search instead of sending all 60 definitions every time",
+        "why": "Correct. Deferred tool loading removes unused definitions from every request, which shrinks the input itself."
+      },
+      {
+        "id": "b",
+        "text": "Enable tool result clearing so old tool results are replaced with placeholders past a token threshold",
+        "why": "Correct. Context editing removes stale results server-side before the prompt reaches the model, freeing window space."
+      },
+      {
+        "id": "c",
+        "text": "Add cache_control to the tool definitions and history so those tokens are served from the prompt cache",
+        "why": "Cached tokens still occupy the context window; caching lowers price, not the count against the window."
+      },
+      {
+        "id": "d",
+        "text": "Lower max_tokens so that the input and the reserved output together fit inside the window",
+        "why": "Input alone already exceeds the window, so reserving less output cannot make the request fit."
+      },
+      {
+        "id": "e",
+        "text": "Set the thinking display to omitted so earlier thinking blocks stop counting toward the window",
+        "why": "Display changes only what is returned; omitted thinking is billed and passed back the same way."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is input alone exceeding the window, so only changes that remove input tokens help. Lean tool sets via on-demand loading and clearing stale tool results both cut what is sent. Caching is the tempting distractor because it makes tokens cheaper, but it does not make them smaller.",
+    "cue": "input alone exceeds",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Context windows",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+      },
+      {
+        "label": "Context editing",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/context-editing"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "context-engineering-007",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.drift-bloat"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A support agent in one long session shows two problems. It stopped applying an escalation rule that was stated once in a long onboarding message at the start of the conversation, and its window is filling with full order-history payloads from a lookup tool. Which two changes each target a cause? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Move the escalation rule into the system prompt and restate it at the point where escalation is decided",
+        "why": "Correct. This re-anchors a drifting rule as durable instructions and puts it in front of the model when it matters."
+      },
+      {
+        "id": "b",
+        "text": "Have the lookup tool hand back just the order fields the agent acts on, with an ID for fetching more",
+        "why": "Correct. Pruning at the source removes the bloat on every call, which also slows the dilution behind the drift."
+      },
+      {
+        "id": "c",
+        "text": "Compact the conversation whenever the window passes half full, using the default summarization prompt each time",
+        "why": "Compaction can summarize the onboarding rule away, and the next lookup refills the window with full payloads."
+      },
+      {
+        "id": "d",
+        "text": "Append the escalation rule to every tool result so that it always sits close to the end of the context window",
+        "why": "This adds tokens on every call and mixes instructions into tool data, worsening the bloat it sits beside."
+      },
+      {
+        "id": "e",
+        "text": "Move the agent to a model with a larger context window so the payloads and the rule both fit",
+        "why": "More room lets the bloat grow and dilutes the rule further, which makes the drift worse."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Two symptoms, two causes: a rule stated once that fades is drift, fixed by re-anchoring it as durable instructions, and full payloads piling up is bloat, fixed by pruning at the source. Each fix works only on its own failure mode. Compaction is tempting because it addresses size, but it can delete the very rule that is drifting.",
+    "cue": "stated once in a long onboarding message",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Effective context engineering for AI agents",
+        "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "context-engineering-008",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.pruning",
+      "ctx.compaction"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A market-research agent runs dozens of web searches per task, and each step works from the latest few results while older results are already captured in its notes. The current step needs each of its recent results in full, so the results cannot be shortened. Old search results now dominate the window. Which lever removes them with the least loss?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Tool result clearing that keeps the most recent few tool uses and replaces older results with placeholders",
+        "why": "Correct. Clearing removes exactly the stale results, predictably, and leaves the results the current step needs intact."
+      },
+      {
+        "id": "b",
+        "text": "Server-side compaction that summarizes the whole conversation once input passes a configured token threshold",
+        "why": "Compaction summarizes everything before the summary point, including the recent results the current step still needs."
+      },
+      {
+        "id": "c",
+        "text": "Reducing each search to return fewer and shorter results before they ever enter the context",
+        "why": "Pruning at the source is usually strongest, but the stem rules it out because the current step needs full results."
+      },
+      {
+        "id": "d",
+        "text": "Delegating every search to a subagent that returns a short summary of what it found",
+        "why": "A summary of each search fails the requirement that the current step work from its results in full."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding constraint is that recent results are needed in full, which rules out shortening them at the source or summarizing them. Context editing clears only old tool results, replaces them with placeholders and keeps a configurable number of recent tool uses, the lightest form of compaction. Full compaction is tempting but is lossy across the whole conversation.",
+    "cue": "needs each of its recent results in full",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Context editing",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/context-editing"
+      },
+      {
+        "label": "Effective context engineering for AI agents",
+        "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "context-engineering-009",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.pruning"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An agent uses tool result clearing that keeps the 3 most recent tool uses. It calls load_contract once at the start of each session and consults that contract's clauses throughout. Once clearing starts, it asks to reload the contract or guesses at clauses. Which configuration change fixes this with the least extra context?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Exempt the load_contract tool from clearing so its result stays while other old results are still cleared",
+        "why": "Correct. Exempting one named tool protects exactly the result the agent needs and leaves clearing working for everything else."
+      },
+      {
+        "id": "b",
+        "text": "Raise the number of recent tool uses kept from 3 to 30 so the contract stays among the retained results",
+        "why": "This keeps 30 unrelated old results as well, giving up most of the space clearing was meant to free."
+      },
+      {
+        "id": "c",
+        "text": "Require each clearing pass to remove a larger minimum block of tokens so clearing happens less often",
+        "why": "A larger minimum per pass makes each clearing more aggressive, not more selective, so the contract is still cleared."
+      },
+      {
+        "id": "d",
+        "text": "Also clear the parameters of each old tool call, not just its result, to free more space per pass",
+        "why": "Clearing the call inputs as well removes even more context and does nothing to protect the contract."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is one tool result consulted throughout the session while every other result goes stale. Tool result clearing can exempt specific tools, which keeps the contract without retaining anything else. Keeping more recent tool uses is tempting because it does retain the contract, but only by keeping many stale results too.",
+    "cue": "consults that contract's clauses throughout",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Context editing",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/context-editing"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "context-engineering-010",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.compaction"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A coaching assistant holds very long text conversations with a user and makes few tool calls, so almost all of its context is the dialogue itself. The conversation must continue well past the context window while keeping the thread of what was agreed. Which approach fits?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Server-side compaction with summary instructions that name the agreements and goals to keep",
+        "why": "Correct. Compaction lets the conversation continue past the window, and instructions steer what the lossy summary keeps."
+      },
+      {
+        "id": "b",
+        "text": "Tool result clearing that replaces older tool results with placeholders past a threshold",
+        "why": "Clearing removes tool results, and with few tool calls there is little to clear while the dialogue keeps growing."
+      },
+      {
+        "id": "c",
+        "text": "A subagent for each new topic, so the dialogue is split across separate context windows",
+        "why": "Isolation suits separable exploration; a single conversation with one user cannot be handed to another window."
+      },
+      {
+        "id": "d",
+        "text": "Start a fresh session at the limit with only the system prompt and the user's newest message",
+        "why": "Without persisted state, a fresh session drops everything agreed so far, which the requirement forbids."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that almost all of the context is dialogue, not tool output. Tool result clearing is the lightest lever when old tool output dominates, but here the conversation itself must be condensed, which is compaction; because it is lossy, the summary instructions should name what must survive. A fresh session is tempting for its simplicity but loses state that was never persisted.",
+    "cue": "makes few tool calls",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Compaction at a token threshold",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/compaction-threshold"
+      },
+      {
+        "label": "Context editing",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/context-editing"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "context-engineering-011",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.isolation"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A developer plans a refactor that touches three tightly coupled files, where each edit depends on the exact lines changed in the other two. To keep the main conversation clean, they consider giving each file to its own fresh (non-fork) subagent that starts with only the delegation message. Which two risks should they weigh? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Each subagent returns only a summary, so exact cross-file details the other edits depend on are lost at the handoff",
+        "why": "Correct. Detail loss at the handoff is the core cost of isolation and matters most for coupled edits."
+      },
+      {
+        "id": "b",
+        "text": "Total token use rises, because each subagent reads the shared files again in its own context window",
+        "why": "Correct. Isolation saves the parent's window but every subagent pays to re-read shared context."
+      },
+      {
+        "id": "c",
+        "text": "Each subagent's file reads land in the main conversation's window when it finishes its work",
+        "why": "Only the subagent's final summary returns; its reads stay in its own window."
+      },
+      {
+        "id": "d",
+        "text": "The three subagents share one context window, so their file reads compete for the same space",
+        "why": "Each subagent runs in its own fresh context window sized by its own model."
+      },
+      {
+        "id": "e",
+        "text": "Each subagent inherits the full main conversation, so the parent's history is duplicated three times",
+        "why": "A fresh, non-fork subagent starts with only the delegation message; only a fork inherits the parent's conversation."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is tightly coupled edits that depend on exact lines elsewhere. Subagents isolate context by returning a condensed summary from a fresh window, which suits separable exploration but loses detail at the handoff and raises total tokens. The tempting wrong answers assume subagent output or history leaks between windows, which isolation prevents.",
+    "cue": "depends on the exact lines changed",
+    "pattern": "tradeoff",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Create custom subagents",
+        "url": "https://code.claude.com/docs/en/sub-agents"
+      },
+      {
+        "label": "Effective context engineering for AI agents",
+        "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "context-engineering-012",
+    "objective": "context-engineering",
+    "domain": 6,
+    "subskills": [
+      "ctx.isolation",
+      "ctx.drift-bloat"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A filing-review pipeline runs three steps in one growing conversation: extract figures from a 90-page filing, reconcile them against the ledger, then draft a summary for the controller. The drafting step needs only the reconciled figures, yet in practice it echoes raw filing text and its quality has dropped. Which restructuring addresses this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Run each step as its own request that receives only the structured output of the step before it",
+        "why": "Correct. A multi-step workflow isolates by construction: no step sees the transcript or raw text of earlier ones."
+      },
+      {
+        "id": "b",
+        "text": "Compact the conversation between steps so the filing text is summarized before the drafting step begins",
+        "why": "A lossy summary of the filing still sits in the drafting context, and figures can be altered in the summary."
+      },
+      {
+        "id": "c",
+        "text": "Run all three steps inside one subagent so the parent conversation stays small and focused",
+        "why": "This moves the whole growing transcript into one window instead of separating the steps from each other."
+      },
+      {
+        "id": "d",
+        "text": "Move the pipeline to a model with a larger context window so the full filing fits comfortably",
+        "why": "The filing already fits; more room does not stop the drafting step from attending to irrelevant text."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that drafting needs only the reconciled figures, yet it shares one conversation with the raw filing. Context isolation through a multi-step workflow passes each step just the structured output it needs, so irrelevant tokens never reach it. A single subagent is tempting because subagents isolate context, but here it isolates the wrong boundary.",
+    "cue": "needs only the reconciled figures",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Effective context engineering for AI agents",
+        "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  }
+]

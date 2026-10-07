@@ -3,6 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -11,37 +12,43 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Build and test with the real Pages base path: base-path bugs are
+      # invisible at "/" and have shipped before.
+      BASE_PATH: /${{ github.event.repository.name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - name: Install
         run: npm ci
-      - name: Verify (typecheck + coverage + originality + link integrity)
-        # BASE_PATH is set here too so `verify` builds and link-checks with the
-        # real Pages base path — a base-path bug is invisible at base "/".
-        run: |
-          python3 -m pip install --quiet --upgrade pip
-          npm run verify
+      - name: Verify (typecheck, unit tests, bank gates, originality, build, links)
+        # verify builds the site once (including the search index and service
+        # worker); the same dist/ is tested and deployed.
+        run: npm run verify
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests (offline, exam timer, migration, smoke)
+        run: npm run test:e2e
         env:
-          BASE_PATH: /${{ github.event.repository.name }}
-      - name: Build
-        run: npm run build
-        env:
-          BASE_PATH: /${{ github.event.repository.name }}
+          CI: 'true'
+          PW_CHROMIUM_PATH: ''
       - uses: actions/configure-pages@v5
+        if: github.ref == 'refs/heads/main'
       - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
         with:
           path: ./dist
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     environment:

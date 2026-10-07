@@ -1,0 +1,46 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection, render } from 'astro:content';
+import { mdxComponents } from '../../components/mdx';
+import { OBJECTIVE_BY_ID } from '../../lib/blueprint';
+
+export async function getStaticPaths() {
+  const labs = (await getCollection('labs')).sort((a, b) => a.data.n - b.data.n);
+  return labs.map((entry, i) => ({ params: { slug: entry.id }, props: { entry, prev: labs[i - 1] ?? null, next: labs[i + 1] ?? null } }));
+}
+
+const { entry, prev, next } = Astro.props;
+const { data } = entry;
+const base = import.meta.env.BASE_URL;
+const { Content } = await render(entry);
+---
+<Base title={`Lab ${String(data.n).padStart(2, '0')} · ${data.title}`} crumbs={[{ label: 'Labs', href: `${base}labs/` }, { label: `Lab ${String(data.n).padStart(2, '0')}` }]} grid="dim">
+  <header class="page-head" data-d={data.domains[0]}>
+    <p class="eyebrow">Lab {String(data.n).padStart(2, '0')} · {data.minutes} min · {data.cost ?? ''}</p>
+    <h1>{data.title}</h1>
+    <p class="lede">{data.proves}</p>
+    <div class="btn-row" style="gap:8px">
+      {data.domains.map((d) => <span class="tag tag-dom" data-d={d}>D{d}</span>)}
+      {data.objectives.map((o) => <a class="tag" href={`${base}objective/${o}/`}>{OBJECTIVE_BY_ID.get(o)?.name ?? o}</a>)}
+      <span class={`tag ${data.apiKeyNeeded ? 'tag-warn' : 'tag-ok'}`}>{data.apiKeyNeeded ? 'API key needed to run' : 'No API key needed'}</span>
+    </div>
+  </header>
+
+  <div class="callout callout-note">
+    <p class="callout-title">How to use this page</p>
+    <p>
+      Read it top to bottom, pressing <b>▶ run</b> under a cell to see what it produces. Outputs marked <span class="tag tag-warn">illustrative</span>
+      show the shape of a real response; <span class="tag tag-ok">executed</span> ones were captured from an actual run. To run it yourself,
+      <a href={`${base}labs-nb/${data.notebook}`} download>download the notebook</a> and use <code>pip install anthropic jupyter</code>.
+    </p>
+  </div>
+
+  <article class="prose">
+    <Content components={mdxComponents} />
+  </article>
+
+  <nav class="pager" aria-label="Labs">
+    {prev ? <a href={`${base}labs/${prev.id}/`}><span class="pg-l">← Previous lab</span><span class="pg-t">{prev.data.title}</span></a> : <a href={`${base}labs/`}><span class="pg-l">← All labs</span><span class="pg-t">Labs</span></a>}
+    {next ? <a href={`${base}labs/${next.id}/`}><span class="pg-l">Next lab →</span><span class="pg-t">{next.data.title}</span></a> : <a href={`${base}exam/`}><span class="pg-l">Next →</span><span class="pg-t">Exam simulator</span></a>}
+  </nav>
+</Base>

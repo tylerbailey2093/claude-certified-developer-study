@@ -72,8 +72,28 @@
       "approx_items": 8,
       "objectives": [
         {
+          "id": "agent-architecture",
           "name": "Agent Architecture",
           "weight": 4.5,
+          "guide": "Principles, patterns, and tradeoffs of agent and workflow architecture, including the decision criteria for using a workflow versus an agent, the structure of manager/supervisor hierarchies, and the role of subagents in improving task execution.",
+          "subskills": [
+            {
+              "id": "aa.principles",
+              "label": "Architecture principles, patterns and tradeoffs"
+            },
+            {
+              "id": "aa.workflow-vs-agent",
+              "label": "Workflow versus agent decision criteria"
+            },
+            {
+              "id": "aa.hierarchies",
+              "label": "Manager/supervisor hierarchies"
+            },
+            {
+              "id": "aa.subagents",
+              "label": "Role of subagents in task execution"
+            }
+          ],
           "scope": [
             "workflow vs agent decision criteria",
             "manager/supervisor hierarchies",
@@ -85,9 +105,30 @@
           ]
         },
         {
+          "id": "agent-construction-with-claude",
           "name": "Agent Construction with Claude",
           "weight": 5.3,
+          "guide": "Methods, tools, and platforms for constructing Claude agents, including the Claude Agent SDK, custom agent loops and harnesses, managed agent deployment models (self-hosted vs. Anthropic-hosted), and hooks for deterministic actions.",
+          "subskills": [
+            {
+              "id": "ac.agent-sdk",
+              "label": "Claude Agent SDK"
+            },
+            {
+              "id": "ac.custom-loops",
+              "label": "Custom agent loops and harnesses"
+            },
+            {
+              "id": "ac.deployment",
+              "label": "Managed deployment models: self-hosted vs Anthropic-hosted"
+            },
+            {
+              "id": "ac.hooks",
+              "label": "Hooks for deterministic actions"
+            }
+          ],
           "scope": [
+            "managed agent deployment models (self-hosted vs Anthropic-hosted)",
             "Claude Agent SDK",
             "custom agent loops and harnesses",
             "self-hosted vs Anthropic-hosted deployment",
@@ -99,8 +140,36 @@
           ]
         },
         {
+          "id": "agent-patterns-and-frameworks",
           "name": "Agent Patterns and Frameworks",
           "weight": 4.9,
+          "guide": "Common agent design patterns (tool-use loops, sub-agents, memory, context-window management) and agentic abstraction frameworks (e.g., Strands, LangGraph, PydanticAI) for building agents and workflows for multi-step tasks.",
+          "subskills": [
+            {
+              "id": "ap.tool-loops",
+              "label": "Tool-use loops"
+            },
+            {
+              "id": "ap.sub-agents",
+              "label": "Sub-agents"
+            },
+            {
+              "id": "ap.memory",
+              "label": "Agent memory"
+            },
+            {
+              "id": "ap.context-window",
+              "label": "Context-window management in agents"
+            },
+            {
+              "id": "ap.frameworks",
+              "label": "Abstraction frameworks (Strands, LangGraph, PydanticAI)"
+            },
+            {
+              "id": "ap.multi-step",
+              "label": "Agents and workflows for multi-step tasks"
+            }
+          ],
           "scope": [
             "tool-use loops",
             "sub-agents",
@@ -124,9 +193,30 @@
       "approx_items": 17,
       "objectives": [
         {
+          "id": "understanding-requirements",
           "name": "Understanding Requirements",
           "weight": 3.4,
+          "guide": "Functional and infrastructure requirements based on business requirements and solution architecture.",
+          "subskills": [
+            {
+              "id": "ur.functional",
+              "label": "Functional requirements"
+            },
+            {
+              "id": "ur.infrastructure",
+              "label": "Infrastructure requirements"
+            },
+            {
+              "id": "ur.business",
+              "label": "Deriving requirements from business requirements"
+            },
+            {
+              "id": "ur.architecture",
+              "label": "Solution architecture"
+            }
+          ],
           "scope": [
+            "derived from business requirements",
             "functional requirements",
             "infrastructure requirements",
             "solution architecture"
@@ -136,8 +226,28 @@
           ]
         },
         {
+          "id": "systems-life-cycle",
           "name": "Systems Life Cycle",
           "weight": 2.8,
+          "guide": "Systems life cycle management concepts and frameworks used to develop, implement, operate, and maintain IT systems.",
+          "subskills": [
+            {
+              "id": "slc.concepts",
+              "label": "Life cycle management concepts"
+            },
+            {
+              "id": "slc.frameworks",
+              "label": "Life cycle frameworks"
+            },
+            {
+              "id": "slc.develop-implement",
+              "label": "Developing and implementing systems"
+            },
+            {
+              "id": "slc.operate-maintain",
+              "label": "Operating and maintaining systems"
+            }
+          ],
           "scope": [
             "generic IT lifecycle: develop, implement, operate, maintain",
             "named frameworks: Waterfall, Agile, DevOps, ITIL"
@@ -148,8 +258,52 @@
           ]
         },
         {
+          "id": "claude-api-mechanics",
           "name": "Claude API Mechanics",
           "weight": 6.8,
+          "guide": "Claude API behavior and mechanics, including messages, tools, streaming, vision, thinking, caching, invoking Claude through third-party vendors, Messages API data access patterns, batch API use, and tradeoffs between realtime and batch API selection.",
+          "subskills": [
+            {
+              "id": "api.messages",
+              "label": "Messages and content blocks"
+            },
+            {
+              "id": "api.tools",
+              "label": "Tools on the API"
+            },
+            {
+              "id": "api.streaming",
+              "label": "Streaming"
+            },
+            {
+              "id": "api.vision",
+              "label": "Vision and document input"
+            },
+            {
+              "id": "api.thinking",
+              "label": "Thinking"
+            },
+            {
+              "id": "api.caching",
+              "label": "Prompt caching mechanics"
+            },
+            {
+              "id": "api.vendors",
+              "label": "Third-party vendors (Bedrock, Vertex AI, Foundry)"
+            },
+            {
+              "id": "api.data-access",
+              "label": "Messages API data access patterns"
+            },
+            {
+              "id": "api.batch",
+              "label": "Message Batches API"
+            },
+            {
+              "id": "api.realtime-vs-batch",
+              "label": "Realtime versus batch selection"
+            }
+          ],
           "scope": [
             "messages",
             "tools",
@@ -174,8 +328,40 @@
           ]
         },
         {
+          "id": "software-engineering-foundations",
           "name": "Software Engineering Foundations",
           "weight": 7.4,
+          "guide": "Core software engineering principles and practices, including REST APIs, JSON, asynchronous programming, version control, SDLC integration, code review, and small- and large-scale refactoring.",
+          "subskills": [
+            {
+              "id": "swe.rest",
+              "label": "REST APIs"
+            },
+            {
+              "id": "swe.json",
+              "label": "JSON"
+            },
+            {
+              "id": "swe.async",
+              "label": "Asynchronous programming"
+            },
+            {
+              "id": "swe.vcs",
+              "label": "Version control"
+            },
+            {
+              "id": "swe.sdlc",
+              "label": "SDLC integration"
+            },
+            {
+              "id": "swe.code-review",
+              "label": "Code review"
+            },
+            {
+              "id": "swe.refactoring",
+              "label": "Small- and large-scale refactoring"
+            }
+          ],
           "scope": [
             "REST APIs",
             "JSON",
@@ -191,9 +377,32 @@
           ]
         },
         {
+          "id": "claude-application-design",
           "name": "Claude Application Design",
           "weight": 8.6,
-          "heaviest": true,
+          "guide": "Design considerations for building Claude applications, including how Claude interprets instructions across interfaces (Claude Code, Desktop, claude.ai, API, SDKs), content boundaries, schema design, session hygiene, and plugin management.",
+          "subskills": [
+            {
+              "id": "cad.interfaces",
+              "label": "Instruction interpretation across Claude Code, Desktop, claude.ai, API and SDKs"
+            },
+            {
+              "id": "cad.content-boundaries",
+              "label": "Content boundaries"
+            },
+            {
+              "id": "cad.schema",
+              "label": "Schema design"
+            },
+            {
+              "id": "cad.session-hygiene",
+              "label": "Session hygiene"
+            },
+            {
+              "id": "cad.plugins",
+              "label": "Plugin management"
+            }
+          ],
           "scope": [
             "how Claude interprets instructions across Claude Code, Desktop, claude.ai, API, SDKs",
             "content boundaries",
@@ -207,11 +416,36 @@
             "never concatenate user input into the system prompt",
             "nullable fields let the model decline instead of fabricating",
             "session boundaries are security boundaries"
-          ]
+          ],
+          "heaviest": true
         },
         {
+          "id": "configuration-management",
           "name": "Configuration Management",
           "weight": 4.1,
+          "guide": "Configuration management for Claude system components, including CLAUDE.md files, settings.json, model version pinning, prompt versioning, and plugin dependencies.",
+          "subskills": [
+            {
+              "id": "cfg.claude-md",
+              "label": "CLAUDE.md files"
+            },
+            {
+              "id": "cfg.settings-json",
+              "label": "settings.json"
+            },
+            {
+              "id": "cfg.model-pinning",
+              "label": "Model version pinning"
+            },
+            {
+              "id": "cfg.prompt-versioning",
+              "label": "Prompt versioning"
+            },
+            {
+              "id": "cfg.plugin-deps",
+              "label": "Plugin dependencies"
+            }
+          ],
           "scope": [
             "CLAUDE.md files",
             "settings.json",
@@ -233,8 +467,64 @@
       "approx_items": 2,
       "objectives": [
         {
+          "id": "claude-code-operation",
           "name": "Claude Code Operation",
           "weight": 3.1,
+          "guide": "Claude Code core components (Rules, Skills, Commands, Agents, Agent Memory), features (session management, built-in and custom slash commands, headless mode, streaming mode, auto-mode), the CLAUDE.md hierarchy, repository initialization, and settings.json configuration.",
+          "subskills": [
+            {
+              "id": "cc.rules",
+              "label": "Rules"
+            },
+            {
+              "id": "cc.skills",
+              "label": "Skills"
+            },
+            {
+              "id": "cc.commands",
+              "label": "Commands"
+            },
+            {
+              "id": "cc.agents",
+              "label": "Agents (subagents)"
+            },
+            {
+              "id": "cc.memory",
+              "label": "Agent memory"
+            },
+            {
+              "id": "cc.sessions",
+              "label": "Session management"
+            },
+            {
+              "id": "cc.slash",
+              "label": "Built-in and custom slash commands"
+            },
+            {
+              "id": "cc.headless",
+              "label": "Headless mode"
+            },
+            {
+              "id": "cc.streaming",
+              "label": "Streaming mode"
+            },
+            {
+              "id": "cc.auto",
+              "label": "Auto mode"
+            },
+            {
+              "id": "cc.hierarchy",
+              "label": "CLAUDE.md hierarchy"
+            },
+            {
+              "id": "cc.init",
+              "label": "Repository initialization"
+            },
+            {
+              "id": "cc.settings",
+              "label": "settings.json configuration"
+            }
+          ],
           "scope": [
             "core components: Rules, Skills, Commands, Agents, Agent Memory",
             "session management",
@@ -261,9 +551,30 @@
       "approx_items": 1,
       "objectives": [
         {
+          "id": "debugging-and-error-handling",
           "name": "Debugging and Error Handling",
           "weight": 2.6,
+          "guide": "Debugging and error handling techniques for Claude applications, including error type identification, recovery strategy selection, trace analysis to identify failure modes, and problem origin isolation between the integration layer and model output.",
+          "subskills": [
+            {
+              "id": "dbg.error-types",
+              "label": "Error type identification"
+            },
+            {
+              "id": "dbg.recovery",
+              "label": "Recovery strategy selection"
+            },
+            {
+              "id": "dbg.traces",
+              "label": "Trace analysis to identify failure modes"
+            },
+            {
+              "id": "dbg.isolation",
+              "label": "Isolating integration-layer versus model-output problems"
+            }
+          ],
           "scope": [
+            "trace analysis to identify failure modes",
             "error type identification",
             "recovery strategy selection",
             "trace analysis",
@@ -284,8 +595,52 @@
       "approx_items": 9,
       "objectives": [
         {
+          "id": "llm-fundamentals",
           "name": "LLM Fundamentals",
           "weight": 5.2,
+          "guide": "Basic understanding of LLMs (tokens, context windows, sampling, non-determinism, next-token generation), model options (fast mode, extended thinking, adaptive thinking, effort levels), and fundamental prompting techniques (zero-shot, single-shot, multi-shot).",
+          "subskills": [
+            {
+              "id": "llm.tokens",
+              "label": "Tokens"
+            },
+            {
+              "id": "llm.context-windows",
+              "label": "Context windows"
+            },
+            {
+              "id": "llm.sampling",
+              "label": "Sampling"
+            },
+            {
+              "id": "llm.nondeterminism",
+              "label": "Non-determinism"
+            },
+            {
+              "id": "llm.next-token",
+              "label": "Next-token generation"
+            },
+            {
+              "id": "llm.fast-mode",
+              "label": "Fast mode"
+            },
+            {
+              "id": "llm.extended-thinking",
+              "label": "Extended thinking"
+            },
+            {
+              "id": "llm.adaptive-thinking",
+              "label": "Adaptive thinking"
+            },
+            {
+              "id": "llm.effort",
+              "label": "Effort levels"
+            },
+            {
+              "id": "llm.shot",
+              "label": "Zero-, single- and multi-shot prompting"
+            }
+          ],
           "scope": [
             "tokens",
             "context windows",
@@ -299,26 +654,62 @@
             "zero-shot, single-shot, multi-shot prompting"
           ],
           "traps": [
-            "few-shot prompting is scored HERE, not in Domain 6",
+            "the shot taxonomy (zero/single/multi-shot) is scored here; building and placing few-shot examples is ALSO scored in D6 Prompt Engineering (guide p7)",
             "context window and max output tokens are different limits",
             "token counts are model-specific and do not transfer across a migration"
           ]
         },
         {
+          "id": "technical-fundamentals",
           "name": "Technical Fundamentals",
           "weight": 6.1,
+          "guide": "Foundational technical concepts supporting AI application development, including basic engineering practices (integrating with SDKs that wrap REST APIs, websockets).",
+          "subskills": [
+            {
+              "id": "tf.sdk-rest",
+              "label": "SDKs that wrap REST APIs"
+            },
+            {
+              "id": "tf.websockets",
+              "label": "Websockets and streaming transports"
+            },
+            {
+              "id": "tf.engineering",
+              "label": "Basic engineering practices for AI applications"
+            }
+          ],
           "scope": [
             "integrating with SDKs that wrap REST APIs",
             "websockets"
           ],
           "traps": [
-            "NARROW objective - not context theory, not rate limits",
+            "the guide's list is examples ('including'), not a boundary: SDKs over REST and websockets are named, but basic engineering practice around them is fair game",
             "Claude streaming is SSE, not WebSocket"
           ]
         },
         {
+          "id": "model-selection-and-tradeoffs",
           "name": "Model Selection and Tradeoffs",
           "weight": 2.7,
+          "guide": "Claude model capabilities (Opus vs. Sonnet vs. Haiku use cases, adaptive thinking support), tradeoffs across quality/latency/cost parameters, and breaking behavior changes across model releases when selecting models for tasks.",
+          "subskills": [
+            {
+              "id": "ms.tiers",
+              "label": "Opus vs Sonnet vs Haiku use cases"
+            },
+            {
+              "id": "ms.adaptive",
+              "label": "Adaptive thinking support"
+            },
+            {
+              "id": "ms.tradeoffs",
+              "label": "Quality, latency and cost tradeoffs"
+            },
+            {
+              "id": "ms.breaking",
+              "label": "Breaking behaviour changes across releases"
+            }
+          ],
           "scope": [
             "Opus vs Sonnet vs Haiku use cases",
             "adaptive thinking support by tier",
@@ -331,9 +722,34 @@
           ]
         },
         {
+          "id": "cost-and-token-management",
           "name": "Cost and Token Management",
           "weight": 2.8,
+          "guide": "Token budgeting and cost management techniques for Claude applications, including token usage tracking, cost modeling, and caching techniques (prompt caching, cache check-pointing) for cost optimization.",
+          "subskills": [
+            {
+              "id": "cost.budgeting",
+              "label": "Token budgeting"
+            },
+            {
+              "id": "cost.tracking",
+              "label": "Token usage tracking"
+            },
+            {
+              "id": "cost.modeling",
+              "label": "Cost modeling"
+            },
+            {
+              "id": "cost.prompt-caching",
+              "label": "Prompt caching for cost"
+            },
+            {
+              "id": "cost.checkpointing",
+              "label": "Cache checkpointing"
+            }
+          ],
           "scope": [
+            "token budgeting",
             "token usage tracking",
             "cost modeling",
             "prompt caching",
@@ -353,9 +769,38 @@
       "approx_items": 6,
       "objectives": [
         {
+          "id": "context-engineering",
           "name": "Context Engineering",
           "weight": 3.8,
+          "guide": "Context and memory management techniques for Claude applications, including context window management, prevention of context drift and bloat (tool output pruning, compaction), and context isolation through subagents or multi-step agentic workflows.",
+          "subskills": [
+            {
+              "id": "ctx.memory",
+              "label": "Memory management"
+            },
+            {
+              "id": "ctx.window",
+              "label": "Context window management"
+            },
+            {
+              "id": "ctx.drift-bloat",
+              "label": "Preventing context drift and bloat"
+            },
+            {
+              "id": "ctx.pruning",
+              "label": "Tool output pruning"
+            },
+            {
+              "id": "ctx.compaction",
+              "label": "Compaction"
+            },
+            {
+              "id": "ctx.isolation",
+              "label": "Isolation through subagents or multi-step workflows"
+            }
+          ],
           "scope": [
+            "memory management",
             "context window management",
             "preventing context drift",
             "preventing bloat via tool output pruning and compaction",
@@ -367,8 +812,44 @@
           ]
         },
         {
+          "id": "prompt-engineering",
           "name": "Prompt Engineering",
           "weight": 4.6,
+          "guide": "Prompt engineering principles and methods (instruction clarity, few-shot examples, system versus user placement, output constraints, prompt and instruction placement across components, iterative refinement, prompt adjustment, input sanitization) when writing and iterating on prompts for Claude.",
+          "subskills": [
+            {
+              "id": "pe.clarity",
+              "label": "Instruction clarity"
+            },
+            {
+              "id": "pe.few-shot",
+              "label": "Few-shot examples"
+            },
+            {
+              "id": "pe.system-user",
+              "label": "System versus user placement"
+            },
+            {
+              "id": "pe.output-constraints",
+              "label": "Output constraints"
+            },
+            {
+              "id": "pe.component-placement",
+              "label": "Placement across components"
+            },
+            {
+              "id": "pe.iterative",
+              "label": "Iterative refinement"
+            },
+            {
+              "id": "pe.adjustment",
+              "label": "Prompt adjustment"
+            },
+            {
+              "id": "pe.sanitization",
+              "label": "Input sanitization"
+            }
+          ],
           "scope": [
             "instruction clarity",
             "few-shot examples",
@@ -385,8 +866,28 @@
           ]
         },
         {
+          "id": "output-handling",
           "name": "Output Handling",
           "weight": 2.6,
+          "guide": "Established patterns and techniques for producing, validating, and consuming Claude output, including structured output patterns, response validation, defensive parsing, and skepticism toward confident output.",
+          "subskills": [
+            {
+              "id": "out.structured",
+              "label": "Structured output patterns"
+            },
+            {
+              "id": "out.validation",
+              "label": "Response validation"
+            },
+            {
+              "id": "out.defensive-parsing",
+              "label": "Defensive parsing"
+            },
+            {
+              "id": "out.skepticism",
+              "label": "Skepticism toward confident output"
+            }
+          ],
           "scope": [
             "structured output patterns",
             "response validation",
@@ -407,8 +908,40 @@
       "approx_items": 4,
       "objectives": [
         {
+          "id": "ai-application-security",
           "name": "AI Application Security",
           "weight": 3.2,
+          "guide": "Data privacy and security best practices, including prompt injection awareness and mitigation, jailbreak defense, untrusted input handling, data leakage prevention, PII handling, and ensuring authentication, authorization, confidentiality, privacy, and integrity.",
+          "subskills": [
+            {
+              "id": "sec.injection",
+              "label": "Prompt injection awareness and mitigation"
+            },
+            {
+              "id": "sec.jailbreak",
+              "label": "Jailbreak defense"
+            },
+            {
+              "id": "sec.untrusted",
+              "label": "Untrusted input handling"
+            },
+            {
+              "id": "sec.leakage",
+              "label": "Data leakage prevention"
+            },
+            {
+              "id": "sec.pii",
+              "label": "PII handling"
+            },
+            {
+              "id": "sec.authn-authz",
+              "label": "Authentication and authorization"
+            },
+            {
+              "id": "sec.cia",
+              "label": "Confidentiality, privacy and integrity"
+            }
+          ],
           "scope": [
             "prompt injection awareness and mitigation",
             "jailbreak defense",
@@ -429,8 +962,36 @@
           ]
         },
         {
+          "id": "guardrails-and-safe-deployment",
           "name": "Guardrails and Safe Deployment",
           "weight": 2.3,
+          "guide": "Safe and responsible deployment practices (content policy, guardrail layering) and secure-by-design principles (privacy, identity and access management, least privilege).",
+          "subskills": [
+            {
+              "id": "gr.content-policy",
+              "label": "Content policy"
+            },
+            {
+              "id": "gr.layering",
+              "label": "Guardrail layering"
+            },
+            {
+              "id": "gr.secure-by-design",
+              "label": "Secure-by-design principles"
+            },
+            {
+              "id": "gr.privacy",
+              "label": "Privacy by design"
+            },
+            {
+              "id": "gr.iam",
+              "label": "Identity and access management"
+            },
+            {
+              "id": "gr.least-privilege",
+              "label": "Least privilege"
+            }
+          ],
           "scope": [
             "content policy",
             "guardrail layering",
@@ -445,8 +1006,20 @@
           ]
         },
         {
+          "id": "claude-hooks",
           "name": "Claude Hooks",
           "weight": 1.0,
+          "guide": "Leveraging hooks for guardrails and safety controls to prevent destructive actions within Claude applications.",
+          "subskills": [
+            {
+              "id": "hk.guardrails",
+              "label": "Hooks as guardrails and safety controls"
+            },
+            {
+              "id": "hk.destructive",
+              "label": "Preventing destructive actions"
+            }
+          ],
           "scope": [
             "hooks for guardrails and safety controls to prevent destructive actions"
           ],
@@ -457,8 +1030,28 @@
           ]
         },
         {
+          "id": "identity-secrets-and-key-management",
           "name": "Identity, Secrets, and Key Management",
           "weight": 1.6,
+          "guide": "Managing secrets, credentials, and API keys across Claude development and production environments, including identity validation and authentication, access approval and level verification, and authorized access monitoring.",
+          "subskills": [
+            {
+              "id": "id.secrets",
+              "label": "Secrets and API keys across dev and prod"
+            },
+            {
+              "id": "id.validation",
+              "label": "Identity validation and authentication"
+            },
+            {
+              "id": "id.approval",
+              "label": "Access approval and level verification"
+            },
+            {
+              "id": "id.monitoring",
+              "label": "Authorized access monitoring"
+            }
+          ],
           "scope": [
             "secrets, credentials, API keys across dev and production",
             "identity validation and authentication",
@@ -478,8 +1071,44 @@
       "approx_items": 6,
       "objectives": [
         {
+          "id": "tool-implementation",
           "name": "Tool Implementation",
           "weight": 4.4,
+          "guide": "Tool implementation practices for Claude applications, including tool use and function calling, configuration for external system interaction, tool description writing, error handling, tool usage patterns (agentic harness dispatch, client-side vs. server-side tools, approval patterns), and tool set construction best practices.",
+          "subskills": [
+            {
+              "id": "tool.function-calling",
+              "label": "Tool use and function calling"
+            },
+            {
+              "id": "tool.external-config",
+              "label": "Configuration for external system interaction"
+            },
+            {
+              "id": "tool.descriptions",
+              "label": "Tool description writing"
+            },
+            {
+              "id": "tool.errors",
+              "label": "Tool error handling"
+            },
+            {
+              "id": "tool.dispatch",
+              "label": "Agentic harness dispatch"
+            },
+            {
+              "id": "tool.client-server",
+              "label": "Client-side versus server-side tools"
+            },
+            {
+              "id": "tool.approval",
+              "label": "Approval patterns"
+            },
+            {
+              "id": "tool.toolset",
+              "label": "Tool set construction"
+            }
+          ],
           "scope": [
             "tool use and function calling",
             "configuration for external system interaction",
@@ -496,8 +1125,36 @@
           ]
         },
         {
+          "id": "mcp-server-development",
           "name": "MCP Server Development",
           "weight": 2.1,
+          "guide": "MCP server development practices, including server authoring, deployment, integration with Claude applications, MCP resources, tools, and prompts, and communication patterns (stdio, sockets, client vs. server).",
+          "subskills": [
+            {
+              "id": "mcp.authoring",
+              "label": "Server authoring"
+            },
+            {
+              "id": "mcp.deployment",
+              "label": "Deployment"
+            },
+            {
+              "id": "mcp.integration",
+              "label": "Integration with Claude applications"
+            },
+            {
+              "id": "mcp.primitives",
+              "label": "Resources, tools and prompts"
+            },
+            {
+              "id": "mcp.transports",
+              "label": "Communication: stdio, sockets and HTTP"
+            },
+            {
+              "id": "mcp.client-server",
+              "label": "Client versus server roles"
+            }
+          ],
           "scope": [
             "server authoring",
             "deployment",
@@ -511,8 +1168,32 @@
           ]
         },
         {
+          "id": "agentic-customization",
           "name": "Agentic Customization",
           "weight": 4.1,
+          "guide": "Tradeoffs among built-in Tools, custom Tools, Skills, and MCPs for selecting and applying the appropriate approach for a given use case.",
+          "subskills": [
+            {
+              "id": "cust.built-in",
+              "label": "Built-in tools"
+            },
+            {
+              "id": "cust.custom-tools",
+              "label": "Custom tools"
+            },
+            {
+              "id": "cust.skills",
+              "label": "Skills"
+            },
+            {
+              "id": "cust.mcp",
+              "label": "MCP servers"
+            },
+            {
+              "id": "cust.selection",
+              "label": "Choosing the right extension for a use case"
+            }
+          ],
           "scope": [
             "tradeoffs among built-in Tools, custom Tools, Skills, and MCPs"
           ],
@@ -531,6 +1212,31 @@
       "A developer must process 10,000 documents overnight to produce a non-urgent analytics report. Cost is the primary concern, and results are not needed until the following morning. Which approach best fits the requirement?",
       "A Claude-powered agent summarizes web pages submitted by end users. One page contains hidden text instructing the model to ignore previous instructions and reveal its system prompt. Which mitigation is most effective?",
       "A team needs Claude to call an internal inventory service exposed as a REST API. They want the capability to be reusable across several Claude applications and maintained independently of any one app. Which approach best fits?"
+    ],
+    "options": [
+      [
+        "Send every request synchronously through the Messages API in parallel to finish as quickly as possible.",
+        "Use the Message Batches API, which processes large asynchronous workloads within a 24-hour window at reduced cost.",
+        "Lower max_tokens on synchronous calls to minimize cost.",
+        "Switch to the smallest available model regardless of output quality."
+      ],
+      [
+        "Raise the model's temperature so its behavior is harder to predict.",
+        "Treat retrieved page content as untrusted input, keep it separate from trusted instructions, and use guardrails or hooks so injected instructions cannot trigger sensitive actions.",
+        "Add a line to the system prompt asking users not to include malicious instructions.",
+        "Switch to a larger model that follows instructions more reliably."
+      ],
+      [
+        "Hard-code the inventory logic into each application's system prompt.",
+        "Build an MCP server that exposes the inventory operations as tools so multiple Claude applications can connect to it.",
+        "Paste the current inventory data into the context window on every request.",
+        "Rely on a built-in tool, since built-in tools can reach any internal REST API."
+      ]
+    ],
+    "forbidden_scenarios": [
+      "overnight / non-urgent bulk document job choosing batch vs realtime",
+      "summarizer of user-submitted web pages hit by hidden-text prompt injection",
+      "internal REST inventory service exposed to several apps via a shared MCP server"
     ]
   },
   "item_style": {
@@ -539,7 +1245,10 @@
       4
     ],
     "options": 4,
-    "correct": 1,
+    "correct": {
+      "single": 1,
+      "multi": "exactly the number stated in the stem (Select two / Select three)"
+    },
     "distractor_rule": "each distractor must fail for a nameable reason: irrelevant mechanism, unenforceable control, or not addressing the real tradeoff",
     "dominant_pattern": "one buried constraint in the stem decides the answer; place it mid-stem, not in the final sentence",
     "must_should_rule": "when a stem says MUST or ALWAYS, the answer is a deterministic control (hook, permission rule, schema constraint), never a system-prompt instruction",
@@ -552,7 +1261,11 @@
       "deterministic rule": "do not use an LLM at all",
       "reusable across applications": "MCP server",
       "must happen every time": "a hook"
-    }
+    },
+    "types": [
+      "multiple-choice (one answer)",
+      "multiple-response (stem states how many)"
+    ]
   },
   "mock_composition": {
     "1": 8,
@@ -563,5 +1276,6 @@
     "6": 6,
     "7": 4,
     "8": 6
-  }
+  },
+  "schema_version": 2
 }

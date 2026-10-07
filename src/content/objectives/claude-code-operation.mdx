@@ -6,6 +6,9 @@ name: "Claude Code Operation"
 weight: 3.1
 tier: 2
 hot: false
+summary: "How Claude Code actually works: rules, skills, commands, subagents and auto memory; session commands; headless, streaming and auto mode; how the CLAUDE.md hierarchy loads; /init; and how settings.json is applied."
+subskills: ["cc.rules", "cc.skills", "cc.commands", "cc.agents", "cc.memory", "cc.sessions", "cc.slash", "cc.headless", "cc.streaming", "cc.auto", "cc.hierarchy", "cc.init", "cc.settings"]
+related: ["configuration-management", "claude-hooks", "agentic-customization", "context-engineering", "agent-architecture"]
 scope:
   - "core components: Rules, Skills, Commands, Agents, Agent Memory"
   - "session management"
@@ -17,120 +20,322 @@ scope:
   - "repository initialization"
   - "settings.json"
 traps:
-  - "a Skill's DESCRIPTION is its trigger - it functions like a search query"
-  - "progressive disclosure: metadata always loaded, body on trigger, resources as needed"
-  - "CLAUDE.md for memory, Skills for routines, hooks for guarantees, subagents for delegation"
+  - name: "A skill's description is its trigger"
+    looksRight: "A skill that never fires is in the wrong folder, has the wrong name, or its body is too long."
+    failsBecause: "Claude decides whether to load a skill by matching the task against its description, which works like a search query. Location and body length do not change matching."
+    cue: "'The skill never activates' or 'activates on unrelated tasks'. The answer rewrites the description to say what it does and when to use it."
+  - name: "Progressive disclosure"
+    looksRight: "Every installed skill sits in context in full, so a large library is expensive on every turn."
+    failsBecause: "Only names and descriptions load at session start; the SKILL.md body loads when the skill is invoked, and bundled files load only when read."
+    cue: "'What does adding another skill cost every conversation?' The answer is its description, not its body."
+  - name: "Memory, routines, guarantees, delegation"
+    looksRight: "A well-written CLAUDE.md line or skill can make Claude always run the linter before committing."
+    failsBecause: "CLAUDE.md and skills are context Claude reads; only a hook runs regardless of what Claude decides. Subagents are for delegation and context isolation, not enforcement."
+    cue: "'Must always', 'must never', 'every time'. Choose the hook; choose CLAUDE.md for standing facts, a skill for an on-demand procedure, a subagent for isolated side work."
+  - name: "CLAUDE.md files do not override each other"
+    looksRight: "When the user and project CLAUDE.md disagree, the more specific file replaces the other."
+    failsBecause: "All discovered files are concatenated into context, broadest first. Nothing is discarded; on a direct conflict Claude may follow either."
+    cue: "Options that say 'only the project file is used' or 'the user file is ignored'. The fix for a conflict is to remove it."
+  - name: "/clear, /compact and /rewind are different tools"
+    looksRight: "Any of them frees up context, so they are interchangeable."
+    failsBecause: "/clear starts a new empty conversation, /compact summarises the current one and keeps going, /rewind restores code and/or conversation to a checkpoint. Only /rewind undoes file edits."
+    cue: "'Keep working on the same task with less context' is /compact; 'new unrelated task' is /clear; 'undo what Claude just changed' is /rewind."
+  - name: "Auto mode is not bypassPermissions"
+    looksRight: "Both remove prompts, so both are equally risky for unattended work."
+    failsBecause: "Auto mode routes actions through a separate classifier that blocks scope escalation, unrecognised infrastructure and injection-driven actions, and ask rules still prompt. bypassPermissions skips checks and belongs only in isolated containers or VMs."
+    cue: "'Fewer prompts but still guarded' is auto; 'disposable sandbox, no prompts at all' is bypassPermissions."
 sources:
-  - label: "Claude Code"
-    url: "https://code.claude.com/docs/en/overview"
-  - label: "Agent Skills"
-    url: "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices"
-  - label: "Hooks"
-    url: "https://code.claude.com/docs/en/hooks"
+  - { label: "Claude Code overview", url: "https://code.claude.com/docs/en/overview", kind: "docs", verified: "2026-10-06" }
+  - { label: "How Claude remembers your project", url: "https://code.claude.com/docs/en/memory", kind: "docs", verified: "2026-10-06" }
+  - { label: "Extend Claude with skills", url: "https://code.claude.com/docs/en/skills", kind: "docs", verified: "2026-10-06" }
+  - { label: "Agent Skills overview", url: "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview", kind: "docs", verified: "2026-10-06" }
+  - { label: "Commands reference", url: "https://code.claude.com/docs/en/commands", kind: "docs", verified: "2026-10-06" }
+  - { label: "Create custom subagents", url: "https://code.claude.com/docs/en/sub-agents", kind: "docs", verified: "2026-10-06" }
+  - { label: "Extend Claude Code (features overview)", url: "https://code.claude.com/docs/en/features-overview", kind: "docs", verified: "2026-10-06" }
+  - { label: "Sessions", url: "https://code.claude.com/docs/en/sessions", kind: "docs", verified: "2026-10-06" }
+  - { label: "Checkpointing", url: "https://code.claude.com/docs/en/checkpointing", kind: "docs", verified: "2026-10-06" }
+  - { label: "Run Claude Code programmatically (headless)", url: "https://code.claude.com/docs/en/headless", kind: "docs", verified: "2026-10-06" }
+  - { label: "CLI reference", url: "https://code.claude.com/docs/en/cli-reference", kind: "docs", verified: "2026-10-06" }
+  - { label: "Agent SDK streaming input", url: "https://code.claude.com/docs/en/agent-sdk/streaming-vs-single-mode", kind: "docs", verified: "2026-10-06" }
+  - { label: "Choose a permission mode", url: "https://code.claude.com/docs/en/permission-modes", kind: "docs", verified: "2026-10-06" }
+  - { label: "Configure permissions", url: "https://code.claude.com/docs/en/permissions", kind: "docs", verified: "2026-10-06" }
+  - { label: "Settings files and precedence", url: "https://code.claude.com/docs/en/settings", kind: "docs", verified: "2026-10-06" }
+lastReviewed: "2026-10-06"
 authored: true
 ---
 
-## What this objective actually tests
+## Concept
 
-This is the smallest domain on the exam (2 items), but it's tested precisely: which of Claude Code's five surfaces — Rules, Skills, Commands, Agents, Agent Memory — is the right mechanism for a given job, and why the other four aren't. It also tests whether you know the difference between context Claude reads and voluntarily follows (CLAUDE.md, Skills) versus code that runs regardless of what Claude decides (hooks). That distinction is the exam's favorite trap across multiple domains, and Domain 3 is where it's tested most directly.
+Domain 3 is worth about two items: learn the vocabulary precisely and stop. It tests which **core component** fits a job, which **session or automation feature** fits a situation, and how the tool **loads its own configuration**. Most items reduce to one distinction: *context Claude reads* (CLAUDE.md, rules, skills, auto memory) versus *code the harness runs* (permission rules, hooks). Subagents are a separate context window, not a control.
+
+**Scope boundary.** What to commit, pin and share (which settings file a team rule goes in, model pinning, plugin versions) is <ObjLink id="configuration-management" />. Writing hook scripts is <ObjLink id="claude-hooks" />. Choosing between built-in tools, custom tools, skills and MCP for a use case is <ObjLink id="agentic-customization" />.
+
+Not this:
+- Subagents as an architecture pattern or context-isolation strategy in general: <ObjLink id="agent-architecture" />, <ObjLink id="context-engineering" />.
+- Building your own agent loop with the Agent SDK: <ObjLink id="agent-construction-with-claude" />.
+
+<Callout type="key" title="Four surfaces, four answers">
+**CLAUDE.md for memory. Skills for routines. Hooks for guarantees. Subagents for delegation.** If the stem says something must always or never happen, the answer is a hook or a permission rule, never a CLAUDE.md line or a skill.
+</Callout>
 
 ## Mechanism
 
-### The five core components
+| Component | Lives in | Written by | Loads |
+|---|---|---|---|
+| Rules | `CLAUDE.md`, `.claude/rules/*.md` | You | Every session; path-scoped rules on matching file access |
+| Skills | `.claude/skills/<name>/SKILL.md` | You | Description at start; body when invoked; files when read |
+| Commands | `.claude/commands/<name>.md` (older format) | You | When you type `/name` |
+| Agents | `.claude/agents/<name>.md` | You | When Claude delegates or you ask for one |
+| Agent memory | `~/.claude/projects/<project>/memory/` | Claude | `MEMORY.md` index every session; topic files on demand |
 
-| Component | What it is | Loaded |
-|---|---|---|
-| Rules | `CLAUDE.md` + `.claude/rules/*.md` — persistent project/personal instructions | Every session (or on file-match, for path-scoped rules) |
-| Skills | `.claude/skills/<name>/SKILL.md` — a folder of instructions + bundled resources | Metadata always; body on trigger; resources on demand |
-| Commands | `.claude/commands/<name>.md` — a reusable prompt invoked as `/name` | On invocation only |
-| Agents | `.claude/agents/<name>.md` — a subagent with its own context, prompt, and tool permissions | Spawned on delegation |
-| Agent Memory | Auto memory: `~/.claude/projects/<project>/memory/MEMORY.md` + topic files, written by Claude itself | `MEMORY.md` (first 200 lines / 25KB) every session; topic files on demand |
+### Rules
 
-Rules and Agent Memory both persist across sessions, but the direction of authorship is opposite: **you** write Rules, **Claude** writes Agent Memory (from your corrections and preferences). Both are *context*, not enforcement — Claude Code states this explicitly: CLAUDE.md instructions shape behavior but aren't a hard enforcement layer. To make something happen regardless of what Claude decides, use a hook.
+<SubskillAnchor id="cc.rules" />
+
+Rules are your persistent instructions: CLAUDE.md plus modular files in `.claude/rules/`. A rule without frontmatter loads at launch like `.claude/CLAUDE.md`. A rule with `paths:` globs loads only when Claude reads, writes or edits a matching file. `~/.claude/rules/` holds personal rules, loaded before project rules. Rules are context, not enforcement.
+
+**Exam angle:** "only when working on `src/api/`" points to a path-scoped rule; the distractor is a nested CLAUDE.md or a hook.
+
+### Skills
+
+<SubskillAnchor id="cc.skills" />
+
+A skill is a folder with a `SKILL.md` (frontmatter plus instructions), optionally with scripts and reference files, in `~/.claude/skills/` (personal) or `.claude/skills/` (project).
+
+- **The description is the trigger.** Claude matches the task against each skill's description to decide whether to load it, so it must say *what the skill does and when to use it*. Per the Agent Skills spec, `name` is at most 64 characters (lowercase, digits, hyphens; no "claude" or "anthropic") and `description` at most 1024 characters. **[Certain]**
+- **Progressive disclosure.** Metadata (about 100 tokens per skill) is always loaded; the body (keep it under about 5k tokens) loads when triggered; bundled files load only when read, and scripts contribute only their output. **[Certain]**
+- **Invocation control.** `disable-model-invocation: true` makes it manual-only; `context: fork` runs it in a subagent; `allowed-tools` pre-approves tools for that turn.
+
+**Exam angle:** "fires on everything" or "never fires" means rewrite the description. The distractor moves the file or shortens the body.
+
+### Commands
+
+<SubskillAnchor id="cc.commands" />
+
+A custom command is a reusable prompt invoked by name. Custom commands are now **merged into skills**: `.claude/commands/deploy.md` and `.claude/skills/deploy/SKILL.md` both create `/deploy`; if both exist, the skill wins. Command files still work; prefer skills for new work because they can bundle files. Arguments arrive as `$ARGUMENTS` (or `$0`, `$1`). **[Certain]**
+
+**Exam angle:** "a prompt the user runs by name when they choose" is a command or manual-only skill; the distractor is CLAUDE.md, which loads every session whether needed or not.
+
+### Agents (subagents)
+
+<SubskillAnchor id="cc.agents" />
+
+A subagent is a Markdown file with frontmatter (`name` and `description` required; optional `tools`, `model`, `memory`) whose body becomes its **system prompt**. It runs in its own context window with its own tools and returns only a summary, so a log-heavy investigation does not flood the main conversation. Claude delegates when a task matches the description. Built-ins include **Explore** (read-only search) and **Plan**. Same-name precedence: managed, `--agents`, `.claude/agents/`, `~/.claude/agents/`, plugins. **[Certain]**
+
+**Exam angle:** "keep the main context clean", "restricted tools for a side task", "cheaper model for exploration". The distractor is a skill, which runs inline in the main context unless forked.
+
+### Agent memory
+
+<SubskillAnchor id="cc.memory" />
+
+Auto memory is the one component **Claude writes**: notes on your preferences, corrections and context it cannot derive from code, in `~/.claude/projects/<project>/memory/` (machine-local, shared across the repo's worktrees). The first 200 lines or 25KB of the `MEMORY.md` index load every session; topic files load on demand. `/memory` browses it and toggles it (`autoMemoryEnabled`). A subagent can keep its own with the `memory` field. **[Certain]**
+
+**Exam angle:** "Claude should learn from corrections without anyone editing a file" is auto memory; "the team's conventions" is CLAUDE.md.
+
+### Session management
+
+<SubskillAnchor id="cc.sessions" />
+
+Sessions are saved continuously as local transcripts.
+
+| Need | Use |
+|---|---|
+| Reopen the most recent conversation here | `claude --continue` (`-c`) |
+| Pick or name a specific conversation | `claude --resume` (`-r`) with an ID or name, or `/resume` inside a session |
+| Try another direction without losing this one | `/branch`, or `--continue --fork-session` |
+| New, unrelated task, empty context | `/clear` (previous conversation stays resumable) |
+| Same task, context nearly full | `/compact [focus instructions]` |
+| Undo Claude's edits and/or conversation | `/rewind` (or Esc twice) to a checkpoint |
+| See what is filling the window | `/context` |
+
+Every prompt creates a **checkpoint**; `/rewind` can restore code, conversation, or both, or summarise from a point. Checkpoints track only Claude's file-editing tools, **not** changes made through Bash (`rm`, `mv`), so they are not a substitute for git. **[Certain]**
+
+**Exam angle:** "undo the refactor Claude just made" is /rewind; the distractor is /clear, which changes context but not files.
+
+### Built-in and custom slash commands
+
+<SubskillAnchor id="cc.slash" />
+
+Built-in commands run fixed logic coded into the CLI; bundled skills (such as `/code-review`) are prompt-based; custom commands are your skills and command files. Built-ins worth knowing:
+
+| Command | Does |
+|---|---|
+| `/init` | Generate or improve a project CLAUDE.md |
+| `/memory` | Edit CLAUDE.md files, toggle and browse auto memory |
+| `/clear`, `/compact`, `/context`, `/rewind`, `/resume` | Session and context control (above) |
+| `/model` | Switch model (and effort), saved as default for new sessions |
+| `/permissions` | View and edit allow, ask and deny rules by scope |
+| `/config`, `/status` | Settings UI; version, model, account and active setting sources |
+| `/agents`, `/hooks`, `/mcp`, `/plugin`, `/skills` | Manage subagents, view hooks, MCP connections, plugins, skills |
+
+`/agents` opened an interactive manager in earlier releases; current releases point you to editing `.claude/agents/` or asking Claude. **[Likely]**
+
+**Exam angle:** "check which CLAUDE.md files actually loaded" is `/context` or `/memory`; the distractor is `/init`, which writes a file rather than reporting.
+
+### Headless mode
+
+<SubskillAnchor id="cc.headless" />
+
+`claude -p "<prompt>"` (`--print`) runs non-interactively and exits: the entry point for CI and scripts. `--output-format` takes `text` (default), `json` (result, `session_id`, cost and usage metadata) or `stream-json`. Add `--json-schema` for validated structured output in `structured_output`. Pre-approve tools with `--allowedTools`, set a baseline with `--permission-mode`, cap work with `--max-turns`, and chain runs with `--continue` or `--resume <session_id>`. **[Certain]**
+
+Without `--bare`, `-p` loads everything an interactive session would (the repository's hooks, skills, `.mcp.json` servers, CLAUDE.md) and shows no trust dialog. `--bare` skips that discovery so CI behaves the same on every machine; pass what you need explicitly (`--settings`, `--mcp-config`). **[Certain]**
+
+**Exam angle:** "parse the result and session ID in a script" is `--output-format json`; "identical in CI regardless of teammates' config" is `--bare`.
+
+### Streaming mode
+
+<SubskillAnchor id="cc.streaming" />
+
+Two directions. **Output**: `--output-format stream-json --verbose` emits one JSON event per line (add `--include-partial-messages` for token deltas), normally starting with `system/init` (model, tools, MCP servers) and ending with a `result` carrying text, cost and session ID. **Input**: `--input-format stream-json` keeps one process alive reading user messages from stdin as JSON lines: the CLI form of the Agent SDK's recommended streaming input mode, with queued messages and context that persists across turns. **[Certain]** (stdin message shape **[Likely]**)
+
+<Sequence title="Streaming mode: one long-lived process" actors={["Your app", "claude -p", "Claude API"]}
+  messages={[["Your app", "claude -p", "spawn with stream-json in and out"],
+             ["claude -p", "Your app", "system/init event", "reply"],
+             ["Your app", "claude -p", "user message (JSON line on stdin)"],
+             ["claude -p", "Claude API", "model turns and tool calls"],
+             ["claude -p", "Your app", "stream_event deltas, assistant messages", "reply"],
+             ["claude -p", "Your app", "result: text, cost, session_id", "reply"],
+             ["Your app", "claude -p", "next user message, same context"]]} />
+
+**Exam angle:** "show progress as it happens" or "feed follow-ups into the same running session" is streaming; the distractor is repeated `-p` calls, which re-spawn and need `--resume`.
+
+### Auto mode
+
+<SubskillAnchor id="cc.auto" />
+
+Auto mode is a **permission mode** (`--permission-mode auto` or Shift+Tab). A separate classifier model reviews actions instead of you and blocks anything that escalates beyond your request, targets unrecognised infrastructure, or appears driven by hostile content. Ask rules still prompt, deny rules still block, and repeated blocks fall back to prompting. Admins can disable it with `permissions.disableAutoMode`. **[Certain]**
+
+| Mode | Runs without asking |
+|---|---|
+| `default` (Manual) | Reads only |
+| `acceptEdits` | Reads, file edits, common filesystem commands |
+| `plan` | Reads; explores without editing source |
+| `auto` | Everything, with classifier review |
+| `dontAsk` | Pre-approved tools only; everything else denied (locked-down CI) |
+| `bypassPermissions` | Everything; isolated containers or VMs only |
+
+<Flow title="How one tool call is decided" steps={[{label: "PreToolUse hook", kind: "guard", note: "exit 2 blocks, even if allowed"}, {label: "Deny rules", kind: "guard", note: "block in every mode"}, {label: "Ask rules", kind: "decision", note: "prompt in every mode"}, {label: "Allow rules", kind: "decision"}, {label: "Permission mode", kind: "model", note: "prompt, classifier, or deny"}]} />
+
+<PostGuide since="2026-09">
+From Claude Code v2.1.283, auto mode is the built-in starting mode for interactive terminal and VS Code sessions, and `defaultMode: "auto"` is ignored in project and local settings files. Do not build an answer on these defaults.
+</PostGuide>
+
+**Exam angle:** "fewer interruptions on a long task, but still guarded against injection" is auto; the distractor is `bypassPermissions`.
 
 ### CLAUDE.md hierarchy
 
-Four scopes, broadest to most specific: **Managed policy** (`managed-settings.json`'s `claudeMd` key or an OS-level file — org IT, cannot be excluded) → **User** (`~/.claude/CLAUDE.md` — you, every project) → **Project** (`./CLAUDE.md` or `./.claude/CLAUDE.md` — the team, via source control) → **Local** (`./CLAUDE.local.md` — you, this project only, gitignored).
+<SubskillAnchor id="cc.hierarchy" />
 
-The trap: this is **not** a strict override chain. All discovered files are *concatenated* into context, ordered broadest-to-narrowest — a parent directory's `CLAUDE.md` appears before the working directory's, and within one directory, `CLAUDE.local.md` is appended after `CLAUDE.md`. The practical effect reads like precedence (content read last is what Claude weighs most when two instructions conflict), but nothing is literally discarded or "only one file is used." Files above and at the working directory load at launch; files in subdirectories load only when Claude reads a file there. `@path` imports (max 4 hops) expand into the same context at launch.
+At launch Claude Code loads every `CLAUDE.md` and `CLAUDE.local.md` in the working directory and each directory above it, plus managed and user files. They are **concatenated, not overridden**: broadest first (managed, user, then root down to the working directory), with `CLAUDE.local.md` after `CLAUDE.md` in each directory. Subdirectory files load **on demand**, when Claude reads, writes or edits a file there. Managed CLAUDE.md cannot be excluded. Content arrives as a user message after the system prompt; the project-root file is re-read after `/compact`. **[Certain]**
 
-### settings.json
+<PostGuide since="2026-09">
+Recent releases also read `AGENTS.md` as project instructions when no `CLAUDE.md` exists on the path. Engineering knowledge only.
+</PostGuide>
 
-Five layers, highest to lowest precedence: **Managed** (`managed-settings.json`/MDM) → **Command line** (`--settings`) → **Project local** (`.claude/settings.local.json`, personal, gitignored) → **Shared project** (`.claude/settings.json`, committed) → **User** (`~/.claude/settings.json`, every project). Key fields: `permissions` (`allow`/`ask`/`deny` rules, evaluated deny → ask → allow), `hooks`, `model`, `env`, `autoMemoryEnabled`. Settings files are strict JSON — no comments, no trailing commas.
+**Exam angle:** "user and project files conflict" means both load and Claude may follow either; fix the conflict. The distractor says one file replaces the other.
 
-### Hooks vs. Rules vs. Skills vs. Commands vs. Agents
+### Repository initialization
 
-This is the objective's core discriminator, and it maps to one governing question: **is this context Claude reads, or code that runs?**
+<SubskillAnchor id="cc.init" />
 
-- **Rules (CLAUDE.md)** — persistent facts and conventions Claude should hold in every session. Context, not enforcement.
-- **Skills** — a packaged *routine* for a recurring task, triggered by matching the task to the Skill's `description`. Loaded on demand, not every session — the mechanism for scaling a large instruction library without paying the context cost of all of it, all the time.
-- **Commands** — a reusable *prompt template*, invoked explicitly by name (`/review-pr`). You decide when it runs; Claude doesn't discover it.
-- **Agents (subagents)** — delegation with **context isolation**: a subagent gets its own context window, its own system prompt, and its own tool permissions, and reports back a result without polluting the parent conversation's context.
-- **Hooks** — shell commands (or `http`/`mcp_tool`/`prompt`/`agent` handlers) bound to lifecycle events (`PreToolUse`, `PostToolUse`, `SessionStart`, `SessionEnd`, `ConfigChange`, `Setup`) in `settings.json`. The **only** mechanism in this list that is a deterministic guarantee — it executes regardless of what Claude decides. Any stem containing "must always" or "must never" happen is describing a hook, even if it never uses the word.
+`/init` analyses the codebase and generates a starter `CLAUDE.md` with the build commands, test instructions and conventions it discovers; if one exists, it suggests improvements instead of overwriting. `CLAUDE_CODE_NEW_INIT=1` switches to an interactive flow that can also set up skills and hooks and shows a proposal before writing. Then add what Claude cannot discover and commit it. **[Certain]**
 
-### Skill triggering and progressive disclosure
+**Exam angle:** "first session in an unfamiliar repo" is `/init`; the distractor is hand-writing CLAUDE.md from scratch or `/memory`.
 
-A Skill's `description` field is its trigger — Claude matches the current task against every loaded Skill's description the way a search engine matches a query, so a vague description ("helps with documents") fires on everything or nothing. Frontmatter constraints: `name` ≤ 64 chars, lowercase/numbers/hyphens only, no XML tags, no reserved words ("claude", "anthropic"); `description` ≤ 1024 chars, non-empty, written in third person, stating both *what* the Skill does and *when* to use it. **Progressive disclosure** is the design principle that makes a large Skill library affordable: metadata (name + description, ~100 tokens) is always in the system prompt; the `SKILL.md` body (target under 500 lines) loads only once the Skill is triggered; bundled resource files load only when Claude actually reads them.
+### settings.json configuration
 
-### Headless, streaming, and auto modes
+<SubskillAnchor id="cc.settings" />
 
-- **Headless mode**: `-p` / `--print` runs one prompt non-interactively and exits — the CI/scripting entry point. `--output-format` controls the shape: `text` (default), `json` (structured result + session ID + cost, machine-parseable), `stream-json` (newline-delimited events). Add `--bare` for CI: it skips auto-discovery of hooks, skills, commands, subagents, plugins, MCP servers, auto memory, and CLAUDE.md, so the run is identical on every machine instead of picking up a teammate's local config.
-- **Streaming mode**: `--output-format stream-json --verbose --include-partial-messages` emits one JSON event per line as tokens generate, ending with a final `result` message. The first event is normally `system/init`, carrying session metadata (model, tools, MCP servers).
-- **Auto-mode**: `--permission-mode auto` hands most approval decisions to a separate classifier model instead of prompting you — it still blocks scope escalation, untrusted infrastructure, and prompt injection. This is distinct from `acceptEdits` (auto-approves file writes and common filesystem commands only) and `bypassPermissions` (skips permission checks entirely — real risk, scope it tightly, never use it on an untrusted repo).
+Precedence runs managed, command line, `.claude/settings.local.json`, `.claude/settings.json`, `~/.claude/settings.json`; list keys such as permission rules merge. Edit with `/config` and `/permissions`, check sources with `/status`, override one session with `--settings`. Rules use `Tool` or `Tool(specifier)` (`Bash(npm run test *)`, `Read(./.env)`), evaluated deny, then ask, then allow; a bare tool name in `deny` removes the tool from Claude's context. **[Certain]** Which file a team rule belongs in is <ObjLink id="configuration-management" />.
+
+**Exam angle:** "this session only" is `--settings` or a flag; "see why a value is ignored" is `/status`.
 
 ## Decision table
 
-| When the stem says... | ...the answer is |
-|---|---|
-| A Skill fires on unrelated tasks, or never fires when it should | Rewrite the `description` — it's the trigger, not the name, location, or body length |
-| "Must always run before every commit" / "must never happen" | A hook (e.g. `PreToolUse`), not a CLAUDE.md instruction |
-| User-level and project-level `CLAUDE.md` give different instructions | Both load and concatenate; the more specific (later-read) instruction is what Claude weighs — not "only one file is used," not a session failure |
-| A reusable prompt, invoked by name, run only when the user chooses to | A custom slash command in `.claude/commands/` |
-| A task needs its own tool permissions and shouldn't pollute the main conversation's context | A subagent (Agent), for context isolation |
-| CI needs identical results on every machine, no teammate hooks or MCP servers | `-p` with `--bare` |
-| A script needs the session ID, cost, and result as parseable data | `--output-format json` |
-| A caller wants to display tokens as they're generated | `--output-format stream-json` with `--include-partial-messages` |
-| Fewer approval prompts, but scope escalation and prompt injection still get blocked | `--permission-mode auto` (classifier-reviewed), not `bypassPermissions` |
-| A personal preference that shouldn't be shared with the team | `CLAUDE.local.md` (rules) or `.claude/settings.local.json` (settings) |
-| An org-wide instruction no individual session should be able to override | Managed CLAUDE.md / `managed-settings.json` |
+| If the stem says... | Choose | Why the runner-up loses |
+|---|---|---|
+| A skill triggers on unrelated tasks or never triggers | Rewrite its `description` (what it does, when to use it) | Moving or renaming the folder does not change matching |
+| Run the linter after every edit, no exceptions | A `PostToolUse` hook in settings | A CLAUDE.md line or skill is context Claude may skip |
+| Instructions should apply only while editing `src/api/**` | Path-scoped rule in `.claude/rules/` with `paths:` | Root CLAUDE.md loads every session for every file |
+| Long log investigation should not flood the main conversation | A subagent | A skill runs inline in the main context by default |
+| Same task, context window nearly full | `/compact` with focus instructions | `/clear` throws away the task context |
+| Undo the files Claude just changed | `/rewind` to a checkpoint | `/clear` resets context, not files; Bash-made changes need git |
+| CI job must parse the answer and session ID | `claude -p --output-format json` | `text` output has no metadata to parse |
+| CI must behave the same regardless of local hooks or MCP servers | `claude -p --bare` with explicit flags | Plain `-p` loads repository and user configuration |
+| Display tokens live and keep feeding follow-ups to one process | `--input-format stream-json --output-format stream-json` | Repeated `-p` calls re-spawn and must `--resume` |
+| Fewer approval prompts, still guarded against injection | `--permission-mode auto` | `bypassPermissions` removes the checks entirely |
+| First session in an unfamiliar repository | `/init`, then refine and commit | `/memory` edits files; it does not analyse the codebase |
 
-## Code examples
+## Worked walkthrough
 
-A shared project config — `.claude/settings.json` (committed) sets a team baseline; `CLAUDE.md` documents conventions Claude should hold every session:
+<Walkthrough title="Scenario: the release checklist that only half runs">
 
-```json
-// .claude/settings.json
-{
-  "model": "claude-sonnet-5",
-  "permissions": {
-    "allow": ["Bash(npm test *)", "Bash(git diff *)", "Read", "Edit"],
-    "ask": ["Bash(git push *)"],
-    "deny": ["Read(./.env)", "Read(./secrets/**)"]
-  },
-  "hooks": {
-    "PreToolUse": [
-      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "scripts/check-branch.sh" }] }
-    ]
-  }
-}
+<Step title="Read the scenario">
+A data platform team keeps a 40-line release checklist in the project CLAUDE.md. Every session now starts with a large context, and Claude sometimes runs the checklist unprompted. The lead wants it available on demand, out of everyday context, and never started without a human asking.
+
+Options: (A) move the checklist into a skill with `disable-model-invocation: true`; (B) move it into `CLAUDE.local.md`; (C) register it as a `SessionStart` hook; (D) move it into a subagent definition in `.claude/agents/`.
+</Step>
+
+<Step title="Find the constraints">
+**On demand**, **out of everyday context**, and **never started without a human asking**. A checklist is a procedure, not a standing fact, and the docs put procedures in skills.
+</Step>
+
+<Step title="Eliminate B and C">
+**B** still loads every session, and only for one person. **C** fires at every session start, the opposite of on demand, and a hook runs a script rather than giving Claude a procedure.
+</Step>
+
+<Step title="Eliminate D">
+**D** is plausible because subagents load only when used. But Claude delegates whenever a task matches the description, so it fails "never without a human asking", and context isolation was never the goal.
+</Step>
+
+<Step title="Choose A">
+A skill's body loads only when invoked. `disable-model-invocation: true` stops Claude from loading it on its own and keeps even the description out of context; engineers run `/release` when they want it.
+</Step>
+
+<Step title="The deciding cue">
+"**On demand**" plus "**never started without a human asking**". On demand rules out CLAUDE.md and hooks; human-only invocation is the one thing `disable-model-invocation` exists for.
+</Step>
+
+</Walkthrough>
+
+## Code
+
+**The commands you are expected to recognise, in the order a session uses them.**
+
+```bash
+claude                                   # interactive; /init on first run in a repo
+claude -c                                # continue the most recent conversation here
+claude -r payments-refactor              # resume a named session (or pick from a list)
+claude --continue --fork-session         # branch: new session ID, original untouched
+
+claude -p "List failing tests" --output-format json --allowedTools "Read,Bash(npm run test *)"
+claude -p --bare --settings ./ci-settings.json "Summarise the diff"   # CI: no auto-discovery
+claude -p --permission-mode dontAsk "Audit README links"              # deny anything unapproved
+claude --permission-mode auto                                         # classifier reviews actions
 ```
 
-Both languages below drive **headless mode** the same way: shell out to `claude -p`, request JSON output, and parse the result — the pattern for wiring Claude Code into a CI step or a build script.
+**Headless mode from a script: run, parse JSON, then resume the same session by ID.** This is the CI pattern: the result and `session_id` come back as data, and the follow-up keeps the first run's context.
 
 ```python
 import json
 import subprocess
 
-def run_headless(prompt: str) -> dict:
-    proc = subprocess.run(
-        ["claude", "-p", prompt, "--bare", "--output-format", "json",
-         "--allowedTools", "Read,Bash(npm test *)"],
-        capture_output=True, text=True, check=False,
-    )
+
+def claude_json(prompt: str, resume: str | None = None) -> dict:
+    cmd = ["claude", "-p", prompt, "--output-format", "json",
+           "--permission-mode", "dontAsk", "--allowedTools", "Read,Grep,Glob"]
+    if resume:
+        cmd += ["--resume", resume]
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if proc.returncode != 0:
-        raise RuntimeError(f"claude -p failed: {proc.stderr}")
-    result = json.loads(proc.stdout)
-    return {"text": result["result"], "cost_usd": result.get("total_cost_usd")}
+        raise RuntimeError(proc.stderr.strip())
+    return json.loads(proc.stdout)
+
+
+first = claude_json("Which modules import the billing client?")
+print(first["result"])
+follow = claude_json("Which of those lack tests?", resume=first["session_id"])
+print(follow["result"], follow.get("total_cost_usd"))
 ```
 
 ```typescript
@@ -139,28 +344,124 @@ import { promisify } from "node:util";
 
 const run = promisify(execFile);
 
-async function runHeadless(prompt: string) {
-  const { stdout } = await run("claude", [
-    "-p", prompt, "--bare", "--output-format", "json",
-    "--allowedTools", "Read,Bash(npm test *)",
-  ]);
-  const result = JSON.parse(stdout);
-  return { text: result.result as string, costUsd: result.total_cost_usd as number | undefined };
+async function claudeJson(prompt: string, resume?: string) {
+  const args = ["-p", prompt, "--output-format", "json",
+    "--permission-mode", "dontAsk", "--allowedTools", "Read,Grep,Glob"];
+  if (resume) args.push("--resume", resume);
+  const { stdout } = await run("claude", args);
+  return JSON.parse(stdout) as { result: string; session_id: string; total_cost_usd?: number };
+}
+
+const first = await claudeJson("Which modules import the billing client?");
+console.log(first.result);
+const follow = await claudeJson("Which of those lack tests?", first.session_id);
+console.log(follow.result, follow.total_cost_usd);
+```
+
+<Output kind="illustrative">
+{`src/billing/client.py is imported by api/invoices.py, jobs/reconcile.py and api/refunds.py.
+jobs/reconcile.py has no test module; api/refunds.py has tests for the happy path only. 0.0412`}
+</Output>
+
+**Streaming mode: one long-lived process, JSON lines in and out.** Several user messages share one context; the app reads `system/init` first and a `result` per turn.
+
+```python
+import json
+import subprocess
+
+proc = subprocess.Popen(
+    ["claude", "-p", "--input-format", "stream-json", "--output-format", "stream-json",
+     "--verbose", "--permission-mode", "dontAsk", "--allowedTools", "Read,Grep"],
+    stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+)
+
+for text in ["Summarise src/ingest/README.md", "Now list its config keys"]:
+    msg = {"type": "user", "message": {"role": "user", "content": text}}
+    proc.stdin.write(json.dumps(msg) + "\n")
+proc.stdin.close()  # no more input: the process exits after the queued turns
+
+for line in proc.stdout:
+    event = json.loads(line)
+    if event["type"] == "system" and event.get("subtype") == "init":
+        print("model:", event.get("model"))
+    elif event["type"] == "result":
+        print("result:", event.get("result"))
+proc.wait()
+```
+
+```typescript
+import { spawn } from "node:child_process";
+import { createInterface } from "node:readline";
+
+const proc = spawn("claude", ["-p", "--input-format", "stream-json", "--output-format",
+  "stream-json", "--verbose", "--permission-mode", "dontAsk", "--allowedTools", "Read,Grep"]);
+
+for (const text of ["Summarise src/ingest/README.md", "Now list its config keys"]) {
+  const msg = { type: "user", message: { role: "user", content: text } };
+  proc.stdin.write(JSON.stringify(msg) + "\n");
+}
+proc.stdin.end(); // no more input: the process exits after the queued turns
+
+for await (const line of createInterface({ input: proc.stdout })) {
+  const event = JSON.parse(line);
+  if (event.type === "system" && event.subtype === "init") console.log("model:", event.model);
+  else if (event.type === "result") console.log("result:", event.result);
 }
 ```
 
-## Named traps, expanded
+**A manual-only skill (`.claude/skills/release/SKILL.md`).** Frontmatter must start on the first line of the file.
 
-**"A Skill's DESCRIPTION is its trigger — it functions like a search query."** This is attractive to get backwards because it's tempting to assume Skills activate the way commands do — by name, or by being placed in the right folder. They don't. Claude matches the current task against every loaded Skill's `description` field, so a Skill with a vague description ("helps with documents") either never fires or fires on everything, and the fix is always to rewrite the description, never to move the file, rename it, or shorten the body. Recognize this trap whenever a stem describes a Skill misfiring — the answer sentence should be about the description's wording, not the Skill's location or length.
+```yaml
+---
+name: release
+description: Runs the data platform release checklist (version bump, DAG docs, contract tests, changelog). Use only when the user asks to cut a release.
+disable-model-invocation: true
+---
+1. Bump the version in pyproject.toml.
+2. Regenerate pipeline DAG docs with `make dag-docs`.
+3. Run `make contract-test`; stop and report on any failure.
+4. Draft CHANGELOG.md from commits since the last tag.
+```
 
-**"Progressive disclosure: metadata always loaded, body on trigger, resources as needed."** This is the mechanism that makes a Skill library of 50+ Skills affordable in context — without it, every Skill would need to be read in full on every turn. The trap is assuming the whole `SKILL.md` file (or its bundled resource files) sits in context "just in case." It doesn't: only `name` + `description` (~100 tokens per Skill) are always loaded; the body loads once triggered; bundled files (`reference.md`, scripts) load only if Claude actually reads them. A stem asking "what does adding a 50th Skill cost every conversation" is testing this — the answer is "~100 tokens," not the Skill's full body size.
+**A read-only subagent on a cheaper model (`.claude/agents/log-investigator.md`).** The body becomes its system prompt.
 
-**"CLAUDE.md for memory, Skills for routines, hooks for guarantees, subagents for delegation."** This is the four-way discriminator the exam leans on hardest in this objective. The trap is picking CLAUDE.md or a Skill for something that must happen deterministically ("Claude should always run the linter before committing") — a prompt-level instruction, however well-written, is a request Claude can deviate from under context pressure or ambiguity; only a hook is code that runs unconditionally. The reverse trap also appears: reaching for a hook or a subagent for something that's really just standing context (a coding convention) or an on-demand routine (a recurring multi-step task) — hooks and subagents are heavier, more rigid tools than the job needs.
+```markdown
+---
+name: log-investigator
+description: Investigates failed pipeline runs from logs. Use when a job fails and the logs are long.
+tools: Read, Grep, Glob
+model: haiku
+---
+You investigate pipeline failures. Read the logs, find the first real error,
+and return a five-line summary: failing step, error, likely cause, evidence, next check.
+```
 
 ## Recall checks
 
-- Which of the five core components is the only one that persists across sessions but is authored by Claude rather than by you?
-- A stem says an instruction "must never" happen. Which of the five components is never the correct answer to that stem, and why?
-- Walk through what happens, in order, when a project `CLAUDE.md` and a user `CLAUDE.md` both set instructions for the same behavior.
-- What's the one flag that makes a `-p` run produce identical output on every machine, and what four categories of project-local configuration does it skip?
-- Why does `--permission-mode auto` reduce prompts without being equivalent to `bypassPermissions`?
+<Recall q="What does adding one more skill cost every conversation, and why?">
+Roughly its name and description, because progressive disclosure loads only metadata at session start. The body loads when the skill is invoked and bundled files only when read; with `disable-model-invocation: true` even the description stays out.
+</Recall>
+
+<Recall q="A user CLAUDE.md says 'use tabs' and the project CLAUDE.md says 'use spaces'. What does Claude Code do?">
+It loads both; files are concatenated, broadest first, so the project instruction is read later but nothing is discarded. Claude may follow either, so the fix is removing the conflict, not relying on precedence.
+</Recall>
+
+<Recall q="Which core component is written by Claude rather than by you, and what loads from it each session?">
+Auto memory. The first 200 lines or 25KB of `MEMORY.md` in the project's memory directory load each session; topic files are read on demand.
+</Recall>
+
+<Recall q="Claude refactored three files and ran `mv` on a fourth. What can `/rewind` restore?">
+The three edits made through Claude's file-editing tools, and the conversation. Changes made through Bash commands are not tracked by checkpoints, so the `mv` needs git or a manual fix.
+</Recall>
+
+<Recall q="Why add `--bare` to a `claude -p` call in CI?">
+Without it, `-p` loads the same hooks, skills, MCP servers and CLAUDE.md an interactive session would, from the repository and the runner's home directory. `--bare` skips that discovery so every machine runs the same configuration, which you pass explicitly.
+</Recall>
+
+<Recall q="How does auto mode differ from bypassPermissions?">
+Auto mode sends actions to a classifier that blocks escalation, unrecognised infrastructure and injection-driven actions, and ask and deny rules still apply. bypassPermissions skips the checks and is meant only for isolated containers or VMs.
+</Recall>
+
+<Recall q="When should you use a subagent instead of a skill?">
+When the work should run in its own context window with its own tools and return only a summary, such as a log-heavy investigation. A skill injects instructions into the current conversation unless it is explicitly forked.
+</Recall>

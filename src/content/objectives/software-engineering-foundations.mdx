@@ -6,6 +6,9 @@ name: "Software Engineering Foundations"
 weight: 7.4
 tier: 1
 hot: false
+summary: "Generic production engineering applied to Claude systems: HTTP semantics and retry safety, JSON contracts, bounded async concurrency, version control and release hygiene, CI gates with evals, review of AI-written code, and safe refactoring."
+subskills: ["swe.rest", "swe.json", "swe.async", "swe.vcs", "swe.sdlc", "swe.code-review", "swe.refactoring"]
+related: ["technical-fundamentals", "claude-api-mechanics", "output-handling", "systems-life-cycle", "debugging-and-error-handling", "claude-code-operation", "identity-secrets-and-key-management"]
 scope:
   - "REST APIs"
   - "JSON"
@@ -15,191 +18,711 @@ scope:
   - "code review"
   - "small- and large-scale refactoring"
 traps:
-  - "SDKs already retry twice with backoff honoring retry-after; a hand-rolled retry layer multiplies load during the incident"
-  - "review AI-generated code with the same rigor as human-written"
+  - name: "Stacking a retry layer on the SDK"
+    looksRight: "Wrapping messages.create in a retry decorator with backoff feels like defensive engineering."
+    failsBecause: "The official SDKs already retry connection errors, 408, 409, 429 and 5xx twice with exponential backoff, honoring retry-after. A second layer multiplies attempts (3 x 3 = 9 per call) exactly when the API is overloaded or rate limiting."
+    cue: "Stem describes someone adding retry, backoff or 'resilience' code around an SDK call; the right answer tunes max_retries or bounds concurrency instead."
+  - name: "Lighter review because Claude wrote it"
+    looksRight: "The code follows existing patterns, passed lint, and maybe passed the eval suite, so a quick skim seems proportionate."
+    failsBecause: "Provenance does not change risk. Generated code is fluent and locally plausible, which is exactly what hides wrong assumptions; the human who merges stays accountable, and automated review tools post findings without approving or blocking."
+    cue: "Any option that relaxes, skips or shortens review, tests or staged rollout because the author was an AI is wrong."
+  - name: "Retrying a POST after a timeout"
+    looksRight: "A timeout looks transient, and transient failures should be retried."
+    failsBecause: "A timeout means the outcome is unknown, not that the request failed. POST is not idempotent, so a blind retry can create the side effect twice. Only an idempotency key (or a client-chosen ID with PUT) makes the retry safe."
+    cue: "Stem mentions duplicates (tickets, refunds, emails) appearing after network blips or retries."
+  - name: "Schema-valid means correct"
+    looksRight: "Structured outputs guarantee the JSON matches the schema, so the data can go straight to the database."
+    failsBecause: "Constrained decoding guarantees shape, not truth. Numeric ranges and string lengths are not enforced, enum casing is not guaranteed, and refusal or max_tokens stops can still break the schema. Domain validation at the boundary is still your code's job."
+    cue: "Values in the wrong field, out-of-range numbers, or 'the schema passed but the data was wrong'."
+  - name: "Promise.all over map is a concurrency limit"
+    looksRight: "async/await code looks sequential and orderly, so mapping 5,000 items to calls seems controlled."
+    failsBecause: "A promise starts when it is created, so items.map(callClaude) launches every request at once. That burst trips rate limits and acceleration limits; only a semaphore or fixed worker pool bounds in-flight work."
+    cue: "429s cluster at job start, or 'the job works for 50 items and fails at 5,000'."
+  - name: "One big-bang refactor PR"
+    looksRight: "Doing the whole migration in one PR keeps it atomic and avoids a half-migrated codebase."
+    failsBecause: "A diff mixing structural change with behavior change cannot be reviewed or bisected, and has no rollback short of reverting everything. Large refactors ship as small, test-green, behavior-preserving steps (strangler fig, expand and contract)."
+    cue: "Stem says 'rewrite', 'all at once', or a single PR touching hundreds of files plus a new feature."
 sources:
-  - label: "Python SDK"
-    url: "https://platform.claude.com/docs/en/api/sdks/python"
-  - label: "Errors"
-    url: "https://platform.claude.com/docs/en/api/errors"
-  - label: "TypeScript SDK"
-    url: "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript"
-  - label: "API Versions"
-    url: "https://platform.claude.com/docs/en/api/versioning"
-  - label: "Structured Outputs"
-    url: "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+  - { label: "Claude API errors", url: "https://platform.claude.com/docs/en/api/errors", kind: "docs", verified: "2026-10-06" }
+  - { label: "Rate limits", url: "https://platform.claude.com/docs/en/api/rate-limits", kind: "docs", verified: "2026-10-06" }
+  - { label: "Python SDK", url: "https://platform.claude.com/docs/en/api/sdks/python", kind: "docs", verified: "2026-10-06" }
+  - { label: "TypeScript SDK", url: "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript", kind: "docs", verified: "2026-10-06" }
+  - { label: "API versions", url: "https://platform.claude.com/docs/en/api/versioning", kind: "docs", verified: "2026-10-06" }
+  - { label: "Structured outputs", url: "https://platform.claude.com/docs/en/build-with-claude/structured-outputs", kind: "docs", verified: "2026-10-06" }
+  - { label: "Streaming messages", url: "https://platform.claude.com/docs/en/build-with-claude/streaming", kind: "docs", verified: "2026-10-06" }
+  - { label: "Batch processing", url: "https://platform.claude.com/docs/en/build-with-claude/batch-processing", kind: "docs", verified: "2026-10-06" }
+  - { label: "Develop tests (evals)", url: "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests", kind: "docs", verified: "2026-10-06" }
+  - { label: "Run Claude Code programmatically", url: "https://code.claude.com/docs/en/headless", kind: "docs", verified: "2026-10-06" }
+  - { label: "Claude Code GitHub Actions", url: "https://code.claude.com/docs/en/github-actions", kind: "docs", verified: "2026-10-06" }
+  - { label: "Claude Code Code Review", url: "https://code.claude.com/docs/en/code-review", kind: "docs", verified: "2026-10-06" }
+  - { label: "Best practices for Claude Code", url: "https://code.claude.com/docs/en/best-practices", kind: "docs", verified: "2026-10-06" }
+  - { label: "MDN: Idempotent (mdn/content source)", url: "https://raw.githubusercontent.com/mdn/content/main/files/en-us/glossary/idempotent/index.md", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "MDN: Safe HTTP methods (mdn/content source)", url: "https://raw.githubusercontent.com/mdn/content/main/files/en-us/glossary/safe/http/index.md", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "MDN: Retry-After (mdn/content source)", url: "https://raw.githubusercontent.com/mdn/content/main/files/en-us/web/http/reference/headers/retry-after/index.md", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "MDN: 429 Too Many Requests (mdn/content source)", url: "https://raw.githubusercontent.com/mdn/content/main/files/en-us/web/http/reference/status/429/index.md", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "MDN: 409 Conflict (mdn/content source)", url: "https://raw.githubusercontent.com/mdn/content/main/files/en-us/web/http/reference/status/409/index.md", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "MDN: If-Match (mdn/content source)", url: "https://raw.githubusercontent.com/mdn/content/main/files/en-us/web/http/reference/headers/if-match/index.md", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "MDN: Number.MAX_SAFE_INTEGER (mdn/content source)", url: "https://raw.githubusercontent.com/mdn/content/main/files/en-us/web/javascript/reference/global_objects/number/max_safe_integer/index.md", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "MDN: JSON.parse (mdn/content source)", url: "https://raw.githubusercontent.com/mdn/content/main/files/en-us/web/javascript/reference/global_objects/json/parse/index.md", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "MDN: Promise.allSettled (mdn/content source)", url: "https://raw.githubusercontent.com/mdn/content/main/files/en-us/web/javascript/reference/global_objects/promise/allsettled/index.md", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "IETF draft: Idempotency-Key header (working group source)", url: "https://raw.githubusercontent.com/ietf-wg-httpapi/idempotency/main/draft-ietf-httpapi-idempotency-key-header.md", kind: "spec", verified: "2026-10-06" }
+  - { label: "JSON Schema: object", url: "https://json-schema.org/understanding-json-schema/reference/object", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "JSON Schema: type and format", url: "https://json-schema.org/understanding-json-schema/reference/type#format", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "Python json module docs (CPython source)", url: "https://raw.githubusercontent.com/python/cpython/main/Doc/library/json.rst", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "Python asyncio tasks docs (CPython source)", url: "https://raw.githubusercontent.com/python/cpython/main/Doc/library/asyncio-task.rst", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "Semantic Versioning 2.0.0 (spec source)", url: "https://raw.githubusercontent.com/semver/semver/master/semver.md", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "Conventional Commits 1.0.0 (spec source)", url: "https://raw.githubusercontent.com/conventional-commits/conventionalcommits.org/master/content/v1.0.0/index.md", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "Pro Git: Branching workflows (book source)", url: "https://raw.githubusercontent.com/progit/progit2/main/book/03-git-branching/sections/workflows.asc", kind: "swe-ref", verified: "2026-10-06" }
+lastReviewed: "2026-10-06"
 authored: true
 ---
 
-## What this objective actually tests
+## Concept
 
-This objective is ordinary software-engineering practice, examined through the lens of a Claude-powered system rather than through LLM theory. The exam is not asking whether you know what a token is — it is asking whether you would ship the same disciplined REST client, async concurrency limits, JSON contracts, git hygiene, and review process you would ship for any production service, now that one of the calls in that service happens to hit `api.anthropic.com`. Distractors in this objective's items typically fail by reinventing something the platform, SDK, or a standard engineering practice already provides.
+This objective is ordinary production engineering. The guide lists REST APIs, JSON, asynchronous programming, version control, SDLC integration, code review, and small- and large-scale refactoring, introduced with "including", so treat the list as examples of a wider skill: would you ship a Claude-backed service with the same discipline as any other networked system? Candidates who studied only Claude features report being caught out here, because a large share of items read like generic backend questions with a Claude call somewhere in the stem.
+
+The stem usually hides one engineering fact that decides the answer: the HTTP method is not idempotent, the integer is larger than 2^53, the coroutines were all created at once, the refactor mixes behaviour changes with structure, the reviewer is a model with no authority to approve. Distractors are built from things that sound responsible (another retry loop, a bigger timeout, a stronger prompt, a one-shot rewrite) but fail for a nameable mechanical reason.
+
+The Claude-specific overlay is thin but scored: the SDKs already implement retries, backoff, timeouts and cursor pagination, so reimplementing them is the classic wrong answer; prompts, tool schemas, eval sets and `CLAUDE.md` are versioned code; and an eval suite is a release gate in CI the same way a unit test suite is.
+
+**Scope boundary.** Not this:
+
+- Which SDK wraps which REST endpoint, and websockets versus SSE: <ObjLink id="technical-fundamentals" />.
+- Messages API parameters, Batch API mechanics, `stop_reason` handling: <ObjLink id="claude-api-mechanics" />.
+- Parsing and validating model output as untrusted data before it reaches a sink: <ObjLink id="output-handling" />.
+- Waterfall, Agile, DevOps and ITIL as named life-cycle frameworks: <ObjLink id="systems-life-cycle" />.
+- Where API keys live and how they rotate: <ObjLink id="identity-secrets-and-key-management" />.
+- Claude Code permissions, hooks and settings mechanics: <ObjLink id="claude-code-operation" />.
+
+<Callout type="key" title="The point-winning idea">
+Every question in this objective is answered by asking what the platform, the protocol, or a deterministic tool already guarantees, and refusing to rebuild or bypass it. HTTP defines which retries are safe; the SDK already retries; JSON Schema defines shape but not meaning; a semaphore, not `async`, bounds concurrency; tests and small steps, not confidence, make a refactor safe; a human, not a review bot, approves the merge.
+</Callout>
 
 ## Mechanism
 
 ### REST APIs
 
-The Messages API is a conventional REST API: `POST /v1/messages`, JSON in, JSON out, resource-oriented endpoints for batches and files, and standard HTTP semantics for the things that make REST APIs debuggable in production.
+<SubskillAnchor id="swe.rest" />
 
-- **Status codes carry meaning, and the SDKs act on it.** `400`/`401`/`403`/`404`/`413` are client errors that will not succeed on retry — the request itself is wrong (malformed body, bad key, wrong permissions, unknown resource, or a body over the size limit — 32 MB for Messages, 256 MB for Batches, 500 MB for Files). `408`, `409`, `429`, and `5xx` (`500`, `529`) are treated as transient and are retried automatically by the official SDKs. `504` signals the request timed out server-side and suggests streaming or batching the work instead of raising `max_tokens` further.
-- **Headers matter as much as the body.** Every response carries a `request-id` header (mirrored as `_request_id` on Python/TypeScript response objects) — this is what you hand to support when reporting an incident, not a stack trace. `anthropic-version` is a required request header; the SDKs set it for you (currently `2023-06-01`) and only override it if you have a specific compatibility reason to.
-- **Idempotency and retries are a REST concern, not an LLM concern.** A `409 Conflict` means the server-side resource state disagrees with the request (for example, a batch or file already in a terminal state) — the fix is to inspect current state, not to hammer the endpoint.
-- **Pagination is cursor-based**, not offset-based. List endpoints (`messages.batches.list`, `files.list`) return a page object with a `has_next_page()` / `get_next_page()` pair in Python and an async-iterable page object in TypeScript. Treat page size (`limit`) as a request hint, not a guarantee, and never assume total counts are cheap to compute up front.
+**Method semantics decide retry safety.** A method is *safe* if it is read-only from the client's point of view (GET, HEAD, OPTIONS). A method is *idempotent* if sending the same request N times has the same intended effect on the server as sending it once: all safe methods plus PUT and DELETE. POST and PATCH are not guaranteed to be idempotent. Idempotent does not mean "same response": a second DELETE typically returns 404 where the first returned 200, and the server may still log each call [Certain, MDN].
+
+| Method | Safe | Idempotent | Typical use | Blind retry after timeout |
+|---|---|---|---|---|
+| GET, HEAD, OPTIONS | yes | yes | read | safe |
+| PUT | no | yes | replace at a client-known URI | safe (same final state) |
+| DELETE | no | yes | remove | safe (second call may 404) |
+| POST | no | no | create, trigger an action | unsafe without an idempotency key |
+| PATCH | no | not guaranteed | partial update | unsafe unless the patch is absolute |
+
+**A timeout is an unknown outcome, not a failure.** The request may have committed before the connection dropped. For idempotent methods, retry. For POST, attach an `Idempotency-Key` header: the client generates one random key (a UUID) per *logical operation* and reuses it on every retry; the server stores the first response under that key and replays it. The IETF httpapi draft specifies that reusing a key with a different payload gets 422 and a retry that arrives while the original is still processing gets 409 [Certain that the draft says this; Likely it is still a draft, not an RFC]. The alternative design is to let the client choose the resource ID and use PUT, which is idempotent by definition.
+
+**Status code families and retryability.**
+
+| Code | Meaning | Retry? |
+|---|---|---|
+| 400, 401, 402, 403, 404, 413, 422 | request is wrong, unauthenticated, unpaid, forbidden, missing, too large, semantically invalid | No. Fix the request. |
+| 408 | client was too slow | Yes |
+| 409 | conflicts with current resource state | Only after re-reading state; the Anthropic SDKs retry it [Certain] |
+| 412 | `If-Match` precondition failed (someone else changed it) | Re-fetch, merge, retry with new ETag |
+| 429 | too many requests | Yes, after `Retry-After` |
+| 500, 502, 503, 504 | server or gateway problem | Yes, with backoff |
+| 529 | Anthropic overloaded | Yes, with backoff |
+
+`Retry-After` carries either delay-seconds or an HTTP date and accompanies 429 and 503 (and 301) [Certain, MDN]. On the Claude API, a 429 carries `retry-after` in seconds, and `anthropic-ratelimit-*` headers report limit, remaining and reset (RFC 3339) for requests, input tokens and output tokens [Certain]. One exception worth knowing as engineering knowledge: the monthly spend-cap 429 has no `retry-after` and retrying cannot succeed until access resumes; `error.details.error_code` is `enforced_spend_limit_reached` [Certain for the docs today; Likely not exam content].
+
+**What the SDK already does.** The official SDKs retry connection errors, 408, 409, 429 and 5xx twice by default with exponential backoff, honoring `retry-after`, and time out after 10 minutes by default (seconds in Python, milliseconds in TypeScript). Timeouts are retried too, so worst-case wall clock for one call is roughly `timeout x (max_retries + 1)` plus backoff [Certain]. Every response carries a `request-id` header, surfaced as `_request_id`; log it, because it is what support needs [Certain].
+
+**Concurrency control on writes.** Two editors read version 7 and both PUT. Without a guard, the second silently overwrites the first (the lost update). `If-Match: "<etag>"` makes the write conditional; the loser gets 412 and must re-read [Certain, MDN]. 409 is the more general "conflicts with current state" signal [Certain, MDN].
+
+**Pagination.** Offset pagination (`?offset=200&limit=100`) is simple and supports jumping to page N, but rows inserted or deleted while you page cause skips and duplicates, and deep offsets get slow because the database still walks the skipped rows. Cursor pagination returns an opaque pointer to the last item (`after_id`, `next_cursor`) and asks for "items after this one": stable under concurrent writes and constant-cost per page, but no random access. Anthropic list endpoints are cursor-based; the SDKs auto-paginate with `for` / `async for` / `for await`, or expose `has_next_page()` and `get_next_page()` plus the cursor (`last_id`) for manual control [Certain].
+
+**Versioning strategies.** Path (`/v1/`), header, query parameter, or media type. Anthropic uses both: a `/v1` path and a required dated `anthropic-version` header (the SDKs send `2023-06-01`). Within a version Anthropic preserves existing inputs and outputs but may add optional inputs, output fields, and new enum-like values such as streaming event types [Certain]. The engineering consequence is the *tolerant reader*: ignore unknown fields, and give every `switch` on a server enum a default branch. A client that crashes on an unrecognised `stop_reason` or event type is the bug, not the API.
+
+**Rate limiting.** The Claude API uses a token bucket that replenishes continuously, measured as RPM, input tokens per minute and output tokens per minute per model; a 60 RPM limit may be enforced as 1 per second, so bursts fail even under the per-minute number, and a sharp ramp can hit separate acceleration limits [Certain]. For most models cached input reads do not count toward ITPM [Certain], which is why caching raises effective throughput.
+
+**Exam angle:** cues are "duplicate records after retries" (idempotency key), "returns 400/401/403" (do not retry), "429 during bursts" (bound concurrency, honour `Retry-After`), "two users overwrite each other" (`If-Match`/412), "items skipped while paging" (cursor). The usual distractor adds a retry loop or raises a timeout.
 
 ### JSON
 
-Two separate claims get conflated in weak answers: **valid JSON** and **semantically correct JSON**. They are not the same guarantee.
+<SubskillAnchor id="swe.json" />
 
-- Asking the model to "output only JSON" in the prompt is a soft constraint — it can still emit prose before the brace, truncate mid-object, or put the right value in the wrong field.
-- `output_config.format` with a `json_schema` type uses grammar-constrained decoding: the token sampler is restricted so that every output token keeps the response inside the schema. This makes malformed JSON, missing required fields, and wrong types structurally impossible — not just unlikely.
-- What it still does **not** guarantee is meaning. A schema-valid object can put an email address in a `name` field and a name in an `email` field — the schema checks shape, not truth. Domain validation after parsing is still your job.
-- Design JSON contracts the way you would any service boundary: explicit required vs. optional fields, `additionalProperties: false` when you want to catch drift early, and versioned schemas when a field's meaning changes rather than silently repurposing it.
+JSON has six value kinds: object, array, string, number, boolean, null. Everything else is convention, and the conventions are where bugs live.
+
+| Pitfall | Mechanism | Fix |
+|---|---|---|
+| Big integers | JavaScript parses every JSON number as an IEEE 754 double; integers beyond 2^53 - 1 (9007199254740991) silently round, so `MAX_SAFE_INTEGER + 1 === MAX_SAFE_INTEGER + 2` is true [Certain, MDN] | Send IDs and money as strings, or revive to `BigInt` via the reviver's `context.source` [Certain, MDN] |
+| Floats | `0.1 + 0.2` is not `0.3` in binary floating point | Integer minor units (`amount_cents`) or decimal strings; Python `json.loads(..., parse_float=Decimal)` [Certain] |
+| Dates | No date type | RFC 3339 strings with an offset; JSON Schema `format: "date-time"` uses RFC 3339 [Certain] |
+| NaN and Infinity | Not valid JSON, but Python emits them by default (`allow_nan=True`) [Certain] | `allow_nan=False` at boundaries |
+| Duplicate keys | Python keeps the last value [Certain]; other parsers differ | Reject with `object_pairs_hook` where it matters |
+| Encoding | JSON exchanged between systems is UTF-8; Python escapes non-ASCII by default (`ensure_ascii=True`) [Certain for Python] | Decode bytes as UTF-8 explicitly |
+| Python int vs JS number | Python ints are arbitrary precision, so a Python service round-trips an ID that a TypeScript client corrupts | Same contract on both sides: strings for identifiers |
+
+**JSON Schema basics.** `type`, `properties`, `required`, `additionalProperties`, `enum`, `items`. Two defaults catch people: properties are optional unless listed in `required` (and a `null` value does not satisfy "required"; the key must be present), and additional properties are allowed unless `additionalProperties: false` [Certain]. `format` is an annotation by default; validators need not enforce it [Certain]. Note that JSON Schema has `integer` as a schema-level concept although JSON itself has only `number`.
+
+**Validate at the boundary.** Parse once where data enters your process (HTTP handler, queue consumer, model output, tool input), validate against the schema plus domain rules, then pass typed objects inward. Model output is an input from an untrusted source like any other.
+
+**Structured outputs narrow, but do not remove, that job.** `output_config.format` with a JSON schema uses constrained decoding: output is valid JSON with the required fields and types [Certain]. It does not enforce `minimum`/`maximum`, string lengths, or `minItems` above 1; `additionalProperties` must be `false`; enum casing is not guaranteed; and a `refusal` or `max_tokens` stop can still produce output that does not match [Certain]. The SDK parse helpers move unsupported constraints into descriptions and re-check them client-side [Certain]. So domain checks (positive amounts, dates in range, foreign keys exist) remain your code.
+
+**Streaming and partial JSON.** When a `tool_use` block streams, each `input_json_delta` carries a `partial_json` string fragment; accumulate the fragments and parse at `content_block_stop`, or use the SDK streaming helpers, which expose the parsed input incrementally [Certain]. Never `JSON.parse` an individual fragment. New event types may appear, so ignore unknown ones [Certain].
+
+**Exam angle:** "IDs off by one in the browser" (big integers), "valid JSON but wrong values" (domain validation), "must always be valid JSON" (structured outputs, not prompt wording), "parse error mid-stream" (accumulate until block stop). Distractor: a stronger prompt instruction.
 
 ### Asynchronous programming
 
-Claude API calls are slow I/O — hundreds of milliseconds to tens of seconds — which makes this a textbook case for async/concurrent design, with the usual failure modes.
+<SubskillAnchor id="swe.async" />
 
-- **Unbounded fan-out is the recurring bug.** Firing hundreds of concurrent requests the instant a job starts produces `429`s, and a sharp traffic ramp can additionally trip acceleration limits that are separate from your steady-state rate limit. The fix is a bounded worker pool (a semaphore, a fixed-size queue, or a connection-limited async client) with a gradual ramp, not a bigger model or a faster retry loop.
-- **Sync and async clients are separate entry points.** Python: `Anthropic` vs. `AsyncAnthropic` (the latter usable with `asyncio`, and optionally the `aiohttp` backend for better concurrency than the default `httpx` transport). TypeScript: every SDK call is inherently a `Promise`; there is no separate async client class.
-- **Streaming is a different tool than raising `max_tokens`.** Non-streaming requests are validated client-side against a roughly 10-minute expected duration (Python raises `ValueError`; TypeScript scales the default timeout with `max_tokens` up to ~60 minutes before erroring) precisely because idle network connections get dropped by intermediate infrastructure on long-lived unary calls. If a task is long-running, stream it or batch it — don't just widen the timeout and hope the connection survives.
-- **Timeouts and retries interact.** A request that times out is, by default, retried up to the client's `max_retries` — so a timeout is not automatically a terminal failure from the caller's point of view; plan for the total worst-case latency (`timeout` × `retries`), not just one leg.
+Claude calls are slow, I/O-bound and independent, which is the textbook case for async concurrency. The failure modes are also textbook.
+
+**Python.** `AsyncAnthropic` exposes the same interface as `Anthropic` with `await`; an optional `aiohttp` backend improves high-concurrency performance [Certain]. Coroutines do nothing until awaited or scheduled; `create_task` schedules them, and the event loop keeps only weak references to tasks, so unreferenced tasks can vanish mid-flight [Certain]. Prefer `asyncio.TaskGroup` (structured concurrency): if one task raises, the rest are cancelled and an `ExceptionGroup` is raised. `gather` without `return_exceptions=True` propagates the first exception *without* cancelling the others [Certain]. So decide per job: all-or-nothing (TaskGroup, let errors escape) or best-effort (catch per item inside the task and record failures).
+
+**TypeScript.** Every SDK call returns a promise, and a promise starts executing when created. `await Promise.all(items.map(call))` therefore launches every request at once. `Promise.all` rejects on the first rejection; `Promise.allSettled` waits for all and returns `{status, value | reason}` per item [Certain, MDN].
+
+**Bounded concurrency is the fix for both.** An `asyncio.Semaphore(16)` around the call, or N workers draining a shared iterator in TypeScript, caps in-flight requests no matter how many items are queued. Ramp gradually: the docs warn that a sharp increase can hit acceleration limits even under your steady-state limit [Certain].
+
+**Backpressure.** A semaphore bounds HTTP in flight but not memory: creating 2 million task objects up front still costs RAM. When producers outpace consumers, use a bounded queue (`asyncio.Queue(maxsize=...)`) so `put` blocks the producer, and a fixed set of consumer workers. Backpressure means slowness propagates upstream instead of accumulating as an unbounded backlog.
+
+**Timeouts and cancellation.** Three layers: the SDK per-request timeout (default 10 minutes, retried), a per-item budget, and a whole-job deadline. `asyncio.timeout()` (3.11+) cancels the enclosed work and raises `TimeoutError` outside the block; if you catch `CancelledError` for cleanup, re-raise it [Certain]. In TypeScript, pass a per-request `{ timeout }` option and break out of or abort streams (`stream.controller.abort()`) [Certain]. For long generations, stream rather than raising the non-streaming timeout: the SDKs refuse non-streaming requests expected to exceed about 10 minutes because idle connections get dropped [Certain].
+
+**When async beats batch, and vice versa.**
+
+| Need | Async concurrency | Message Batches API |
+|---|---|---|
+| Result latency | seconds | most batches under 1 hour, up to 24 hours, then expire [Certain] |
+| Price | standard | 50% off [Certain] |
+| Dependent steps (tool loops, chained calls) | yes | no; each request independent |
+| Volume ceiling | your RPM/ITPM/OTPM | 100,000 requests or 256 MB per batch, separate queue limits [Certain] |
+| Ordering | you control it | results unordered; join on `custom_id` [Certain] |
+
+Async is the answer when a user or downstream step is waiting; batch is the answer when nobody is. Both are scored; batch mechanics belong to <ObjLink id="claude-api-mechanics" />.
+
+**Exam angle:** "429s spike at job start" or "works for 50 items, fails for 5,000" points to a semaphore or worker pool. Distractors: switch models, raise `max_retries`, add `sleep`. "User waiting" rules out batch; "next step depends on the previous answer" rules out batch too.
 
 ### Version control
 
-Everything that shapes a Claude application's behavior is a versioned artifact, not folklore living in someone's head:
+<SubskillAnchor id="swe.vcs" />
 
-- **Prompts and tool schemas** — diffed and reviewed exactly like code, because a wording change is a behavior change.
-- **`CLAUDE.md` and `settings.json`** — checked into the repo alongside the code they configure; a permission or hook change is a change to what the system is allowed to do, and belongs in the same review pipeline as any other config change.
-- **Model version pinning** — pin to a dated model ID for anything that must reproduce a specific behavior over time; a floating alias is a legitimate choice for a tool that wants automatic upgrades, but it is a choice, not a default you fall into.
-- **API version** — the `anthropic-version` header follows a preserve-compatibility policy: existing input/output parameters are not removed within a version, but optional inputs, output fields, and new enum-like values can be added. Anthropic recommends the latest version for new work; older versions are deprecated over time and may stop being available to new users.
+**Branching strategies.** Long-running branches hold code at different stability levels (for example `main` and `develop`) and commits graduate between them; topic branches are short-lived, one concern each, which makes review easy because every change in the branch relates to one topic [Certain, Pro Git]. Trunk-based development pushes topic branches to their limit: branches live hours or a day, merge to `main` behind feature flags, and `main` is always releasable. For a Claude application that ships prompt changes frequently, short-lived branches plus flags beat long-lived release branches, because prompt behaviour drifts fast and long branches accumulate untestable combinations.
+
+**PR flow.** Branch, commit small logical steps, open a pull request, CI runs, reviewers approve, merge (squash or merge commit by team convention), delete the branch. Protect `main` so merges require passing checks and human approval.
+
+**Conventional Commits** structure messages as `type(scope): description` with optional body and footers. `fix` maps to a SemVer PATCH, `feat` to MINOR, and a `BREAKING CHANGE:` footer or `!` after the type to MAJOR; other types include `build`, `chore`, `ci`, `docs`, `style`, `refactor`, `perf`, `test` [Certain]. The point is machine-readable history: changelogs and version bumps can be generated.
+
+**Semantic Versioning.** MAJOR for incompatible API changes, MINOR for backward-compatible features, PATCH for backward-compatible fixes; `0.y.z` is initial development where anything may change; pre-release (`1.0.0-rc.1`) sorts before the release; a released version's contents must never be modified, any change is a new version [Certain]. Note that the Anthropic SDKs say they generally follow SemVer but may ship some backward-incompatible changes (type-only, internal) in minor versions [Certain], so pin and read changelogs.
+
+**Tagging releases.** Tag the exact commit you deployed (`git tag -a v2.3.0 -m ...`, then push tags). Annotated tags carry author, date and message; the tag is the anchor for rollback and for "which prompt version produced this output".
+
+**What belongs in the repo.** Everything that determines behaviour: source, lockfiles, prompts and system prompts as files, tool schemas, eval datasets and graders, `CLAUDE.md`, shared `.claude/settings.json`, `.mcp.json`, CI workflows. A prompt edit is a behaviour change and deserves a diff, a review and a tag. Personal overrides such as `.claude/settings.local.json` stay out [Likely].
+
+**What never belongs.** Secrets. The Claude Code GitHub Actions docs say never commit API keys or OAuth tokens and reference them as `secrets.ANTHROPIC_API_KEY` [Certain]; the Python SDK docs suggest a `.env` file so the key is not in source control [Certain]. Git history is permanent and cloned everywhere: a committed key is a leaked key even after a revert, so the response is rotation, not deletion. Key management itself is <ObjLink id="identity-secrets-and-key-management" />.
+
+**Exam angle:** "which prompt was live when quality dropped" (prompts versioned and releases tagged), "key found in a commit" (rotate, then scan and block in CI). Distractor: "delete the file in a new commit".
 
 ### SDLC integration
 
-This is generic delivery practice with one Claude-specific twist: the release gate has to test model behavior, not just code paths.
+<SubskillAnchor id="swe.sdlc" />
 
-- CI runs unit and integration tests as usual, but an application whose core logic is a prompt also needs an **eval run as a release gate** — a fixed test set scored against expected outcomes, run before merge or deploy, catching prompt regressions the same way a test suite catches code regressions.
-- Staged environments (dev → staging → prod) apply unchanged, with the same case for feature flags and canaries when rolling out a prompt or model change — a bad prompt version can degrade output quality in ways that don't throw exceptions and won't show up in an error-rate dashboard.
+<Flow title="Release path for a prompt or model change" steps={[{label: "Lint, types, unit tests", kind: "guard", note: "Claude mocked, no network"}, {label: "Eval suite gate", kind: "guard", note: "pass rate vs baseline"}, {label: "Human PR review", kind: "decision"}, {label: "Canary behind flag", kind: "api", note: "small % of traffic"}, {label: "Full rollout", kind: "api", note: "flag flip, instant rollback"}]} caption="Each gate is deterministic code or an accountable human. Nothing is gated on the model saying it is fine." />
+
+**CI gates.** Fast deterministic checks first (format, lint, type check, unit tests with the Claude client stubbed so tests are free and repeatable), then contract tests that validate fixtures against the JSON schemas your tools and outputs use, then the eval suite.
+
+**Evals as tests.** A prompt or model change can degrade quality without throwing an exception, so the error-rate dashboard stays green. An eval suite is a fixed, task-specific dataset with automated grading (exact match, code-graded checks, or LLM-graded rubrics), and Anthropic's guidance favours many automatically graded cases over a few hand-graded ones [Certain]. Because outputs vary run to run, gate on an aggregate (pass rate at or above baseline minus a tolerance), not on byte-equal snapshots, and run the eval only when prompt, model or tool-schema paths change to control cost.
+
+<PostGuide>
+On current models, non-default `temperature`, `top_p` and `top_k` return 400, so "set temperature to 0 for deterministic CI" is no longer available. Treat eval runs as statistical: repeat cases, compare pass rates, and pin the model ID. Engineering knowledge, not a basis for exam answers.
+</PostGuide>
+
+**Claude Code in CI.** `claude -p "..."` runs non-interactively and exits non-zero on failure; `--output-format json` returns a result object, `--json-schema` adds a `structured_output` field, and `--allowedTools` pre-approves only the tools a job needs [Certain]. `--permission-mode dontAsk` denies anything not pre-approved, which is what an unattended run wants, and `--bare` skips auto-discovered hooks, plugins, MCP servers and `CLAUDE.md` so CI behaves the same on every machine [Certain for current docs; Likely for exam purposes, flags drift]. The GitHub Action `anthropics/claude-code-action@v1` runs interactively on `@claude` mentions or in automation mode when given a `prompt`; it requires the triggering user to have write access and rejects bot actors unless allow-listed; cost controls include `--max-turns` in `claude_args`, workflow timeouts and concurrency limits [Certain].
+
+**Staged rollout and feature flags.** Deploy is not release. Ship the new prompt dark behind a flag, enable it for internal users, then a canary percentage, while watching quality signals (eval scores on sampled traffic, user feedback, refusal and `max_tokens` rates, cost per task) alongside latency and errors. A flag is also the kill switch: rolling back a prompt should be a config flip, not a redeploy. Life-cycle framing for these practices sits in <ObjLink id="systems-life-cycle" />; production guardrails sit in <ObjLink id="guardrails-and-safe-deployment" />.
+
+**Exam angle:** "quality regressed but no errors" (eval gate), "roll back in seconds" (feature flag), "same result on every CI runner" (pinned model, bare/headless config, stubbed unit tests). Distractor: "ask Claude in the prompt to be careful".
 
 ### Code review
 
-Review AI-generated code with the same rigor as human-written code. The rigor requirement does not relax because the author was a model — if anything, patterns that look locally plausible but are subtly wrong (a retry loop stacked on top of SDK retries, a schema that's valid but semantically backwards) are exactly what a Claude-authored diff tends to produce, and exactly what fast, sympathetic review misses. The human who merges the change stays accountable for it either way.
+<SubskillAnchor id="swe.code-review" />
 
-### Refactoring, small- and large-scale
+**What reviewers check.** Correctness against the requirement, including edge cases and error paths; tests that would fail if the change were wrong; security (input validation, authorization, secrets, injection, logging of PII); API and schema compatibility (is this a breaking change, does it need a MAJOR bump or an expand and contract migration); concurrency and resource use; observability; scope (does the PR do one thing). Small PRs get real review; 2,000-line PRs get rubber stamps.
 
-- **Small-scale**: rename, extract, simplify, tighten a type. Mechanical, reversible, usually safe to do in one pass.
-- **Large-scale**: module boundary changes, dependency inversion, framework migration, the strangler-fig pattern for replacing a legacy system incrementally behind a stable interface.
-- **The Claude-specific practice that makes automated refactoring trustworthy**: work in bounded increments with tests green between each step, and never refactor and add behavior in the same change. Tests are the safety net; without one, an agent (or a human) doing large-scale refactoring is gambling, not engineering.
+**AI-assisted review.** Claude Code's managed Code Review runs several agents over the diff with full-repo context, verifies candidate findings, and posts inline comments tagged Important, Nit or Pre-existing; findings never approve or block a PR, and its check run always completes neutral so it cannot gate merges through branch protection [Certain for current docs; Likely for exam, research preview]. `CLAUDE.md` violations surface as nits; a `REVIEW.md` tunes severity, skip rules and repo-specific checks [Certain]. Locally, `/code-review` reviews a diff in a fresh subagent context [Certain]. Anthropic's own best practices recommend a writer/reviewer split across sessions because a fresh context is not biased toward code it just wrote [Certain].
+
+**Limits.** A reviewer asked to find gaps will usually report some even when the work is sound, and chasing every finding produces over-engineering [Certain]. AI review cannot know unwritten business intent, misses issues outside the diff it was shown, and produces both false positives and false negatives. It is one layer, not the gate.
+
+**Human in the loop for generated code.** Apply the same bar to Claude-written code as to human code. The merging human owns it. Fluent code hides wrong assumptions well: a retry loop duplicated on top of the SDK, a schema that validates but inverts two fields, an `except Exception: pass`. Require evidence (test output, the command run) rather than an assertion that it works [Certain, best practices].
+
+**Exam angle:** "AI-generated PR, can review be lighter" (no), "automated reviewer approved it" (it cannot; humans approve), "must block merges on X" (a deterministic CI check or branch protection rule, not a review bot comment or a prompt).
+
+### Small- and large-scale refactoring
+
+<SubskillAnchor id="swe.refactoring" />
+
+Refactoring changes structure without changing observable behaviour. The definition is the safety rule: if behaviour changes in the same step, it is not a refactor and cannot be verified as one.
+
+**Tests first.** You need a test that pins current behaviour before moving code. For legacy code with no tests, write *characterization tests*: feed representative inputs, record what the code does today (bugs included), and assert that. They document reality, not intent, and turn "did I break it?" into a red/green answer.
+
+**Small-scale.** Rename, extract function, inline variable, introduce parameter object, replace conditional with polymorphism. Use the IDE or language server for mechanical renames (they are scope-aware; text search is not), keep each step green, commit each step separately.
+
+**Large-scale.**
+
+| Technique | Use when | How it stays safe |
+|---|---|---|
+| Strangler fig | replacing a legacy service or module | a facade routes one capability at a time to the new implementation; the old one shrinks until removed |
+| Branch by abstraction | swapping an internal dependency on trunk | introduce an interface, move callers to it, swap the implementation behind it, delete the old one |
+| Expand and contract (parallel change) | changing an API or DB schema with live clients | add the new field/endpoint, migrate readers and writers, then remove the old one in a later release |
+| Codemod | the same mechanical edit across hundreds of files | an AST-based transform is deterministic, re-runnable and reviewable as a script plus a sample diff |
+
+Split large refactors into PRs that are each behaviour-preserving and green, with refactor commits separate from feature commits, so `git bisect` and reverts stay surgical.
+
+**Using Claude Code safely.** Plan before editing when the change spans files or the approach is unclear: plan mode reads and proposes without writing [Certain]. Delegate investigation to subagents so exploring hundreds of files does not fill the main context [Certain]. Give Claude a check it can run (tests, build, type check) so it iterates to green instead of to "looks done" [Certain]. For a large migration, generate the file list, run on two or three files, refine the prompt, then fan out with `claude -p` in a loop using `--allowedTools` and `--permission-mode dontAsk`, or `/batch`, which splits work across subagents in separate worktrees [Certain for current docs]. Checkpoints only capture edits made through Claude's file tools, not Bash, and are not a replacement for git [Certain]: commit before each step. When a rule must hold every time (tests run after every edit, no writes to `migrations/`), use a hook, not a `CLAUDE.md` line.
+
+For repeated mechanical patterns, prefer having Claude write a codemod and running the codemod, over having Claude hand-edit 400 files: the script is deterministic and reviewable once.
+
+**Exam angle:** "no tests exist" (characterization tests first), "replace the legacy system without downtime" (strangler fig), "rename a field used by external clients" (expand and contract), "same edit across 600 files" (codemod or tested fan-out). Distractor: the big-bang rewrite.
 
 ## Decision table
 
-| When the stem says... | ...the answer is |
-|---|---|
-| A team wraps SDK calls in their own retry/backoff decorator "to be safe" | Remove it — the SDK already retries connection errors, 408/409/429/5xx twice by default with backoff honoring `retry-after`; a second layer multiplies load during the incident |
-| Traffic ramps instantly and 429s spike at job start | Bound concurrency with a queue/semaphore and ramp gradually — this can also be an acceleration-limit issue, not just steady-state rate limits |
-| A response returns `400`, `401`, `403`, `404`, or `413` | Do not retry — the request itself is wrong; fix the request, don't resend it |
-| A response returns `408`, `409`, `429`, or `5xx` | Safe to retry (the SDK already does) — back off, don't hammer |
-| "Output must be valid JSON every time, structurally guaranteed" | `output_config.format` / JSON Schema-constrained output, not prompt instructions asking for JSON |
-| Schema-valid JSON came back with values in the wrong fields | Expected — schema validation guarantees shape, not meaning; add domain-level validation after parsing |
-| A non-streaming call is expected to run long (large `max_tokens`, slow task) | Stream the response or use the Batch API — do not just raise the timeout on a long unary call |
-| An AI-authored PR "already passed the eval suite so review can be light" | No — review AI-generated code with the same rigor as human-written code regardless of what generated it |
-| A large-scale refactor is underway with Claude Code doing the mechanical changes | Bounded increments, tests green between each, never mixed with new behavior in the same change |
-| `CLAUDE.md` or `settings.json` changed in a PR | Treat it like any other config change — review it, diff it, gate it in CI, same as source |
+| If the stem says... | Choose | Why the runner-up loses |
+|---|---|---|
+| Team wraps `messages.create` in a custom retry decorator "to be safe" | Remove it; tune `max_retries` on the client if needed | A second layer multiplies attempts during the very incident it targets; the SDK already backs off and honours `retry-after` |
+| Duplicate tickets appear after network timeouts on a create endpoint | Idempotency key reused across retries | Raising the timeout narrows the window but cannot remove it; disabling retries trades duplicates for lost writes |
+| A call returns 400, 401, 403, 404 or 413 | Fix the request; do not retry | Retrying a request that is wrong returns the same error and burns rate limit |
+| 429s cluster in the first seconds of a large job | Semaphore or worker pool, ramp gradually | More retries or a different model leave the burst intact; acceleration limits punish sharp ramps |
+| User is waiting on the result | Async concurrency with streaming | Batch is cheaper but results can take up to 24 hours |
+| Output "must always" parse as JSON with required fields | `output_config.format` JSON schema | Prompt wording is a request, not a guarantee |
+| Schema-valid output has out-of-range numbers | Domain validation after parsing | Schema `minimum`/`maximum` is not enforced by structured outputs |
+| Order IDs are wrong by one in the browser only | Serialize IDs as strings | Python ints are exact; the JS double rounds above 2^53 - 1 |
+| Two admins overwrite each other's edits | `If-Match` with ETag, handle 412 | Last-write-wins loses data silently |
+| Prompt change degraded answers, error rate unchanged | Eval suite as a CI gate plus flagged canary | Unit tests and error dashboards do not measure quality |
+| Need to roll back a bad prompt in seconds | Feature flag | A revert plus redeploy takes minutes and redeploys everything else too |
+| Claude-written PR "passed evals so review can be light" | Full human review | Provenance does not change risk; the merger is accountable |
+| Legacy module, no tests, must be restructured | Characterization tests, then small green steps | Refactoring without a behaviour pin is guessing |
+| Replace an old service while it keeps serving | Strangler fig behind a facade | Big-bang cutover has no partial rollback |
+| API key found in git history | Rotate the key, then add secret scanning | A deleting commit leaves the key in every clone |
 
-## Code examples
+## Worked walkthrough
 
-Both examples model the same production pattern: bounded async concurrency over a batch of independent Claude calls, with error handling that trusts the SDK's built-in retry behavior instead of duplicating it.
+<Walkthrough title="Scenario: duplicate refunds from a support agent">
+
+<Step title="Read the scenario">
+A support assistant uses Claude with a client tool, `issue_refund`, that calls the company's payments REST service with `POST /v1/refunds`. The tool handler uses a plain HTTP client with three retries on timeouts. During a payments-service slowdown, finance finds customers refunded two or three times. The requirement from finance: a refund must never be applied twice. Which change fixes this?
+
+A. Add to the system prompt: "Never call issue_refund more than once per conversation."
+B. Generate an idempotency key once per refund decision, send it as `Idempotency-Key` on every attempt, and have the payments service replay the stored result for a repeated key.
+C. Raise the HTTP client timeout from 5 to 60 seconds.
+D. Remove the retries from the tool handler entirely.
+</Step>
+
+<Step title="Find the constraint">
+Two buried facts decide it. First, the duplicates appear during a slowdown, so they come from retries after timeouts, not from Claude calling the tool twice. A timeout on a POST is an unknown outcome: the first refund probably committed and the client never heard back. Second, "must never" rules out anything probabilistic.
+</Step>
+
+<Step title="Eliminate the distractors">
+A fails twice: the duplicate calls are made by the HTTP client's retries, not by the model, and a prompt is a request, not a guarantee. C shrinks the window but a slow enough response still times out and retries, so "never" is not met. D stops duplicates but converts every timeout into an unknown state with no recovery, so refunds that did not commit are silently lost and someone has to reconcile by hand.
+</Step>
+
+<Step title="Choose">
+B. POST is not idempotent, so the fix is to make the operation idempotent at the protocol level. The key is generated once per logical refund, not per attempt, and the server stores the first response under it. Retries become safe and can stay. This is the same shape as the Claude SDK's own retries being safe for `messages.create`, except that here the side effect is money, so the server must deduplicate.
+</Step>
+
+<Step title="The deciding cue">
+"During a slowdown" plus "must never be applied twice" on a POST. Timeouts mean unknown outcome; POST means unsafe retry; "must never" means a deterministic control. That combination points to an idempotency key, never to a prompt or a timeout value.
+</Step>
+
+</Walkthrough>
+
+<Sequence title="Retry with an idempotency key" actors={["Tool handler", "Payments API", "Key store"]}
+  messages={[["Tool handler", "Payments API", "POST /v1/refunds, Idempotency-Key: k1"],
+             ["Payments API", "Key store", "claim k1, commit refund, save response"],
+             ["Payments API", "Tool handler", "response lost (timeout)", "reply"],
+             ["Tool handler", "Payments API", "retry: same body, Idempotency-Key: k1"],
+             ["Payments API", "Key store", "k1 exists: load saved response"],
+             ["Payments API", "Tool handler", "201 replayed, no second refund", "reply"]]} />
+
+<Walkthrough title="Scenario: migrating 600 handlers to a new logging API">
+
+<Step title="Read the scenario">
+A platform team must move 600 request handlers from a deprecated logging call to a structured logger with different arguments. Test coverage on the handlers is thin. They plan to use Claude Code. Which approach is safest?
+
+A. One session: "Migrate every handler to the new logger," then open a single PR.
+B. Characterize the handlers that lack tests, have Claude write and test a codemod on a few files, run it across the repo in small reviewable PRs, keep CI green between them.
+C. Put "always use the new logger" in `CLAUDE.md` and let handlers migrate as people touch them.
+D. Have Claude migrate the files, then ask Claude to review its own diff in the same session before merging.
+</Step>
+
+<Step title="Find the constraint">
+Six hundred files, the same mechanical change, and thin tests. Thin tests mean no pin on current behaviour; "same change everywhere" means the edit can be expressed as a deterministic transform.
+</Step>
+
+<Step title="Eliminate the distractors">
+A is the big-bang PR: unreviewable, unbisectable, and one session over 600 files exhausts context. C never finishes and leaves two logging paths indefinitely; `CLAUDE.md` is advisory. D reviews in the context that wrote the code, which is biased toward its own output, and still leaves the merge without a human reviewer or tests.
+</Step>
+
+<Step title="Choose and name the cue">
+B. Characterization tests supply the behaviour pin, the codemod makes the edit deterministic and re-runnable, testing on a few files first catches pattern gaps cheaply, and small green PRs keep review real and rollback surgical. The cue is "600 files, same change, thin tests": that is codemod plus characterization tests plus incremental PRs.
+</Step>
+
+</Walkthrough>
+
+## Code
+
+**Bounded async concurrency that trusts the SDK's retries.** The semaphore (Python) and worker pool (TypeScript) cap in-flight requests; per-item errors are recorded rather than retried again, because by the time the SDK raises, its own retries are spent.
 
 ```python
 import asyncio
-from anthropic import AsyncAnthropic, APIStatusError, APIConnectionError, RateLimitError
+import anthropic
 
-# Concurrency is capped explicitly — the SDK's retry/backoff already handles
-# transient failures per-request; this semaphore prevents unbounded fan-out
-# from tripping rate limits or acceleration limits in the first place.
-SEM = asyncio.Semaphore(8)
+# Defaults are max_retries=2 and timeout=600 s; shorten the timeout for short calls.
+client = anthropic.AsyncAnthropic(timeout=60.0)
+IN_FLIGHT = asyncio.Semaphore(16)
+LABELS = {"billing", "outage", "account", "other"}
 
-client = AsyncAnthropic(
-    max_retries=5,   # default is 2; raise it for a bulk job you can afford to wait on
-    timeout=120.0,   # seconds; default is 10 minutes
-)
 
-async def summarize(doc_id: str, text: str) -> dict:
-    async with SEM:
+def text_of(resp) -> str:
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+
+async def classify(body: str) -> str:
+    async with IN_FLIGHT:  # at most 16 HTTP requests open, however many tasks exist
+        resp = await client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=16,
+            system="Reply with exactly one word: billing, outage, account, or other.",
+            messages=[{"role": "user", "content": body}],
+        )
+    label = text_of(resp).strip().lower()
+    return label if label in LABELS else "other"  # validate at the boundary
+
+
+async def classify_all(tickets: dict[str, str]) -> tuple[dict[str, str], dict[str, str]]:
+    results: dict[str, str] = {}
+    failures: dict[str, str] = {}
+
+    async def one(ticket_id: str, body: str) -> None:
         try:
-            msg = await client.messages.create(
-                model="claude-opus-5",
-                max_tokens=512,
-                messages=[{"role": "user", "content": f"Summarize:\n\n{text}"}],
-            )
-            return {"doc_id": doc_id, "ok": True, "text": msg.content[0].text}
-        except RateLimitError:
-            # 429 after the SDK's own retries were exhausted — surface it,
-            # don't spin a second retry loop on top.
-            return {"doc_id": doc_id, "ok": False, "reason": "rate_limited"}
-        except APIStatusError as e:
-            if e.status_code in (400, 401, 403, 404, 413):
-                raise  # request is wrong; retrying would never help
-            return {"doc_id": doc_id, "ok": False, "reason": f"status_{e.status_code}"}
-        except APIConnectionError as e:
-            return {"doc_id": doc_id, "ok": False, "reason": f"unreachable: {e.__cause__}"}
+            results[ticket_id] = await classify(body)
+        except anthropic.APIStatusError as e:  # raised only after SDK retries are spent
+            failures[ticket_id] = f"http {e.status_code}"
+        except anthropic.APITimeoutError:
+            failures[ticket_id] = "timeout"
+        except anthropic.APIConnectionError:
+            failures[ticket_id] = "connection"
 
-async def run(docs: dict[str, str]) -> list[dict]:
-    return await asyncio.gather(*(summarize(i, t) for i, t in docs.items()))
+    async with asyncio.timeout(900):  # whole-job deadline
+        async with asyncio.TaskGroup() as tg:  # tasks are referenced by the group
+            for ticket_id, body in tickets.items():
+                tg.create_task(one(ticket_id, body))
+    return results, failures
 ```
 
 ```typescript
 import Anthropic from "@anthropic-ai/sdk";
 
-// Same shape as the Python version: a bounded worker pool, not a per-call
-// retry wrapper. maxRetries/timeout are camelCase in TypeScript.
-const client = new Anthropic({
-  maxRetries: 5,     // default is 2
-  timeout: 120_000,  // ms; default is 10 minutes
-});
+// Defaults are maxRetries 2 and timeout 600_000 ms; TypeScript uses milliseconds.
+const client = new Anthropic({ timeout: 60_000 });
+const LABELS = new Set(["billing", "outage", "account", "other"]);
 
-const CONCURRENCY = 8;
-
-async function summarize(docId: string, text: string) {
-  try {
-    const msg = await client.messages.create({
-      model: "claude-opus-5",
-      max_tokens: 512,
-      messages: [{ role: "user", content: `Summarize:\n\n${text}` }],
-    });
-    const block = msg.content.find((b) => b.type === "text");
-    return { docId, ok: true, text: block?.type === "text" ? block.text : "" };
-  } catch (err) {
-    if (err instanceof Anthropic.APIError) {
-      if ([400, 401, 403, 404, 413].includes(err.status ?? 0)) {
-        throw err; // request is wrong; retrying would never help
-      }
-      return { docId, ok: false, reason: `status_${err.status}` };
-    }
-    throw err; // not an API error — connection-level failure
-  }
+function textOf(msg: Anthropic.Message): string {
+  return msg.content.map((b) => (b.type === "text" ? b.text : "")).join("");
 }
 
-async function run(docs: Map<string, string>) {
-  const entries = [...docs.entries()];
-  const results: Awaited<ReturnType<typeof summarize>>[] = [];
-  for (let i = 0; i < entries.length; i += CONCURRENCY) {
-    const chunk = entries.slice(i, i + CONCURRENCY);
-    results.push(...(await Promise.all(chunk.map(([id, t]) => summarize(id, t)))));
+async function classify(body: string): Promise<string> {
+  const msg = await client.messages.create({
+    model: "claude-haiku-4-5",
+    max_tokens: 16,
+    system: "Reply with exactly one word: billing, outage, account, or other.",
+    messages: [{ role: "user", content: body }],
+  });
+  const label = textOf(msg).trim().toLowerCase();
+  return LABELS.has(label) ? label : "other";
+}
+
+// tickets.map(classify) would start every request at once, because a promise
+// runs as soon as it is created. A fixed pool of workers shares one iterator.
+export async function classifyAll(tickets: Map<string, string>, limit = 16) {
+  const results = new Map<string, string>();
+  const failures = new Map<string, string>();
+  const queue = tickets.entries();
+
+  async function worker(): Promise<void> {
+    for (const [id, body] of queue) {
+      try {
+        results.set(id, await classify(body));
+      } catch (err) {
+        // APIConnectionError is a subclass of APIError with no status.
+        if (err instanceof Anthropic.APIError) failures.set(id, `http ${err.status ?? "none"}`);
+        else throw err;
+      }
+    }
   }
-  return results;
+
+  await Promise.all(Array.from({ length: limit }, () => worker()));
+  return { results, failures };
 }
 ```
 
-## Named traps, expanded
+<Output kind="illustrative">
 
-**"SDKs already retry twice with backoff honoring retry-after; a hand-rolled retry layer multiplies load during the incident."** This is attractive because retry logic feels like defensive engineering — "what if the SDK's defaults aren't enough?" is a reasonable-sounding instinct. It is wrong in this specific case because the SDK's retry behavior is not a fallback you're topping up, it is the mechanism, and a second retry loop stacked on top compounds request volume at exactly the moment — a `429` storm or a `5xx` blip — when the system is least able to absorb more load. Recognize this trap whenever a stem describes someone adding retry, backoff, or "just in case" resilience code around an SDK call without first asking whether the SDK already does it. The tell is a decorator, wrapper, or loop around `messages.create` that duplicates a concern the client constructor already exposes (`max_retries`, `timeout`).
+```text
+results:  {"T-1001": "billing", "T-1002": "outage", ... 4,986 more}
+failures: {"T-3310": "http 529", "T-4127": "timeout"}
+```
 
-**"Review AI-generated code with the same rigor as human-written."** This is attractive because it's tempting to treat a model-authored diff as lower-risk — it followed the existing patterns, it passed the linter, maybe it even passed an eval run, so a lighter review pass feels proportionate. It's wrong because provenance doesn't change risk; if anything, AI-generated code is more likely to contain a locally-plausible but structurally wrong pattern (duplicated retry logic, a schema that validates but is semantically inverted, a refactor that quietly changes behavior) precisely because it pattern-matches on "looks right" rather than reasoning about the specific system. Recognize this trap whenever a stem frames AI authorship as a reason to relax, skip, or abbreviate a normal engineering control — code review, test coverage, or a staged rollout. The correct answer always keeps the control in place.
+</Output>
+
+**Structured output still needs domain validation.** The schema guarantees shape; the code checks the stop reason, the range, the enum casing and the date, which the schema cannot enforce.
+
+```python
+import json
+from datetime import date
+import anthropic
+
+client = anthropic.Anthropic()
+
+INVOICE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "invoice_id": {"type": "string"},
+        "amount_cents": {"type": "integer"},
+        "currency": {"type": "string", "enum": ["USD", "EUR", "GBP"]},
+        "due_date": {"type": "string", "format": "date"},
+    },
+    "required": ["invoice_id", "amount_cents", "currency", "due_date"],
+    "additionalProperties": False,
+}
+
+
+def text_of(resp) -> str:
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+
+def extract_invoice(document: str) -> dict:
+    resp = client.messages.create(
+        model="claude-sonnet-5-5",
+        max_tokens=1024,
+        output_config={"format": {"type": "json_schema", "schema": INVOICE_SCHEMA}},
+        messages=[{"role": "user", "content": f"Extract the invoice fields.\n\n{document}"}],
+    )
+    if resp.stop_reason != "end_turn":  # refusal or max_tokens can break the schema
+        raise ValueError(f"unusable output, stop_reason={resp.stop_reason}")
+    data = json.loads(text_of(resp))
+    if not 0 < data["amount_cents"] < 10_000_000:  # minimum/maximum are not enforced
+        raise ValueError("amount out of range")
+    data["currency"] = data["currency"].upper()  # enum casing is not guaranteed
+    data["due_date"] = date.fromisoformat(data["due_date"])  # JSON has no date type
+    return data
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+const INVOICE_SCHEMA = {
+  type: "object",
+  properties: {
+    invoice_id: { type: "string" },
+    amount_cents: { type: "integer" },
+    currency: { type: "string", enum: ["USD", "EUR", "GBP"] },
+    due_date: { type: "string", format: "date" },
+  },
+  required: ["invoice_id", "amount_cents", "currency", "due_date"],
+  additionalProperties: false,
+};
+
+function textOf(msg: Anthropic.Message): string {
+  return msg.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+}
+
+export async function extractInvoice(document: string) {
+  const msg = await client.messages.create({
+    model: "claude-sonnet-5-5",
+    max_tokens: 1024,
+    output_config: { format: { type: "json_schema", schema: INVOICE_SCHEMA } },
+    messages: [{ role: "user", content: `Extract the invoice fields.\n\n${document}` }],
+  });
+  if (msg.stop_reason !== "end_turn") {
+    throw new Error(`unusable output, stop_reason=${msg.stop_reason}`);
+  }
+  const data = JSON.parse(textOf(msg));
+  if (!Number.isSafeInteger(data.amount_cents) || data.amount_cents <= 0) {
+    throw new Error("amount out of range");
+  }
+  data.currency = String(data.currency).toUpperCase();
+  if (Number.isNaN(Date.parse(data.due_date))) throw new Error("bad due_date");
+  return data;
+}
+```
+
+**The big-integer pitfall, side by side.** The same JSON text parses exactly in Python and wrongly in JavaScript. The durable fix is a contract change: identifiers travel as strings.
+
+```python
+import json
+from decimal import Decimal
+
+raw = '{"order_id": 9007199254740993, "total": 0.1}'
+print(json.loads(raw)["order_id"])                     # exact: Python ints are unbounded
+print(json.loads(raw, parse_float=Decimal)["total"])   # Decimal('0.1'), not a binary float
+print(json.dumps({"order_id": str(9007199254740993)})) # contract fix: send IDs as strings
+```
+
+```typescript
+const raw = '{"order_id": 9007199254740993, "total": 0.1}';
+console.log(JSON.parse(raw).order_id); // 9007199254740992: silently rounded
+
+// Reviver with source text access (newer runtimes) recovers the exact digits.
+const exact = JSON.parse(raw, (key: string, value: unknown, context?: { source: string }) =>
+  key === "order_id" && context ? BigInt(context.source) : value,
+);
+console.log(exact.order_id); // 9007199254740993n
+```
+
+<Output kind="illustrative">
+
+```text
+Python:     9007199254740993 | Decimal('0.1') | {"order_id": "9007199254740993"}
+TypeScript: 9007199254740992 | 9007199254740993n
+```
+
+</Output>
+
+**A safe retry for your own non-idempotent endpoint.** This is for a service you call from a tool handler, not for the Claude API (the SDK already retries those calls). One key per logical operation, retry only retryable statuses, honour `Retry-After`.
+
+```python
+import json
+import random
+import time
+import urllib.error
+import urllib.request
+import uuid
+
+RETRYABLE = {408, 429, 500, 502, 503, 504}
+
+
+def retry_after_seconds(value: str | None, fallback: float) -> float:
+    try:
+        return float(value) if value is not None else fallback
+    except ValueError:  # Retry-After may also be an HTTP date; fall back
+        return fallback
+
+
+def create_refund(base_url: str, payload: dict, attempts: int = 3) -> dict:
+    key = str(uuid.uuid4())  # one key per refund decision, reused on every attempt
+    body = json.dumps(payload).encode("utf-8")
+    for attempt in range(attempts):
+        req = urllib.request.Request(
+            f"{base_url}/v1/refunds",
+            data=body,
+            method="POST",
+            headers={"Content-Type": "application/json", "Idempotency-Key": key},
+        )
+        backoff = (2 ** attempt) + random.random()  # exponential with jitter
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as e:  # subclass of URLError: catch first
+            if e.code not in RETRYABLE or attempt == attempts - 1:
+                raise
+            time.sleep(retry_after_seconds(e.headers.get("Retry-After"), backoff))
+        except (urllib.error.URLError, TimeoutError):
+            if attempt == attempts - 1:
+                raise
+            time.sleep(backoff)
+    raise RuntimeError("unreachable")
+```
+
+```typescript
+const RETRYABLE = new Set([408, 429, 500, 502, 503, 504]);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function retryAfterMs(value: string | null, fallbackMs: number): number {
+  const seconds = value === null ? NaN : Number(value);
+  return Number.isFinite(seconds) ? seconds * 1000 : fallbackMs; // HTTP-date form falls back
+}
+
+export async function createRefund(baseUrl: string, payload: unknown, attempts = 3) {
+  const key = crypto.randomUUID(); // one key per refund decision
+  const body = JSON.stringify(payload);
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const backoff = 2 ** attempt * 1000 + Math.random() * 1000;
+    let res: Response;
+    try {
+      res = await fetch(`${baseUrl}/v1/refunds`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": key },
+        body,
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (err) {
+      if (attempt === attempts - 1) throw err; // network error or timeout
+      await sleep(backoff);
+      continue;
+    }
+    if (res.ok) return res.json();
+    if (!RETRYABLE.has(res.status) || attempt === attempts - 1) {
+      throw new Error(`refund failed: HTTP ${res.status}`);
+    }
+    await sleep(retryAfterMs(res.headers.get("retry-after"), backoff));
+  }
+  throw new Error("unreachable");
+}
+```
+
+**Claude Code as a CI step.** Headless mode with only the tools the job needs, structured output, and a deterministic pass or fail for the pipeline. Flags as documented today [Likely to drift].
+
+```bash
+git diff origin/main...HEAD -- prompts/ tools/ \
+  | claude --bare -p "List any change that alters a tool schema field name or type. Return an empty list if none." \
+      --model claude-sonnet-5-5 \
+      --allowedTools "Read" \
+      --permission-mode dontAsk \
+      --output-format json \
+      --json-schema '{"type":"object","properties":{"breaking":{"type":"array","items":{"type":"string"}}},"required":["breaking"]}' \
+  > review.json
+jq -e '.structured_output.breaking | length == 0' review.json   # non-zero exit fails the job
+```
 
 ## Recall checks
 
-- Which HTTP status codes does the official SDK retry automatically, and which does it never retry?
-- What's the practical difference between asking Claude to "output JSON" in the prompt versus setting `output_config.format` to a JSON Schema — and what does neither of them guarantee?
-- A batch job fires 400 concurrent requests the instant it starts and gets flooded with 429s. Name two separate causes this could have, and the fix for each.
-- Why is "add a retry decorator around the SDK client" almost always the wrong answer on this exam?
-- What changes about how you review a pull request once you know the diff was written by Claude Code rather than a human?
+<Recall q="Which HTTP methods are idempotent, and why does that matter after a timeout?">
+GET, HEAD, OPTIONS, PUT and DELETE are idempotent; POST and PATCH are not guaranteed to be. A timeout leaves the outcome unknown, so an idempotent request can simply be retried, while a POST needs an idempotency key (or a client-chosen ID with PUT) or the retry may repeat the side effect.
+</Recall>
+
+<Recall q="What do the Anthropic SDKs retry by default, and what is the worst-case latency of one call?">
+Connection errors, 408, 409, 429 and 5xx, twice, with exponential backoff that honours `retry-after`. Timeouts are retried as well, so one call can take roughly `timeout x (max_retries + 1)` plus backoff; that is why adding your own retry layer on top multiplies load.
+</Recall>
+
+<Recall q="Why is cursor pagination preferred over offset pagination for a live dataset?">
+Offsets are positions, so inserts and deletes during paging shift rows and cause skips or duplicates, and deep offsets get slower. A cursor names the last item seen, so each page continues from a stable point at constant cost.
+</Recall>
+
+<Recall q="A Python service returns order IDs that are wrong by one in a TypeScript dashboard. What happened and what is the fix?">
+JavaScript parses JSON numbers as doubles, which are exact only up to 2^53 - 1, so larger IDs round. Python ints are exact, which is why only the browser is wrong. Send identifiers as strings in the contract.
+</Recall>
+
+<Recall q="Structured outputs guarantee schema-valid JSON. Name three things you still validate.">
+Numeric ranges and string lengths (not enforced), enum casing (not guaranteed), and the stop reason, because a refusal or `max_tokens` stop can yield output that does not match. Beyond that, domain facts such as existing foreign keys are never the schema's job.
+</Recall>
+
+<Recall q="Why does `await Promise.all(items.map(callClaude))` trigger 429s, and what fixes it?">
+Promises start when created, so the `map` launches every request at once and bursts past per-second and acceleration limits. A fixed worker pool (or a semaphore in Python) caps in-flight requests and lets the job ramp.
+</Recall>
+
+<Recall q="When is the Message Batches API the wrong choice even though it is half price?">
+When someone is waiting on the result or the next step depends on it: batches usually finish within an hour but can take up to 24 hours, and each request is independent, so tool loops and chained calls do not fit.
+</Recall>
+
+<Recall q="An API key was committed and the commit reverted. Is the incident closed?">
+No. The key remains in history and in every clone, so it must be rotated. Then add secret scanning in CI so the next one is blocked before merge.
+</Recall>
+
+<Recall q="Why is an eval suite, not the unit test suite, the gate for a prompt change?">
+A prompt change alters behaviour without throwing errors, so unit tests and error dashboards stay green. An eval suite scores outputs on a fixed task-specific dataset and gates on an aggregate pass rate against the baseline.
+</Recall>
+
+<Recall q="An automated AI reviewer found nothing on a Claude-written PR. Can it merge on that basis?">
+No. AI review is one layer with false negatives and no knowledge of unwritten intent; Claude Code Code Review never approves or blocks by design. A human reviews to the same standard as for human-written code and owns the merge.
+</Recall>
+
+<Recall q="What makes a large refactor safe, and what role should Claude Code play?">
+A behaviour pin (existing or characterization tests) and small, behaviour-preserving, green steps such as strangler fig or expand and contract. Claude Code helps by planning first, exploring with subagents, writing codemods, and fanning out only after a few files succeed, with git commits as the real rollback.
+</Recall>

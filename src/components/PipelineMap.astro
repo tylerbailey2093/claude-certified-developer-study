@@ -1,0 +1,151 @@
+---
+// Study path drawn like a pipeline DAG. Pure build-time SVG; shell.ts colours
+// node borders by measured mastery (data-m) after hydration.
+import { STAGES, NODES, EDGES } from '../data/study-dag';
+import { OBJECTIVE_BY_ID } from '../lib/blueprint';
+
+const base = import.meta.env.BASE_URL;
+const COL = 186;
+const ROW = 58;
+const NW = 158;
+const NH = 40;
+const PAD_X = 16;
+const PAD_Y = 40;
+
+const pos = new Map<string, { x: number; y: number }>();
+STAGES.forEach((s, ci) => {
+  const col = NODES.filter((n) => n.stage === s.id);
+  col.forEach((n, ri) => pos.set(n.id, { x: PAD_X + ci * COL, y: PAD_Y + ri * ROW }));
+});
+const maxRows = Math.max(...STAGES.map((s) => NODES.filter((n) => n.stage === s.id).length));
+const W = PAD_X * 2 + (STAGES.length - 1) * COL + NW;
+const H = PAD_Y + maxRows * ROW + 6;
+
+const path = (a: string, b: string) => {
+  const p = pos.get(a)!;
+  const q = pos.get(b)!;
+  const x1 = p.x + NW;
+  const y1 = p.y + NH / 2;
+  const x2 = q.x;
+  const y2 = q.y + NH / 2;
+  if (x2 <= x1) {
+    // same column: route down the right edge
+    return `M${p.x + NW / 2},${p.y + NH} L${q.x + NW / 2},${q.y}`;
+  }
+  const mx = (x1 + x2) / 2;
+  return `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
+};
+---
+<figure class="dag">
+  <div class="dag-scroll">
+    <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-labelledby="dag-title">
+      <title id="dag-title">Suggested study path as a pipeline graph. Node outlines show measured mastery once you have answered questions.</title>
+      {STAGES.map((s, ci) => (
+        <text class="dag-stage" x={PAD_X + ci * COL} y={18}>{s.label}</text>
+      ))}
+      {EDGES.map(([a, b]) => <path class="dag-edge" d={path(a, b)} />)}
+      {NODES.map((n) => {
+        const p = pos.get(n.id)!;
+        const o = OBJECTIVE_BY_ID.get(n.id)!;
+        return (
+          <a href={`${base}objective/${n.id}/`} class="dag-node" data-dag-obj={n.id} data-d={o.domain}>
+            <title>{`${o.name} · ${o.weight}% of the exam`}</title>
+            <rect x={p.x} y={p.y} width={NW} height={NH} rx="6" />
+            <rect class="dag-dom" x={p.x} y={p.y} width="4" height={NH} rx="2" />
+            <text class="dag-label" x={p.x + 12} y={p.y + 17}>{n.short}</text>
+            <text class="dag-w" x={p.x + 12} y={p.y + 31}>{o.weight}% · D{o.domain}</text>
+          </a>
+        );
+      })}
+    </svg>
+  </div>
+  <figcaption class="faint">
+    Read left to right. Outline colour: <span class="lg lg-1">under 60%</span> <span class="lg lg-2">60–80%</span>
+    <span class="lg lg-3">80%+</span> recent accuracy (needs 3+ answers).
+  </figcaption>
+</figure>
+
+<style>
+  .dag {
+    margin: 0 0 28px;
+  }
+  .dag-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--r-3);
+    background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+    padding: 8px 4px;
+  }
+  svg {
+    display: block;
+    max-width: none;
+  }
+  .dag-stage {
+    font: 500 10.5px var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    fill: var(--text-3);
+  }
+  .dag-edge {
+    fill: none;
+    stroke: var(--border-strong);
+    stroke-width: 1.4;
+  }
+  .dag-node rect {
+    fill: var(--surface-2);
+    stroke: var(--border-strong);
+    stroke-width: 1.2;
+    transition: stroke 0.2s;
+  }
+  .dag-node .dag-dom {
+    fill: var(--dc);
+    stroke: none;
+  }
+  .dag-node:hover rect:first-of-type,
+  .dag-node:focus rect:first-of-type {
+    stroke: var(--accent);
+  }
+  .dag-node[data-m='1'] rect:first-of-type {
+    stroke: var(--bad);
+    stroke-width: 2;
+  }
+  .dag-node[data-m='2'] rect:first-of-type {
+    stroke: var(--warn);
+    stroke-width: 2;
+  }
+  .dag-node[data-m='3'] rect:first-of-type {
+    stroke: var(--ok);
+    stroke-width: 2;
+  }
+  .dag-label {
+    font: 600 12.5px var(--font-sans);
+    fill: var(--text-1);
+  }
+  .dag-w {
+    font: 500 10.5px var(--font-mono);
+    fill: var(--text-3);
+  }
+  figcaption {
+    font-size: 12.5px;
+    margin-top: 8px;
+  }
+  .lg::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin: 0 4px 0 8px;
+    vertical-align: -1px;
+    border: 2px solid;
+  }
+  .lg-1::before {
+    border-color: var(--bad);
+  }
+  .lg-2::before {
+    border-color: var(--warn);
+  }
+  .lg-3::before {
+    border-color: var(--ok);
+  }
+</style>

@@ -1,0 +1,70 @@
+{
+  "cells": {
+    "c01": {
+      "output": "sdk 0.xx.x",
+      "kind": "illustrative",
+      "notice": [
+        "MODEL and CHEAP come from src/data/facts.json. Model IDs drift, so lab 00 prints the live list for you to check against.",
+        "text_of joins every text block. Every lab uses it instead of content[0].text, because on current models the first block is often a thinking block."
+      ]
+    },
+    "c03": {
+      "output": "{\n  \"id\": \"msg_01XkR7...\",\n  \"content\": [\n    {\n      \"signature\": \"EpICCkgIDhAC...\",\n      \"thinking\": \"\",\n      \"type\": \"thinking\"\n    },\n    {\n      \"citations\": null,\n      \"text\": \"Red, yellow, blue.\",\n      \"type\": \"text\"\n    }\n  ],\n  \"model\": \"claude-sonnet-5-5\",\n  \"role\": \"assistant\",\n  \"stop_reason\": \"end_turn\",\n  \"stop_sequence\": null,\n  \"stop_details\": null,\n  \"type\": \"message\",\n  \"usage\": {\n    \"cache_creation\": {\n      \"ephemeral_1h_input_tokens\": 0,\n      \"ephemeral_5m_input_tokens\": 0\n    },\n    \"cache_creation_input_tokens\": 0,\n    \"cache_read_input_tokens\": 0,\n    \"input_tokens\": 19,\n    \"output_tokens\": 61,\n    \"server_tool_use\": null,\n    \"service_tier\": \"standard\"\n  }\n}",
+      "kind": "illustrative",
+      "notice": [
+        "content is a list with two blocks, and the text is the second one. The thinking field is empty because the display default on current models is omitted; the thinking still happened and was billed.",
+        "stop_reason sits at the top level of a normal 200 response, next to usage. It describes why generation stopped, not whether the call failed.",
+        "Exact fields vary by SDK version (stop_details, cache_creation and others were added over time). Read your own dump once."
+      ]
+    },
+    "c05": {
+      "output": "[0] type=thinking\n[1] type=text\n     Red, yellow, blue.\ntext_of -> 'Red, yellow, blue.'",
+      "kind": "illustrative",
+      "notice": [
+        "Position zero is a thinking block. Code that assumes content[0] is text fails here, on an ordinary request with no tools.",
+        "Filtering by block type is the general pattern; it also handles tool_use blocks and multiple text blocks (for example, with citations)."
+      ]
+    },
+    "c07": {
+      "output": "stop_reason: max_tokens\nblock types: ['thinking', 'text']\nvisible text: 583 chars, ending 'h a segment that has both the SYN and ACK flags set, and its'\n\nTRUNCATED, NOT MALFORMED. The rest was never generated.\nSending this back to the model for 'repair' asks it to invent the missing part.",
+      "kind": "illustrative",
+      "notice": [
+        "The call succeeded with HTTP 200 and still delivered an unusable answer. Only stop_reason tells you; no exception is raised.",
+        "max_tokens caps thinking and text together. On some runs thinking consumes the whole budget and block types shows only thinking, with zero visible text.",
+        "The correct response to max_tokens is a code decision (raise the limit, stream, or split the task), not a follow-up prompt asking the model to fix the fragment."
+      ]
+    },
+    "c09": {
+      "output": "claude-haiku-4-5 -> status 400\n    Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': \"role 'system' is not supported on this model\"}, ...\nclaude-sonnet-5-5 -> status 400\n    Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'messages.0: a system message cannot be the first message', ...",
+      "kind": "illustrative",
+      "notice": [
+        "Both calls fail with 400 invalid_request_error, which is a request-shape problem: retrying will never fix it.",
+        "The two messages differ. Haiku 4.5 rejects the role outright; Sonnet 5.5 supports mid-conversation system messages but not as messages[0]. The exact wording shown is illustrative.",
+        "The stable rule for exam purposes: the system prompt goes in the top-level system parameter."
+      ]
+    },
+    "c11": {
+      "output": "input_tokens                   19\noutput_tokens                  61\ncache_creation_input_tokens    0\ncache_read_input_tokens        0\ncache_creation                 CacheCreation(ephemeral_1h_input_tokens=0, ephemeral_5m_input_tokens=0)\nservice_tier                   standard",
+      "kind": "illustrative",
+      "notice": [
+        "input_tokens counts only uncached input. Total input is input_tokens plus cache_creation_input_tokens plus cache_read_input_tokens, and each is priced differently.",
+        "output_tokens includes thinking. A cost model that estimates output from visible text length will under-count on thinking models.",
+        "The cache fields are zero here because nothing was marked for caching. Lab 02 makes them move."
+      ]
+    }
+  },
+  "checkpoint": [
+    {
+      "q": "Name the stop_reason values and say why none of them is an error.",
+      "a": "end_turn, max_tokens, stop_sequence, tool_use, pause_turn and refusal, plus model_context_window_exceeded on current API versions. All arrive on an HTTP 200 with valid content and explain why generation stopped; errors are non-2xx responses or error events in a stream. Each value still needs its own branch: run tools on tool_use, resend on pause_turn, handle refusal, and treat max_tokens as truncation."
+    },
+    {
+      "q": "Why is content[0].text a latent bug?",
+      "a": "content is a list of typed blocks, and the first one is not guaranteed to be text. On thinking models such as Sonnet 5.5 the first block is often a thinking block, which has no text attribute, and with tools it can be tool_use. Filter blocks by type and join the text ones."
+    },
+    {
+      "q": "What do you do when stop_reason is max_tokens and the JSON is broken?",
+      "a": "Treat it as truncation, not as malformed output: the rest of the JSON was never generated. Raise max_tokens (stream if the output is long) or reduce what you ask for, and retry; do not ask the model to repair the fragment, because that invites it to invent the missing part. Check stop_reason before parsing, and use structured outputs when you need the shape guaranteed once the response is complete."
+    }
+  ]
+}

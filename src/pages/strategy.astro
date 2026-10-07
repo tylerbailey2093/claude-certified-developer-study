@@ -1,0 +1,17 @@
+---
+import Base from '../layouts/Base.astro';
+import Strategy from '../partials/strategy.mdx';
+import Checklist from '../islands/Checklist.tsx';
+---
+<Base title="Strategy & logistics" crumbs={[{ label: 'Strategy & logistics' }]} grid="dim">
+  <header class="page-head">
+    <p class="eyebrow">Policy · pacing · item style · plan</p>
+    <h1>Strategy and logistics</h1>
+    <p class="lede">The parts of preparation that are not content but still decide the result, plus a readiness checklist saved to this browser.</p>
+  </header>
+  <article class="prose">
+    <Strategy />
+    <h2 id="readiness">Readiness checklist</h2>
+  </article>
+  <Checklist client:load />
+</Base>

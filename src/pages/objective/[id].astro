@@ -1,21 +1,16 @@
 ---
 import Base from '../../layouts/Base.astro';
 import { getCollection, render } from 'astro:content';
-import legacyHtml from '../../data/legacy-objectives.json';
 import ConfidenceRating from '../../islands/ConfidenceRating.tsx';
-import allQuestions from '../../data/questions/all.json';
-import blueprint from '../../../blueprint.json';
+import PracticeHub from '../../islands/PracticeHub.tsx';
+import { questionsFor } from '../../lib/bank/bank';
+import { DOMAINS, OBJECTIVE_BY_ID } from '../../lib/blueprint';
+import { mdxComponents } from '../../components/mdx';
 
 export async function getStaticPaths() {
   const objectives = await getCollection('objectives');
-
-  // Reading order across the whole manual: domain 1→8, and within a domain the
-  // heaviest objective first. This is what drives the prev/next pager, so the
-  // site reads as one sequence rather than 25 disconnected pages.
-  const ordered = [...objectives].sort((a, b) =>
-    a.data.domain - b.data.domain || b.data.weight - a.data.weight
-  );
-
+  // Reading order: domain 1 to 8, heaviest objective first within a domain.
+  const ordered = [...objectives].sort((a, b) => a.data.domain - b.data.domain || b.data.weight - a.data.weight);
   return ordered.map((entry, i) => ({
     params: { id: entry.data.id },
     props: { entry, prev: ordered[i - 1] ?? null, next: ordered[i + 1] ?? null },
@@ -25,95 +20,157 @@ export async function getStaticPaths() {
 const { entry, prev, next } = Astro.props;
 const { data } = entry;
 const base = import.meta.env.BASE_URL;
-const { Content } = await render(entry);
-
-const fallback = (legacyHtml as Record<string, string>)[data.id];
-const itemCount = (allQuestions as { s: string }[]).filter((q) => q.s === data.name).length;
-const domainName = blueprint.domains.find((d) => d.n === data.domain)?.name ?? '';
+const { Content, headings } = await render(entry);
+const items = questionsFor(data.id);
+const domain = DOMAINS.find((d) => d.n === data.domain)!;
+const bp = OBJECTIVE_BY_ID.get(data.id);
+const toc = headings.filter((h) => h.depth === 2);
+const rank = [...DOMAINS.flatMap((d) => d.objectives)].sort((a, b) => b.weight - a.weight).findIndex((o) => o.id === data.id) + 1;
+const multi = items.filter((q) => q.type === 'multi').length;
+type Trap = string | { name: string; looksRight: string; failsBecause: string; cue: string };
+const traps = (data.traps as Trap[]).map((t) =>
+  typeof t === 'string' ? { name: t, looksRight: '', failsBecause: '', cue: '' } : t
+);
+const subskills = bp?.subskills ?? [];
 
 function hostOf(url: string) {
-  try { return new URL(url).host.replace(/^www\./, ''); } catch { return ''; }
+  try {
+    return new URL(url).host.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
 }
+const tabs = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'learn', label: 'Learn', count: toc.length || undefined },
+  { key: 'practice', label: 'Practice', count: items.length },
+  { key: 'traps', label: 'Traps', count: traps.length },
+  { key: 'sources', label: 'Sources', count: data.sources.length },
+  { key: 'progress', label: 'Progress' },
+];
 ---
 <Base
   title={data.name}
   activeDomain={data.domain}
   activeObjective={data.id}
-  crumbs={[
-    { label: 'Field Manual', href: base },
-    { label: `D${data.domain} · ${domainName}`, href: `${base}domain/${data.domain}/` },
-    { label: data.name },
-  ]}
+  crumbs={[{ label: `D${data.domain} · ${domain.name}`, href: `${base}domain/${data.domain}/` }, { label: data.name }]}
+  grid="dim"
 >
-  <header class="phead">
-    <p class="eyebrow">Domain {data.domain} · Objective</p>
+  <header class="page-head" data-d={data.domain}>
+    <p class="eyebrow">Domain {data.domain} · {domain.name}</p>
     <h1>{data.name}</h1>
-    {data.hot && <span class="flag">Heaviest single objective on the exam</span>}
+    <div class="btn-row" style="gap:8px">
+      <span class="tag tag-dom">{data.weight}% of the exam</span>
+      <span class="tag">#{rank} of 25 by weight</span>
+      <span class="tag">≈{(data.weight * 0.53).toFixed(1)} items per exam</span>
+      <span class="tag">{items.length} practice items{multi ? ` · ${multi} multi-response` : ''}</span>
+      {data.hot && <span class="tag tag-accent">Heaviest objective on the exam</span>}
+    </div>
   </header>
 
-  <div class="obj-meta">
-    <span>Weight <b>{data.weight}%</b></span>
-    <span>Tier <b>{data.tier}</b></span>
-    <span>Practice items <b>{itemCount}</b></span>
-    {!data.authored && <span class="warn-flag">Legacy content — not yet expanded</span>}
+  <div class="tabs" role="tablist" aria-label="Objective sections" data-tabs data-pagefind-ignore>
+    {tabs.map((t, i) => (
+      <a class="tab" role="tab" href={`#${t.key}`} id={`tab-${t.key}`} data-key={t.key} aria-controls={`panel-${t.key}`} aria-selected={i === 0 ? 'true' : 'false'}>
+        {t.label}{t.count !== undefined && <span class="count">{t.count}</span>}
+      </a>
+    ))}
   </div>
 
-  <h3 style="margin-top:0">What this objective tests</h3>
-  <ol class="scope-list">
-    {data.scope.map((s: string) => <li><span>{s}</span></li>)}
-  </ol>
+  <section id="panel-overview" role="tabpanel" aria-labelledby="tab-overview">
+    <h2 class="tabpanel-title">Overview</h2>
+    <div class="split">
+      <div class="panel">
+        <div class="panel-head"><h3>What the guide says</h3><span class="faint">Exam Guide v1.0 §6</span></div>
+        {bp?.guide && <blockquote class="guide-quote">{bp.guide}</blockquote>}
+        <p class="eyebrow" style="margin-top:14px">Sub-skills items are written against</p>
+        <ul style="margin:0;padding-left:18px">
+          {subskills.length
+            ? subskills.map((s) => <li style="margin:5px 0"><a href={`#ss-${s.id.replace(/\./g, '-')}`}>{s.label}</a></li>)
+            : (bp?.scope ?? data.scope).map((s: string) => <li style="margin:5px 0">{s}</li>)}
+        </ul>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>In this objective</h3></div>
+        {toc.length > 0 ? (
+          <ol style="margin:0;padding-left:18px">
+            {toc.map((h) => <li style="margin:5px 0"><a href={`#${h.slug}`}>{h.text}</a></li>)}
+          </ol>
+        ) : <p class="muted">See the Learn tab.</p>}
+        <div class="btn-row" style="margin-top:14px">
+          <a class="btn btn-sm btn-run" href="#practice">▶ Practice {items.length} items</a>
+          <a class="btn btn-sm" href="#traps">Named traps</a>
+        </div>
+      </div>
+    </div>
+    {traps.length > 0 && (
+      <div class="callout callout-trap" style="margin-top:16px">
+        <p class="callout-title">The trap most likely to cost you</p>
+        <p><strong>{traps[0].name}</strong>{traps[0].failsBecause && <> {traps[0].failsBecause}</>}</p>
+      </div>
+    )}
+  </section>
 
-  <article class="prose">
-    {data.authored ? <Content /> : <div class="legacy-body" set:html={fallback} />}
-  </article>
+  <section id="panel-learn" role="tabpanel" aria-labelledby="tab-learn" hidden>
+    <h2 class="tabpanel-title">Learn</h2>
+    <article class="prose">
+      <Content components={mdxComponents} />
+    </article>
+  </section>
 
-  {data.traps.length > 0 && (
-    <section class="prose" style="margin-top:56px">
-      <h2>Named traps</h2>
-      <ol class="scope-list">
-        {data.traps.map((t: string) => <li><span>{t}</span></li>)}
-      </ol>
-    </section>
-  )}
+  <section id="panel-practice" role="tabpanel" aria-labelledby="tab-practice" hidden>
+    <h2 class="tabpanel-title">Practice</h2>
+    <p class="muted">Questions for this objective only, with full rationales. Answers count toward spaced repetition and mastery.</p>
+    <PracticeHub client:visible base={base} preset={{ objective: data.id }} />
+  </section>
 
-  <ConfidenceRating client:load objective={data.name} />
+  <section id="panel-traps" role="tabpanel" aria-labelledby="tab-traps" hidden>
+    <h2 class="tabpanel-title">Traps</h2>
+    <p class="muted">Each trap is a real mechanism used in the wrong place, which is how most distractors are built.</p>
+    <div class="stack">
+      {traps.map((t, i) => (
+        <div class="panel trap-card">
+          <p class="eyebrow">Trap {i + 1}</p>
+          <h3 style="margin-top:0">{t.name}</h3>
+          {t.looksRight && <p><span class="tag tag-warn">looks right because</span> {t.looksRight}</p>}
+          {t.failsBecause && <p><span class="tag tag-bad">fails because</span> {t.failsBecause}</p>}
+          {t.cue && <p style="margin-bottom:0"><span class="tag tag-ok">the cue</span> {t.cue}</p>}
+        </div>
+      ))}
+    </div>
+  </section>
 
-  {data.sources.length > 0 && (
-    <section>
-      <p class="index-head">Sources</p>
-      <ul class="src-list">
-        {data.sources.map((s: { label: string; url: string }) => (
-          <li>
-            <a href={s.url} target="_blank" rel="noopener">{s.label}</a>
-            <span class="src-host">{hostOf(s.url)}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  )}
+  <section id="panel-sources" role="tabpanel" aria-labelledby="tab-sources" hidden>
+    <h2 class="tabpanel-title">Sources</h2>
+    {data.sources.length ? (
+      <div class="table-wrap">
+        <table class="grid-table">
+          <thead><tr><th>Source</th><th>Host</th></tr></thead>
+          <tbody>
+            {data.sources.map((s: { label: string; url: string }) => (
+              <tr><td><a href={s.url} target="_blank" rel="noopener">{s.label}</a></td><td class="mono faint">{hostOf(s.url)}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : <p class="muted">No sources listed yet.</p>}
+    <p class="faint">Doc paths move. If a link 404s, search from platform.claude.com/docs or code.claude.com/docs.</p>
+  </section>
 
-  <nav class="pager">
+  <section id="panel-progress" role="tabpanel" aria-labelledby="tab-progress" hidden>
+    <h2 class="tabpanel-title">Progress</h2>
+    <ConfidenceRating client:visible objective={data.id} />
+  </section>
+
+  <nav class="pager" aria-label="Objectives">
     {prev ? (
-      <a href={`${base}objective/${prev.data.id}/`}>
-        <span class="pg-label">← Previous</span>
-        <span class="pg-title">{prev.data.name}</span>
-      </a>
+      <a href={`${base}objective/${prev.data.id}/`}><span class="pg-l">← Previous</span><span class="pg-t">{prev.data.name}</span></a>
     ) : (
-      <a href={base}>
-        <span class="pg-label">← Back</span>
-        <span class="pg-title pg-empty">Contents</span>
-      </a>
+      <a href={base}><span class="pg-l">← Back</span><span class="pg-t">Home</span></a>
     )}
     {next ? (
-      <a href={`${base}objective/${next.data.id}/`}>
-        <span class="pg-label">Next →</span>
-        <span class="pg-title">{next.data.name}</span>
-      </a>
+      <a href={`${base}objective/${next.data.id}/`}><span class="pg-l">Next →</span><span class="pg-t">{next.data.name}</span></a>
     ) : (
-      <a href={`${base}mock/`}>
-        <span class="pg-label">Next →</span>
-        <span class="pg-title">Sit the mock exam</span>
-      </a>
+      <a href={`${base}exam/`}><span class="pg-l">Next →</span><span class="pg-t">Sit a mock exam</span></a>
     )}
   </nav>
 </Base>

@@ -1,0 +1,2150 @@
+[
+  {
+    "id": "legacy-024",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.interfaces"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A platform team wants Claude Code to follow their dbt model naming convention whenever anyone works in the analytics repository. The convention is guidance for writing code, it should reach every engineer who clones the repository, and nobody should have to retype it at the start of a session. Where should it live?",
+    "options": [
+      {
+        "id": "a",
+        "text": "In each engineer's ~/.claude/CLAUDE.md, copied from the team's wiki page on naming",
+        "why": "User-scope memory reaches only the person who owns that file, so new hires miss it and the copies drift from the wiki over time."
+      },
+      {
+        "id": "b",
+        "text": "In the project's ./CLAUDE.md, committed to the repository alongside the dbt models",
+        "why": "Correct. A committed project CLAUDE.md loads at launch for every collaborator in this repository and changes through code review like the code it governs."
+      },
+      {
+        "id": "c",
+        "text": "In the managed policy CLAUDE.md that IT deploys to every developer laptop",
+        "why": "Right audience but far too much reach: managed policy applies to every repository on every managed machine and is meant for organization-wide standards."
+      },
+      {
+        "id": "d",
+        "text": "In a PreToolUse hook that rejects any file written with a non-conforming model name",
+        "why": "A blocking hook is the enforced layer, which is heavier than a requirement the stem frames as guidance and would fail exploratory work."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Two cues decide it: the rule is guidance, and it must reach every engineer who clones the repository. A committed project CLAUDE.md is the surface whose audience and lifetime match exactly. Managed policy also reaches those engineers but over-scopes to every other repository, and a hook would only be the answer if the stem said the convention must never be broken.",
+    "cue": "every engineer who clones the repository",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How Claude remembers your project (CLAUDE.md)",
+        "url": "https://code.claude.com/docs/en/memory"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "new-claude-application-design-01",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.interfaces"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An organization deploys managed settings to every developer machine with a deny rule for Bash(terraform apply *). During a migration, one engineer adds an allow rule for the same pattern to their own ~/.claude/settings.json and restarts Claude Code, but the command is still blocked. What explains this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Permission lists from every scope are merged, and deny rules are checked before allow rules, so the managed deny always wins",
+        "why": "Correct. Permission arrays combine across scopes instead of overriding, evaluation runs deny, then ask, then allow, and managed settings cannot be overridden anyway."
+      },
+      {
+        "id": "b",
+        "text": "User settings load after managed settings, so the allow rule takes effect only once the cached managed policy expires on the machine",
+        "why": "Invents a cache expiry; managed settings sit at the top of precedence on every load, so waiting or restarting changes nothing."
+      },
+      {
+        "id": "c",
+        "text": "Allow rules for Bash commands are honoured only when they are written in the repository's committed .claude/settings.json file",
+        "why": "Allow rules work at user scope too; the scope of the allow rule is not why it fails, the deny rule's precedence is."
+      },
+      {
+        "id": "d",
+        "text": "The engineer also needs a CLAUDE.md line granting the permission, because the model decides whether a permission rule applies",
+        "why": "Permission rules are enforced by the client regardless of what Claude decides; CLAUDE.md is context the harness never consults for permissions."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding detail is that the block comes from a deny rule in managed settings. Permission lists merge across scopes and deny is evaluated first, so an allow rule cannot carve an exception out of a deny, and managed settings sit above everything a user can set. The CLAUDE.md option confuses advisory context with the enforced permission layer.",
+    "cue": "with a deny rule for",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Configure permissions",
+        "url": "https://code.claude.com/docs/en/permissions"
+      },
+      {
+        "label": "Settings files and precedence",
+        "url": "https://code.claude.com/docs/en/settings"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "new-claude-application-design-03",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.interfaces",
+      "cad.content-boundaries"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A consulting team works in a shared claude.ai Project for client deliverables. They want every chat in it to follow the firm's heading and citation style, and they also need a guarantee that national ID numbers never appear in any draft that leaves the Project. They plan to put both rules in the project instructions; how should they assess that plan?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Both rules fit there, because project instructions apply to every chat in the Project and Claude treats them as binding policy",
+        "why": "Project instructions do apply to every chat, but they are text Claude usually follows, not a control that can guarantee an outcome."
+      },
+      {
+        "id": "b",
+        "text": "The style rule fits project instructions; the ID-number guarantee needs a deterministic check outside the model's instructions",
+        "why": "Correct. Durable style guidance belongs in project instructions, while a never-appear requirement needs a screen in code that no instruction can provide."
+      },
+      {
+        "id": "c",
+        "text": "Both rules belong in each member's account-wide instructions, which take precedence over any project instructions",
+        "why": "Account-wide instructions reach one member each and are still advisory text, so they change neither the audience problem nor the guarantee."
+      },
+      {
+        "id": "d",
+        "text": "Both rules should go into a policy file in the project knowledge base, which Claude consults as authoritative policy",
+        "why": "Knowledge files are context Claude retrieves and reads; uploading the rule as a document makes it no more enforceable than an instruction."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The cue is the word guarantee. Project instructions are the right durable surface for a house style shared by every chat in the Project, but every claude.ai text surface is something the model usually follows. A no-exceptions rule about ID numbers needs a deterministic check before release, for example an API-built pipeline that scans drafts, because none of the text surfaces enforce anything.",
+    "cue": "a guarantee that national ID numbers never appear",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Understanding Claude's personalization features",
+        "url": "https://support.claude.com/en/articles/10185728-understanding-claude-s-personalization-features"
+      },
+      {
+        "label": "What are projects?",
+        "url": "https://support.claude.com/en/articles/9517075-what-are-projects"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "new-claude-application-design-06",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.interfaces"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Claude Code sessions in a team's repository occasionally edit files under migrations/applied/, which corrupts the deployed database history. The team's rule is that Claude must never modify those files in any session, whatever the conversation says. An engineer proposes adding the rule as a bold line at the top of the project CLAUDE.md; what should the team do instead?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Add a deny rule for edits under migrations/applied/ to the committed .claude/settings.json so the harness blocks it",
+        "why": "Correct. Permission rules are enforced by the client before a tool runs, and a committed project deny applies to every collaborator's sessions."
+      },
+      {
+        "id": "b",
+        "text": "Keep the CLAUDE.md line and repeat it in a custom output style so the rule appears in two separate instruction surfaces",
+        "why": "Two advisory surfaces are still advisory; the output style docs say a style does not guarantee that something never happens."
+      },
+      {
+        "id": "c",
+        "text": "Move the rule into a .claude/rules/ file with a paths filter on migrations/applied/ so it loads exactly when relevant",
+        "why": "Path-scoped rules improve timing and relevance, but they are still memory text the model reads, not a control that blocks an edit."
+      },
+      {
+        "id": "d",
+        "text": "Launch every session with --append-system-prompt carrying the rule so it sits in the system prompt rather than a user turn",
+        "why": "System-prompt placement adds weight but not enforcement, and it depends on every engineer remembering the flag on every launch."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Must never, in any session, whatever the conversation says, is a request for enforcement. CLAUDE.md, rules files, output styles and appended system-prompt text all shape what Claude tries to do, and the memory docs point to settings or a hook for anything that must hold regardless of what Claude decides. A committed deny rule covers everyone in the repository.",
+    "cue": "must never modify those files in any session",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How Claude remembers your project (CLAUDE.md)",
+        "url": "https://code.claude.com/docs/en/memory"
+      },
+      {
+        "label": "Configure permissions",
+        "url": "https://code.claude.com/docs/en/permissions"
+      },
+      {
+        "label": "Output styles",
+        "url": "https://code.claude.com/docs/en/output-styles"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-014",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.interfaces"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A developer prototypes a scheduling assistant in claude.ai, where it reasons correctly about phrases like next Tuesday. After moving the same prompt text into a Messages API integration, it gets relative dates wrong even though nothing else changed. What is the most likely cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "claude.ai remembers earlier chats that mentioned today's date, and API conversations start without that memory",
+        "why": "Memory is not the mechanism here; even a fresh claude.ai chat knows the date because of the app's own system prompt."
+      },
+      {
+        "id": "b",
+        "text": "The API defaults to a lower effort level than claude.ai, which skips calendar arithmetic unless effort is raised",
+        "why": "Effort changes how much the model reasons, not whether it knows today's date, so raising it cannot supply the missing fact."
+      },
+      {
+        "id": "c",
+        "text": "The claude.ai app adds its own system prompt carrying the current date, and that prompt does not apply to the API",
+        "why": "Correct. The release notes say the app prompt supplies the date and does not apply to the API, so the integration must send the date itself."
+      },
+      {
+        "id": "d",
+        "text": "API requests run on an older model snapshot by default, whose training data ends before the current calendar year",
+        "why": "The API runs the model ID you request; a training cutoff would not explain errors that the same model avoids in claude.ai."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "The cue is the move from claude.ai to the Messages API with the same prompt text. The claude.ai and mobile apps use an Anthropic system prompt that provides up-to-date information such as the date, and those prompts do not apply to the API. The API is stateless and sees only the system, messages and tools you send, so pass the current date in your own prompt.",
+    "cue": "moving the same prompt text into a Messages API integration",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "System prompts release notes",
+        "url": "https://platform.claude.com/docs/en/release-notes/system-prompts/overview"
+      },
+      {
+        "label": "Using the Messages API",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/working-with-messages"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-015",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.interfaces"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team ports an internal code-maintenance agent from claude -p shell scripts to the Claude Agent SDK, keeping the same task prompts and leaving the system prompt option unset. In testing, the SDK agent still follows the repository's CLAUDE.md conventions but behaves less cautiously around destructive commands than the CLI version did. What explains the difference?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The SDK loads CLAUDE.md only with the claude_code preset, so the conventions it follows came from earlier session history",
+        "why": "Contradicts the docs: CLAUDE.md loading is controlled by setting sources, not by the preset, which is why conventions still applied."
+      },
+      {
+        "id": "b",
+        "text": "Leaving the option unset selects a minimal prompt that lacks the claude_code preset's security and safety guidance",
+        "why": "Correct. The minimal default covers tool calling only, while claude -p uses the full Claude Code prompt with its security and safety guidance."
+      },
+      {
+        "id": "c",
+        "text": "SDK sessions default to bypassing permission prompts, so the model never sees the confirmations it would otherwise respect",
+        "why": "Permission mode is a separate, enforced setting; the behaviour change described comes from the instructions the model receives."
+      },
+      {
+        "id": "d",
+        "text": "The SDK sends task prompts as system text, which gives them more weight than the built-in safety rules of the CLI",
+        "why": "Task prompts are sent as the user prompt; the difference is what the system prompt contains, not where the task text goes."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The deciding detail is that the system prompt option was left unset. The Agent SDK then uses a minimal prompt that omits the claude_code preset's security and safety instructions, unlike claude -p; CLAUDE.md still loads because it arrives through setting sources as conversation context. Select the claude_code preset, optionally with append, and keep permissions and hooks as the enforced layer for destructive commands.",
+    "cue": "leaving the system prompt option unset",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Agent SDK: modifying system prompts",
+        "url": "https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-016",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.interfaces"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A senior engineer put two personal preferences, terse answers and British spelling, in the repository's committed CLAUDE.md. They want these preferences in every project they open, for them alone, and teammates object that the preferences now shape their sessions too. Where should the preferences live?",
+    "options": [
+      {
+        "id": "a",
+        "text": "In ./CLAUDE.local.md at the repository root, which is gitignored and loads only for this engineer",
+        "why": "Personal and private, but it stops at this one repository, so it misses the other projects the engineer opens."
+      },
+      {
+        "id": "b",
+        "text": "In ~/.claude/CLAUDE.md, the user-level memory file that loads for this engineer in every project",
+        "why": "Correct. User-level memory reaches exactly one person across every project on their machine, which is the audience and lifetime asked for."
+      },
+      {
+        "id": "c",
+        "text": "In an output style set in the committed .claude/settings.json, so it is configuration rather than memory",
+        "why": "A committed project setting applies to everyone in the repository, which recreates the teammates' complaint in a different file."
+      },
+      {
+        "id": "d",
+        "text": "In the organization's managed CLAUDE.md, with a note that these preferences apply to this engineer only",
+        "why": "Managed policy loads for every user and cannot be excluded; a note asking others to ignore it is advisory text in everyone's context."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The cue is the audience and lifetime: every project, this engineer only. ~/.claude/CLAUDE.md matches both. CLAUDE.local.md is the tempting runner-up because it is personal, but it is scoped to one repository; the project and managed options impose one person's preference on others.",
+    "cue": "in every project they open, for them alone",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How Claude remembers your project (CLAUDE.md)",
+        "url": "https://code.claude.com/docs/en/memory"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-017",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.interfaces"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A tech lead is auditing which parts of a repository's Claude Code setup will still hold if Claude misreads or ignores its instructions. The setup includes a project CLAUDE.md, path-scoped files in .claude/rules/, a custom output style, permission rules in .claude/settings.json, and a PreToolUse hook. Which two hold regardless of what the model decides? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "The permission rules in .claude/settings.json, which the client evaluates before a tool runs",
+        "why": "Correct. Settings rules are enforced by the client regardless of what Claude decides, so a denied call is blocked even if Claude attempts it."
+      },
+      {
+        "id": "b",
+        "text": "The PreToolUse hook, which runs in the harness and can block a tool call outright",
+        "why": "Correct. A hook is code the harness executes on the event, so it acts whether or not the model followed any instruction."
+      },
+      {
+        "id": "c",
+        "text": "The project CLAUDE.md, which loads automatically at launch for every collaborator",
+        "why": "Loading automatically is durability, not enforcement; the docs say Claude treats CLAUDE.md as context, not enforced configuration."
+      },
+      {
+        "id": "d",
+        "text": "The path-scoped rules, which load exactly when Claude touches a matching file",
+        "why": "Rules load like CLAUDE.md, as instructions the model reads, so they can still be misread or ignored."
+      },
+      {
+        "id": "e",
+        "text": "The custom output style, which changes Claude's instructions for the whole session",
+        "why": "The output style docs state a style does not guarantee that something always or never happens."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is if Claude misreads or ignores its instructions, which rules out every surface the model reads. CLAUDE.md, rules and output styles are context; permission rules and hooks run in the harness and act on the tool call itself. Durability and enforcement are different properties: CLAUDE.md has the first, not the second.",
+    "cue": "if Claude misreads or ignores its instructions",
+    "pattern": "must-means-deterministic",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How Claude remembers your project (CLAUDE.md)",
+        "url": "https://code.claude.com/docs/en/memory"
+      },
+      {
+        "label": "Output styles",
+        "url": "https://code.claude.com/docs/en/output-styles"
+      },
+      {
+        "label": "Configure permissions",
+        "url": "https://code.claude.com/docs/en/permissions"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-018",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.interfaces",
+      "cad.plugins"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A developer installs a code-intelligence plugin at user scope from the Claude Code terminal on their laptop. Later that day they open a local session in the Claude Desktop app's Code tab, then the Claude Code extension in VS Code, both on the same laptop. Where is the plugin available without further setup?",
+    "options": [
+      {
+        "id": "a",
+        "text": "In neither until it is reinstalled, because each Claude Code surface keeps its own separate plugin list",
+        "why": "The surfaces on one computer do not keep separate lists; they share the same settings files that record enabled plugins."
+      },
+      {
+        "id": "b",
+        "text": "In VS Code only, because the Desktop app loads .mcpb desktop extensions instead of Claude Code plugins",
+        "why": "Desktop extensions belong to the chat side of the app; the Code tab's local sessions are Claude Code and read its settings."
+      },
+      {
+        "id": "c",
+        "text": "In both, because the terminal, Desktop local sessions and the VS Code extension read the same settings files",
+        "why": "Correct. A user-scope install is recorded in ~/.claude/settings.json, which all three local surfaces on that computer read."
+      },
+      {
+        "id": "d",
+        "text": "In Desktop only, because the VS Code extension loads plugins solely from the repository's .claude/settings.json",
+        "why": "VS Code reads user, project and local scopes like the terminal does; it is not limited to project-scope plugins."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "The cue is user scope on the same laptop. User scope writes to ~/.claude/settings.json, and the terminal, the Desktop app's local Code sessions and the VS Code extension all read those files, so the plugin follows the user across them. The Desktop distractor trades on the app's two faces: desktop extensions serve the chat side, while the Code tab is Claude Code.",
+    "cue": "at user scope from the Claude Code terminal on their laptop",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Install and manage plugins",
+        "url": "https://code.claude.com/docs/en/discover-plugins"
+      },
+      {
+        "label": "Plugins overview",
+        "url": "https://code.claude.com/docs/en/plugins"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "legacy-025",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.content-boundaries"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A procurement tool lets buyers upload supplier contracts and asks Claude to list unusual liability clauses. The current build concatenates each uploaded contract into the system prompt so that, in the developer's words, Claude treats it as authoritative. Where should the contract text go instead?",
+    "options": [
+      {
+        "id": "a",
+        "text": "In the system prompt, wrapped in XML tags that tell Claude the contract is untrusted data",
+        "why": "Tags inside the system prompt still give supplier text operator authority, and the per-request text keeps breaking the cached prefix."
+      },
+      {
+        "id": "b",
+        "text": "In the description of a contract-analysis tool so the text is available whenever that tool is chosen",
+        "why": "Tool definitions are operator-authored prompt text at the front of the cache; per-request content there inherits authority and invalidates everything."
+      },
+      {
+        "id": "c",
+        "text": "Outside the system prompt, in labelled document tags that mark it as supplier-provided data",
+        "why": "Correct. The system prompt stays constant operator policy, and the contract travels as delimited, labelled data the model can weigh as such."
+      },
+      {
+        "id": "d",
+        "text": "Keep it in the system prompt but move it below the operator instructions so those are read first",
+        "why": "Ordering inside the system prompt changes nothing about authority, and the variable text still changes the prefix on every call."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "The cue is that each uploaded contract is concatenated into the system prompt. The system prompt carries operator authority, so anything placed there, tagged or not, inherits it, including instructions a counterparty wrote into the document; it also varies per request, so caching stops hitting. Keep system constant and pass the contract as labelled, delimited data in the message content.",
+    "cue": "concatenates each uploaded contract into the system prompt",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Mitigate jailbreaks and prompt injections",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks"
+      },
+      {
+        "label": "Prompting best practices (XML tags, long context)",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices"
+      },
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "new-claude-application-design-04",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.content-boundaries"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A helpdesk app uses one Claude call to classify each ticket and route it to a billing, outage or account specialist prompt. The classifier's system prompt is assembled per request and ends with the raw ticket body, and some customers have learned that writing route this to billing in a ticket reliably changes its category. Which change addresses the cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Replace the router with an orchestrator-workers pattern so a lead agent decides which specialists each ticket needs",
+        "why": "A different workflow pattern is a Domain 1 decision and leaves customer text in an instruction position, so the manipulation still works."
+      },
+      {
+        "id": "b",
+        "text": "Append a warning after the ticket body telling the classifier that customers cannot choose their own category",
+        "why": "The warning is a request placed right beside the attack in the same operator channel, so the ticket keeps its authority."
+      },
+      {
+        "id": "c",
+        "text": "Chain two calls so the first summarizes the ticket and the second classifies only the summary",
+        "why": "Prompt chaining is another pattern choice; the summary can carry the customer's instruction forward, and the placement problem remains."
+      },
+      {
+        "id": "d",
+        "text": "Keep the classifier's system prompt constant and pass each ticket body as delimited, labelled data outside it",
+        "why": "Correct. The cause is customer text spliced into the operator channel; moving it out restores the boundary the classifier needs."
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "The cue is that the system prompt ends with the raw ticket body. That is a content boundary failure, and swapping routing for orchestrator-workers or a two-step chain is workflow-pattern selection, which neither moves the ticket nor belongs to this objective. Fix the placement, then add least privilege and validation on the routing output.",
+    "cue": "ends with the raw ticket body",
+    "pattern": "scope-boundary",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Mitigate jailbreaks and prompt injections",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "new-claude-application-design-05",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.content-boundaries"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "An internal HR assistant built on the Messages API appends each employee's question and profile record onto the end of a long, otherwise fixed system prompt before every request. It serves about 20,000 requests a day, and the team is surprised that prompt caching reports almost no cache reads. Which two consequences does this design cause? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Employee-supplied text gains operator authority, so instructions typed into a question carry the weight of policy",
+        "why": "Correct. Anything placed in the system prompt is read as operator instruction, so a question can smuggle in policy-shaped directions."
+      },
+      {
+        "id": "b",
+        "text": "Because the appended text differs per request, the system segment as sent never matches a cached prefix",
+        "why": "Correct. The cache prefix runs tools, then system, then messages, and a byte change in system invalidates it and everything after."
+      },
+      {
+        "id": "c",
+        "text": "The output budget shrinks, because system prompt tokens are subtracted from the max_tokens value",
+        "why": "max_tokens caps generated output; input placement does not reduce it, though input still occupies the context window."
+      },
+      {
+        "id": "d",
+        "text": "Tool definitions are invalidated on each request, so Claude stops calling tools after the first turn",
+        "why": "Tools sit before system in the prefix; a system change does not invalidate tool definitions or disable tool use."
+      },
+      {
+        "id": "e",
+        "text": "The Messages API rejects system prompts that contain personal data and returns a 400 error",
+        "why": "There is no such validation on the system prompt; the problems here are authority and caching, not request rejection."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is per-request text appended onto the end of an otherwise fixed system prompt. That promotes employee text to operator authority and makes every request's system segment unique, so the long fixed portion never hits the cache. Keep the system prompt constant and send the question and profile as labelled content in the messages.",
+    "cue": "onto the end of a long, otherwise fixed system prompt",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      },
+      {
+        "label": "Mitigate jailbreaks and prompt injections",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-019",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.content-boundaries"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team runs Claude Code headless in CI to triage newly opened GitHub issues against their repository. Issue bodies can be written by anyone on the internet, and the job runs with permission to execute any Bash command and push to branches. A security review asks for the change that most limits what a malicious issue body could make the agent do; what should the team change first?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Add a CLAUDE.md section stating that issue text is untrusted and must never be followed as instructions",
+        "why": "Useful policy, but CLAUDE.md is context the model usually follows; it does not shrink what a successful injection can reach."
+      },
+      {
+        "id": "b",
+        "text": "Restrict the job with allow and deny rules to only the read-only commands triage needs, and remove push",
+        "why": "Correct. Least privilege enforced by permission rules bounds the damage even when Claude is fooled by the issue text."
+      },
+      {
+        "id": "c",
+        "text": "Wrap each issue body in untrusted_issue tags inside the prompt so Claude can separate data from instructions",
+        "why": "Delimiting helps Claude recognise injected text, but it is a hint; the agent could still run anything and push if it misjudges."
+      },
+      {
+        "id": "d",
+        "text": "Strip URLs and code blocks from issue bodies before the agent reads them, since payloads often hide there",
+        "why": "Input filtering catches some known patterns, but injected instructions can be plain prose, and the agent keeps unlimited Bash and push."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The deciding detail is the blast radius: untrusted text reaches an agent that can run any command and push. Labelling and a stated policy reduce the chance Claude acts on injected text, but they are requests; permission rules are enforced by the client and limit what any injection can achieve. Do both, but the enforced restriction is the change that most limits damage.",
+    "cue": "permission to execute any Bash command and push to branches",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Mitigate jailbreaks and prompt injections",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks"
+      },
+      {
+        "label": "Configure permissions",
+        "url": "https://code.claude.com/docs/en/permissions"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-020",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.content-boundaries"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A mailbox assistant wraps each inbound email in email tags inside the prompt before asking Claude to draft a reply. A red-team test shows that an email containing the literal closing tag followed by new directions makes Claude treat those directions as outside the email. What change most directly closes this gap?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Add a system prompt sentence saying the email ends only at the very last closing tag in the user message",
+        "why": "A clarifying instruction is a request the model may or may not apply; the delimiter itself stays forgeable by the attacker."
+      },
+      {
+        "id": "b",
+        "text": "Move the email into the system prompt, where the model treats tagged content more carefully",
+        "why": "The system prompt carries operator authority, which is the worst possible channel for text a stranger wrote."
+      },
+      {
+        "id": "c",
+        "text": "Truncate each email to its first 2,000 characters so long injected passages are cut off",
+        "why": "Length is not the problem; a short email can close the tag just as easily, and truncation drops legitimate content."
+      },
+      {
+        "id": "d",
+        "text": "JSON-encode the email into a string field so its characters cannot terminate the surrounding structure",
+        "why": "Correct. Escaping makes the boundary unambiguous: quotes and tag characters inside the payload are data, not structure."
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "The cue is the literal closing tag inside the content: the attacker forged the delimiter. Encoding untrusted strings as JSON, as the injection guidance recommends, means nothing inside the payload can close the structure around it. Instructions about where the email ends are requests, and truncation addresses length, not structure.",
+    "cue": "containing the literal closing tag",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Mitigate jailbreaks and prompt injections",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-021",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.content-boundaries"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An internal assistant retrieves passages from both the company handbook and vendor-supplied product manuals, then pastes them into the prompt as one continuous block of text. Users report that Claude sometimes presents a vendor's marketing claim as company policy. What change best addresses this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Move the handbook passages into the system prompt and keep the vendor manual passages in the user turn as reference material",
+        "why": "Promotes retrieved text to per-request operator instructions, which breaks caching and blurs the boundary from the other side."
+      },
+      {
+        "id": "b",
+        "text": "Add an instruction asking Claude to double-check which statements are official policy before answering",
+        "why": "Claude cannot check provenance it cannot see; the instruction asks for a distinction the prompt structure has erased."
+      },
+      {
+        "id": "c",
+        "text": "Wrap each passage in document tags with a source field, and say in the system prompt how to weigh each source",
+        "why": "Correct. Per-document tags with source metadata let Claude see who wrote what, and one constant policy line says which source is authoritative."
+      },
+      {
+        "id": "d",
+        "text": "Retrieve fewer passages per question so that each answer draws on a single source at a time",
+        "why": "Narrowing retrieval hides the symptom while losing coverage, and a lone vendor passage would still be unlabelled."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "The cue is one continuous block of text: provenance was erased before the model saw it. The prompting guidance recommends wrapping each document in document tags with source and content subtags; a constant system-prompt line can then say the handbook is policy and vendor manuals are reference. Moving the handbook into system is the tempting fix, but it makes retrieved text per-request operator instruction.",
+    "cue": "as one continuous block of text",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompting best practices (XML tags, long context)",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices"
+      },
+      {
+        "label": "Mitigate jailbreaks and prompt injections",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-022",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.content-boundaries"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "An accounts-payable agent reads OCR text from scanned supplier invoices and has a tool that schedules payments. In testing, one invoice's footer claimed the remittance account had changed, and the agent updated the payee details and scheduled the payment. Which two changes most reduce this risk? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Require a human confirmation step in code before the payment tool executes any change to payee details",
+        "why": "Correct. An enforced gate on the consequential action holds even when the model is persuaded by the invoice text."
+      },
+      {
+        "id": "b",
+        "text": "Pass the OCR text as labelled third-party data outside the system prompt, and state that it carries no authority",
+        "why": "Correct. A clear boundary and a stated policy make Claude far less likely to treat invoice text as an instruction."
+      },
+      {
+        "id": "c",
+        "text": "Copy the vendor master record into the system prompt on each request so Claude can compare accounts itself",
+        "why": "Puts per-request data in the operator channel and still leaves the decision to the model's judgement under attack."
+      },
+      {
+        "id": "d",
+        "text": "Move the agent to the most capable model tier, since it is better at spotting fraudulent invoices",
+        "why": "A stronger model is a better judge but still a judge; nothing stops a payment when it is fooled."
+      },
+      {
+        "id": "e",
+        "text": "Instruct the agent to schedule payments only when it is confident the invoice is genuine",
+        "why": "Confidence is the model's own assessment, which is exactly what the injected footer manipulated."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is that the agent can schedule payments, so a successful injection has real consequences. Two layers are needed: a boundary that marks invoice text as data, and an enforced human gate on payee changes. Confidence instructions and a bigger model leave the decision with the model that was manipulated.",
+    "cue": "has a tool that schedules payments",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Mitigate jailbreaks and prompt injections",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-023",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.content-boundaries",
+      "cad.interfaces"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A developer clones a third-party repository and starts Claude Code in it for the first time. Claude Code shows a dialog asking whether to allow imports in the project's CLAUDE.md that resolve to files outside the working directory. What is the best way to treat this prompt?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Approve it, because CLAUDE.md is advisory context and cannot lead Claude to take any action on the machine",
+        "why": "Advisory means not enforced, not harmless; instructions in context shape which tools Claude calls and with what arguments."
+      },
+      {
+        "id": "b",
+        "text": "Approve it, because permission rules will block anything an imported file asks Claude to read or run",
+        "why": "Imports load file contents into context at launch, before any tool call, so permission rules never see that step."
+      },
+      {
+        "id": "c",
+        "text": "Decline it and delete the repository's CLAUDE.md, since project memory files written by other authors are never safe to load",
+        "why": "Over-corrects: project CLAUDE.md is a normal, useful surface, and the dialog only concerns imports outside the repository."
+      },
+      {
+        "id": "d",
+        "text": "Review which files the imports would pull in first, since a committed CLAUDE.md is someone else's text entering context",
+        "why": "Correct. The dialog exists to protect you from files others commit; check the list and approve only what you expect."
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "The cue is imports that resolve outside the working directory in a repository someone else wrote. The memory docs say the one-time dialog protects you from files other people commit to a shared project: imports can pull files from your machine into context, and the instructions shape what Claude does with its tools. Treat a cloned repository's CLAUDE.md, skills and hooks like any dependency you review.",
+    "cue": "resolve to files outside the working directory",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "How Claude remembers your project (CLAUDE.md)",
+        "url": "https://code.claude.com/docs/en/memory"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "legacy-026",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.schema"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An extraction pipeline uses structured outputs to pull fields from commercial leases. The schema types lease_end_date as a required string, and for evergreen leases with no end date the model returns plausible-looking dates. Downstream code must tell a lease with no end date apart from a field that was skipped. What schema change fits best?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Remove lease_end_date from required so the model can omit the key when a lease has no end date",
+        "why": "Omission makes absence possible but ambiguous: downstream code cannot tell an absent date from a skipped field."
+      },
+      {
+        "id": "b",
+        "text": "Add a date string format so only valid calendar dates can be produced for lease_end_date",
+        "why": "A format check makes invented dates look more valid; it still leaves no legal way to say there is none."
+      },
+      {
+        "id": "c",
+        "text": "Keep the string type and add never guess a date to the system prompt so the model leaves the field blank",
+        "why": "A prompt cannot make absence representable; a required string forces some string, and an empty one is an ambiguous sentinel."
+      },
+      {
+        "id": "d",
+        "text": "Type lease_end_date as string or null, keep it required, and describe when null is the right answer",
+        "why": "Correct. A nullable required field makes null an explicit decision, which is both representable and distinguishable from a skip."
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "The model fabricates because a required string leaves no legal way to say absent. A nullable type kept in required lets it answer null deliberately, and the extra cue (tell no end date apart from skipped) rules out simply making the field optional. Prompt instructions cannot override what the schema allows.",
+    "cue": "tell a lease with no end date apart from a field that was skipped",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Structured outputs",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-024",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.schema"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A ticket classifier returns one of six product categories through a strict tool whose category field is a closed enum. About 4% of tickets are spam or meant for another company, and these now inflate the counts of whichever category is closest. Which change best fixes the data?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Add an out_of_scope member to the enum and describe in the field when to choose it",
+        "why": "Correct. An escape member gives misfit tickets a legal, countable answer while keeping the closed set downstream code relies on."
+      },
+      {
+        "id": "b",
+        "text": "Change category to a free-text string so Claude can describe tickets that fit no category",
+        "why": "Free text breaks the closed set that dashboards and routing depend on, trading one data problem for another."
+      },
+      {
+        "id": "c",
+        "text": "Add a system prompt line telling Claude not to classify tickets that fit no category",
+        "why": "The schema requires one of six values, so the instruction asks for something the schema makes impossible."
+      },
+      {
+        "id": "d",
+        "text": "Retry classification at a higher effort level whenever two categories look equally likely",
+        "why": "More reasoning cannot pick a correct category that does not exist; spam still lands in some category."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is tickets that belong to no category at all. A closed enum without an escape member forces the nearest wrong answer, so add out_of_scope (or other) with a description, and compare enum values case-insensitively because casing is not guaranteed. A prompt line cannot override a schema that only permits six values.",
+    "cue": "spam or meant for another company",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Structured outputs",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-025",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.schema"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team adds minimum and maximum bounds to a discount_percent field in the JSON schema they send with output_config.format, and requests start failing with a 400 error that names the unsupported constraint. The business rule that discounts stay between 0 and 40 must still be enforced. What should they do?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Keep the bounds but move the schema into a strict tool's input_schema, which accepts numeric limits",
+        "why": "Strict tool use and JSON outputs share the same supported subset, so the bounds fail there in the same way."
+      },
+      {
+        "id": "b",
+        "text": "Switch to a plain prompt that asks for JSON, since a prompt can express any constraint in words",
+        "why": "Loses the shape guarantee entirely and replaces an enforced rule with a request the model usually follows."
+      },
+      {
+        "id": "c",
+        "text": "Drop the bounds from the sent schema, state the range in the field description, and check it in code",
+        "why": "Correct. This is what the SDK helpers do: move unsupported constraints into descriptions and validate the parsed result locally."
+      },
+      {
+        "id": "d",
+        "text": "Keep the bounds and add the structured-outputs beta header, which accepts the full JSON Schema standard",
+        "why": "The beta header only keeps the deprecated output_format working; it does not widen the supported schema subset."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "The cue is the 400 naming an unsupported constraint: numeric bounds are outside the JSON Schema subset that structured outputs and strict tools support. The documented pattern is to strip them from the sent schema, describe them for the model, and validate after parsing. The schema guarantees shape; your code checks meaning, which is what keeps the rule enforced.",
+    "cue": "names the unsupported constraint",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Structured outputs",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+      },
+      {
+        "label": "Strict tool use",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/strict-tool-use"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-026",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.schema"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An extraction service stores Claude's structured output for each recorded support call, and three downstream teams read those stored records. The product owner wants to rename the priority field to severity and change its values from integers 1 to 5 into named levels. What is the safest way to roll this out?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Rename the field in place and regenerate the schema, since structured outputs guarantee that new records match it",
+        "why": "The guarantee covers only new outputs; old records and every consumer reading priority break at the cutover."
+      },
+      {
+        "id": "b",
+        "text": "Add severity as a new field under a bumped schema version stored with each record, and retire priority later",
+        "why": "Correct. An additive change with an explicit version lets existing readers keep working while consumers migrate on their own schedule."
+      },
+      {
+        "id": "c",
+        "text": "Keep the schema unchanged and ask Claude in the prompt to put the named level into the priority field",
+        "why": "The field is typed as an integer, so the request contradicts the schema and silently changes the field's meaning for consumers."
+      },
+      {
+        "id": "d",
+        "text": "Change the schema and replay every historical call through the new version overnight so all records agree",
+        "why": "Backfilling still breaks consumers at cutover, costs a full rerun, and can change values that teams already relied on."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The cue is three downstream teams reading stored records: the schema is an API contract with them. Additive change under a version stored with each record is backward compatible, while renaming or retyping in place is breaking whatever the output guarantee says. Expect a one-time cost too: a new schema compiles a new grammar and invalidates the prompt cache for that thread.",
+    "cue": "three downstream teams read those stored records",
+    "pattern": "tradeoff",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Structured outputs",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-027",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.schema"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "An invoice extractor returns a purchase_order field that downstream matching relies on, and auditors found the model inventing valid-looking PO numbers for invoices that print none. The team wants fabricated values to become both less likely and easy to detect. Which two schema changes should they make? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Type purchase_order as string or null, kept in required, with a description saying null when none is printed",
+        "why": "Correct. A nullable required field gives the model a legal way to say absent, so it no longer has to invent one."
+      },
+      {
+        "id": "b",
+        "text": "Add a nullable po_evidence field holding the verbatim text the PO number was read from",
+        "why": "Correct. An evidence field makes any remaining fabrication visible, because a PO without a supporting quote can be flagged in code."
+      },
+      {
+        "id": "c",
+        "text": "Add a regex pattern for the PO format so every returned value matches the supplier numbering scheme",
+        "why": "A pattern makes invented values look even more genuine and still leaves no way to answer that there is none."
+      },
+      {
+        "id": "d",
+        "text": "Mark purchase_order as a required non-empty string so the model must look harder for it",
+        "why": "Forcing a value is what causes fabrication; when the invoice has none, the only legal output is an invented one."
+      },
+      {
+        "id": "e",
+        "text": "Move the instruction never invent a PO number from the user turn into the system prompt",
+        "why": "Changing where a request sits does not change what the schema allows, so the model is still forced to fill the field."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is invoices that print none: the schema left no legal way to say absent. A nullable required field makes null a deliberate answer, and an evidence field turns the remaining fabrications into something code can detect. Patterns and stronger prompts work against the goal or leave the schema unchanged.",
+    "cue": "for invoices that print none",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Structured outputs",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-028",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.schema"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A contract-review schema lists an evidence_quotes array before a risk_rating enum so the model writes its supporting quotes before committing to a rating. Only risk_rating is listed in required, and outputs consistently show the rating first with quotes that seem chosen to fit it. What is the most likely cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "JSON objects are unordered, so the API sorts properties alphabetically before generating them",
+        "why": "Alphabetical order would put evidence_quotes first, which contradicts the observed output; the docs say schema order is kept."
+      },
+      {
+        "id": "b",
+        "text": "Structured outputs emit required properties before optional ones, so the optional quotes moved after the rating",
+        "why": "Correct. Properties keep schema order with one caveat: required ones come first, so an optional field lands after the rating."
+      },
+      {
+        "id": "c",
+        "text": "Enums are generated before arrays because grammar compilation resolves closed value sets before open-ended ones",
+        "why": "There is no type-based ordering; the documented rule concerns required versus optional properties, not their types."
+      },
+      {
+        "id": "d",
+        "text": "The model ignores schema order and writes whichever field it considers most important first",
+        "why": "Under constrained decoding the order is set by the grammar, and the docs state that defined ordering is maintained."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The cue is that only risk_rating is required. Structured outputs keep properties in schema order, except that required properties come first and optional ones follow, so the quotes became a justification instead of a basis. Mark both fields required, allowing an empty array, to restore evidence-first generation.",
+    "cue": "Only risk_rating is listed in required",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Structured outputs",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-029",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.schema"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A travel app's book_seats tool declares passengers as an integer, but logs show occasional inputs such as the string two or the string 2 that crash the handler. The team wants every tool call to arrive schema-valid without adding validation-and-retry round trips. What should they change?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Add input_examples showing integer passenger counts so Claude learns the expected format",
+        "why": "Examples improve adherence but remain guidance; a malformed input can still arrive on a later call."
+      },
+      {
+        "id": "b",
+        "text": "Set strict: true on the tool with additionalProperties false so every input is constrained to the schema",
+        "why": "Correct. Strict tool use constrains sampling to schema-valid inputs, so passengers always arrives as an integer."
+      },
+      {
+        "id": "c",
+        "text": "Expand the tool description to stress that passengers must be a number and never a word",
+        "why": "Descriptions are the most important factor in tool use, but they still cannot guarantee the type of every input."
+      },
+      {
+        "id": "d",
+        "text": "Wrap the handler in a parser that converts words and numeric strings to integers before booking",
+        "why": "Repairs the symptom downstream with guesswork; the calls still arrive schema-invalid, which the stem rules out."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The cue is that calls must arrive schema-valid without retries, which points to constraint at generation time. strict: true uses grammar-constrained sampling so tool inputs match the schema, which requires additionalProperties false on objects. Descriptions and examples raise adherence but are not guarantees.",
+    "cue": "without adding validation-and-retry round trips",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Strict tool use",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/strict-tool-use"
+      },
+      {
+        "label": "Define tools",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-030",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.schema"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A claims pipeline sends output_config.format with a JSON schema and parses every response straight into a typed object. A reviewer points out that the schema still leaves gaps the handler must cover. Which two checks does the handler still need? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Check stop_reason first, since a refusal or max_tokens stop can return output that does not match the schema",
+        "why": "Correct. The docs list refusal and max_tokens as cases where output may not match the schema despite constrained decoding."
+      },
+      {
+        "id": "b",
+        "text": "Validate business rules such as dates in order and line totals summing, which a valid shape does not ensure",
+        "why": "Correct. A schema guarantees structure, not truth; meaning-level rules have to be checked in code after parsing."
+      },
+      {
+        "id": "c",
+        "text": "Confirm that each required field is present, since constrained decoding may drop required keys",
+        "why": "Required fields are part of what structured outputs guarantee on a normal completion."
+      },
+      {
+        "id": "d",
+        "text": "Confirm each field has its declared JSON type, since types are advisory under structured outputs",
+        "why": "Field types are guaranteed by constrained decoding; re-checking them adds code without closing a real gap."
+      },
+      {
+        "id": "e",
+        "text": "Reject responses with extra keys, since additionalProperties false is treated only as a hint",
+        "why": "additionalProperties false is required and enforced for objects, so extra keys cannot appear on a normal completion."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is parsing every response straight into a typed object, which assumes the guarantee has no exceptions. Refusal and max_tokens stops are documented exceptions, and a schema-valid object can still be wrong, so check stop_reason, parse, then validate meaning. Types, required fields and closed objects are what the schema does guarantee.",
+    "cue": "parses every response straight into a typed object",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Structured outputs",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "legacy-027",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.session-hygiene"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A developer spent the morning in one Claude Code session on a database migration, then continued in the same session with an unrelated frontend layout change. The migration is finished and nothing from it is needed for the frontend work, but Claude now mixes migration details into its suggestions and misses instructions given an hour ago. What should the developer do?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Run /compact so the migration history is summarized and the frontend work continues in the same session",
+        "why": "Compaction keeps a summary of history the stem says is no longer needed, so the irrelevant context survives in shorter form."
+      },
+      {
+        "id": "b",
+        "text": "Run /clear and start the frontend task with a focused prompt, keeping lasting conventions in CLAUDE.md",
+        "why": "Correct. Clearing between unrelated tasks is the documented fix, and CLAUDE.md reloads so durable rules are not lost."
+      },
+      {
+        "id": "c",
+        "text": "Switch to a model with a larger context window so the migration work no longer crowds out new instructions",
+        "why": "Context rot grows with token count in any window; a larger one postpones the decline without removing irrelevant context."
+      },
+      {
+        "id": "d",
+        "text": "Send a message saying the migration is finished and asking Claude to disregard everything before it",
+        "why": "The earlier content stays in context and keeps competing for attention; asking the model to ignore it is not removal."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The cue is that nothing from the migration is needed. This is the kitchen-sink session the best-practices page warns about, and its fix is /clear between unrelated tasks. /compact is the runner-up, but it is for continuing the same task with less history, not for dropping a finished one.",
+    "cue": "nothing from it is needed for the frontend work",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Best practices for Claude Code",
+        "url": "https://code.claude.com/docs/en/best-practices"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "new-claude-application-design-08",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.session-hygiene"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A SaaS analytics vendor's assistant keeps one long-running Messages API conversation per support agent, and each agent handles many customer accounts through it during a shift. An agent noticed that a reply to one customer named another customer's dashboard. The team proposes enabling compaction to keep each conversation smaller; what should they do instead?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Enable compaction as proposed, since summaries drop details that later turns no longer need",
+        "why": "Compaction exists to preserve important details, and a named dashboard is exactly what a summary keeps, so the leak survives."
+      },
+      {
+        "id": "b",
+        "text": "Add a system prompt rule that replies must mention only the customer named in the latest message",
+        "why": "The other customers' data stays in context; the rule is a request, not a boundary that prevents the leak."
+      },
+      {
+        "id": "c",
+        "text": "Key conversations by agent and customer account so every account starts in its own fresh session",
+        "why": "Correct. Session boundaries are security boundaries: a session that never saw another account cannot leak it."
+      },
+      {
+        "id": "d",
+        "text": "Move to a model with a larger context window so earlier accounts are less likely to be confused",
+        "why": "A larger window lets even more accounts share one conversation, which widens the exposure instead of closing it."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "The cue is one conversation per support agent spanning many accounts, which makes the leak an isolation failure rather than a context-size problem. The Messages API is stateless, so the application decides what history each request carries; key sessions by customer and carry durable per-customer facts in that customer's own notes. Compaction and prompt rules leave the data in context or in the summary.",
+    "cue": "one long-running Messages API conversation per support agent",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Using the Messages API",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/working-with-messages"
+      },
+      {
+        "label": "Effective context engineering for AI agents",
+        "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-031",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.session-hygiene"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A developer has corrected Claude three times in one session about using the project's structured logger instead of print statements, and it keeps slipping back. Most of the session now holds failed attempts at the same function. What does Anthropic's guidance recommend?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Correct it a fourth time in stronger terms, since repeating an instruction raises its weight in context",
+        "why": "Each correction adds more failed attempts to the context, which is the clutter causing the drift."
+      },
+      {
+        "id": "b",
+        "text": "Run /clear and restart with a sharper prompt that states the logger rule, adding it to CLAUDE.md if lasting",
+        "why": "Correct. After two failed corrections the docs say to clear and start fresh with a prompt that incorporates what you learned."
+      },
+      {
+        "id": "c",
+        "text": "Run /rewind to the first message and resend the original prompt unchanged so the earlier corrections are dropped",
+        "why": "Rewinding removes the clutter, but resending the same prompt repeats the conditions that produced the first failure."
+      },
+      {
+        "id": "d",
+        "text": "Raise the effort level so Claude reasons more carefully about which logging call each edit should use",
+        "why": "The problem is a context full of contradictory attempts, not too little reasoning per turn."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The cue is three corrections on the same issue. The best-practices page names this pattern and its fix: once you have corrected Claude more than twice, the context is cluttered with failed approaches, so /clear and start again with a better prompt. A rule that should hold in every session belongs in CLAUDE.md.",
+    "cue": "corrected Claude three times",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Best practices for Claude Code",
+        "url": "https://code.claude.com/docs/en/best-practices"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-032",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.session-hygiene"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Over a long Claude Code session, a developer and Claude worked through the requirements for a rate limiter and refined a detailed design. Implementation will take several sittings, and each sitting should start with clean context and the agreed design intact. What is the best sequence?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Keep the design session open and resume it with claude --continue at each sitting so the full discussion stays loaded in context",
+        "why": "Resuming restores the whole design conversation, which is the opposite of clean context for implementation."
+      },
+      {
+        "id": "b",
+        "text": "Run /compact at the end of each sitting so the design survives as a summary inside the same session",
+        "why": "A summary is lossy, and details given only in conversation can drop out; the session never starts clean."
+      },
+      {
+        "id": "c",
+        "text": "Have Claude write the design to SPEC.md, then start a fresh session that reads it and records progress in a notes file",
+        "why": "Correct. Durable state lives in files, so each fresh session reads the spec and notes instead of a long transcript."
+      },
+      {
+        "id": "d",
+        "text": "Ask Claude to remember the design in its next reply, then run /clear before implementation begins",
+        "why": "/clear resets the context window entirely, so anything held only in conversation is gone afterwards."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "The cue is clean context with the design intact, which only files can provide across sessions. The best-practices page recommends writing a spec and starting a fresh session to execute it, and the context engineering article describes structured note-taking outside the context window. Resume and compaction both keep the old conversation in some form.",
+    "cue": "start with clean context and the agreed design intact",
+    "pattern": "sequence",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Best practices for Claude Code",
+        "url": "https://code.claude.com/docs/en/best-practices"
+      },
+      {
+        "label": "Effective context engineering for AI agents",
+        "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-033",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.session-hygiene",
+      "cad.interfaces"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Early in a long session, a developer told Claude to run the linter with --fix before every commit, and Claude did so for hours. After an automatic compaction it stops running the linter, although rules in the project-root CLAUDE.md are still followed. What is the most likely explanation and fix?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Compaction resets settings.json, so hooks and permissions must be reloaded with /reload-plugins",
+        "why": "Settings are not part of the conversation and are unaffected by compaction; /reload-plugins concerns plugins."
+      },
+      {
+        "id": "b",
+        "text": "Conversation-only instructions can drop out of the summary; move the rule into the project-root CLAUDE.md",
+        "why": "Correct. Project-root CLAUDE.md is re-read from disk after compaction, while instructions given only in chat can be lost."
+      },
+      {
+        "id": "c",
+        "text": "Auto-compaction lowered the session's effort level, so Claude now skips optional steps until effort is raised",
+        "why": "Compaction summarizes history; it does not change effort or the session's settings."
+      },
+      {
+        "id": "d",
+        "text": "Compaction keeps only the first and last user messages, so the rule must be repeated in every new message",
+        "why": "Misdescribes compaction, which writes a structured summary, and repeating the rule each turn is a workaround, not a fix."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The cue is that the rule was given in conversation while CLAUDE.md rules survived. The context-window docs list project-root CLAUDE.md as re-injected from disk after compaction, and the memory docs say a vanished instruction was probably given only in conversation. If the linter must run on every commit without exception, the stronger answer is a hook.",
+    "cue": "a developer told Claude",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Explore the context window (what survives compaction)",
+        "url": "https://code.claude.com/docs/en/context-window"
+      },
+      {
+        "label": "How Claude remembers your project (CLAUDE.md)",
+        "url": "https://code.claude.com/docs/en/memory"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-034",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.session-hygiene"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A developer let Claude attempt a risky refactor: Claude edited several files with its file-editing tools and also ran a codemod script through Bash. The result is wrong, and the developer wants both the code and the conversation back to where they were before the attempt. Which two statements about recovering are accurate? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "/rewind can restore the conversation and the files Claude changed with its editing tools to an earlier checkpoint",
+        "why": "Correct. Checkpoints snapshot files before each edit, and the rewind menu restores conversation, code, or both."
+      },
+      {
+        "id": "b",
+        "text": "Files the codemod changed through Bash are not tracked by checkpoints and need git to revert",
+        "why": "Correct. Checkpointing does not track Bash changes, so version control has to undo what the script did."
+      },
+      {
+        "id": "c",
+        "text": "/clear reverts every code change made in the session as well as resetting the context window",
+        "why": "/clear only resets the context window; it never touches files on disk."
+      },
+      {
+        "id": "d",
+        "text": "/compact removes the failed attempt from both the conversation and the working tree",
+        "why": "Compaction summarizes the conversation and leaves files exactly as they are."
+      },
+      {
+        "id": "e",
+        "text": "claude --resume on a session from before the refactor restores the files to their state at that time",
+        "why": "Resuming reopens a conversation; it does not roll the working tree back."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is the codemod run through Bash. Checkpoints cover edits made with Claude's file-editing tools, so /rewind restores those and the conversation, but Bash and external changes are not tracked, which is why the docs say checkpoints are not a replacement for git. /clear, /compact and resume all act on context, not on files.",
+    "cue": "also ran a codemod script through Bash",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Checkpointing",
+        "url": "https://code.claude.com/docs/en/checkpointing"
+      },
+      {
+        "label": "Best practices for Claude Code",
+        "url": "https://code.claude.com/docs/en/best-practices"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-035",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.session-hygiene"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A developer needs Claude to find every place in a large monorepo that reads a deprecated config key before planning a change. Past attempts filled the main session's context with hundreds of file reads, and the later edits suffered. What approach keeps the main session focused?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Run the search in the main session, then /compact before planning so the file reads are summarized",
+        "why": "The reads still pass through the main context first, and the summary may drop the exact locations planning needs."
+      },
+      {
+        "id": "b",
+        "text": "Delegate the search to a subagent, which reads files in its own context and returns a summary of findings",
+        "why": "Correct. A subagent explores in a separate context window and hands back only its findings, keeping the main session small."
+      },
+      {
+        "id": "c",
+        "text": "Add the key's locations to CLAUDE.md as they are found so later sessions can skip the search entirely",
+        "why": "CLAUDE.md loads in every session for every collaborator; a one-off search result does not belong in it."
+      },
+      {
+        "id": "d",
+        "text": "Use a model with a larger context window so hundreds of file reads fit without crowding the edits",
+        "why": "More room delays the problem, but recall still degrades as the window fills with irrelevant reads."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The cue is that hundreds of file reads polluted the main session. The best-practices page recommends subagents for investigation because they explore in a separate context and report summaries. Compaction is the tempting alternative, but the noise has already entered the main context by then.",
+    "cue": "filled the main session's context with hundreds of file reads",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Best practices for Claude Code",
+        "url": "https://code.claude.com/docs/en/best-practices"
+      },
+      {
+        "label": "Explore the context window (what survives compaction)",
+        "url": "https://code.claude.com/docs/en/context-window"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-036",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.session-hygiene"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "After Claude implements a payment retry feature over a long session, the developer asks the same session to review the diff for bugs, and it reports none. A teammate later finds two edge cases that the written plan explicitly required. What change to the review step would most improve it?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Ask the same session to review again with effort raised, focusing specifically on edge cases",
+        "why": "The reviewer still shares the reasoning that produced the change, so it tends to repeat the same blind spots."
+      },
+      {
+        "id": "b",
+        "text": "Run /compact before the review so the session reviews a summarized version of its own work",
+        "why": "A summary of the implementer's reasoning is still the implementer's reasoning, so the review stays biased."
+      },
+      {
+        "id": "c",
+        "text": "Run the review in a fresh context, such as a subagent given only the diff and the plan to check it against",
+        "why": "Correct. A fresh reviewer sees only the diff and criteria, not the reasoning, so it judges the result on its own terms."
+      },
+      {
+        "id": "d",
+        "text": "Add review your own work critically to CLAUDE.md so every session self-reviews before it finishes",
+        "why": "An advisory instruction leaves the review in the same context that wrote the code."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "The cue is that the same session reviewed its own work. The best-practices page recommends an adversarial review in a fresh subagent context that sees only the diff and the criteria, so the agent doing the work is not the one grading it. More effort or a summary keeps the reviewer inside the implementer's context.",
+    "cue": "asks the same session to review the diff",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Best practices for Claude Code",
+        "url": "https://code.claude.com/docs/en/best-practices"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "legacy-028",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.plugins"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team enabled eleven plugins at user scope over a few months, several offering overlapping code-review and testing skills. Sessions now start with noticeably less free context, and Claude sometimes invokes a different review skill than the one people expect. What is the best next step?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Check each plugin's always-on token cost with claude plugin details and disable the overlapping or unused ones",
+        "why": "Correct. Every enabled plugin adds descriptions to every turn; measuring and disabling overlap recovers context and removes ambiguity."
+      },
+      {
+        "id": "b",
+        "text": "Leave them enabled, since Claude Code deduplicates overlapping skills and loads a plugin only when it runs",
+        "why": "Plugins are not deduplicated, and an enabled plugin is part of every session even when none of its skills run."
+      },
+      {
+        "id": "c",
+        "text": "Move the plugins from user scope to project scope so their descriptions load only after the first prompt",
+        "why": "Scope decides who and where a plugin is enabled, not when its descriptions load; the per-turn cost stays the same."
+      },
+      {
+        "id": "d",
+        "text": "Add a CLAUDE.md line telling Claude which review skill to prefer when several plugins offer one",
+        "why": "A preference line adds still more context and leaves every overlapping description in place on every turn."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is several plugins offering overlapping skills. An enabled plugin puts the name and description of each skill and agent Claude can invoke into context on every turn, so overlap costs tokens and creates near-duplicate choices. claude plugin details reports the always-on cost, and disabling is reversible.",
+    "cue": "several offering overlapping code-review and testing skills",
+    "pattern": "diagnosis",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Plugins overview",
+        "url": "https://code.claude.com/docs/en/plugins"
+      },
+      {
+        "label": "Install and manage plugins",
+        "url": "https://code.claude.com/docs/en/discover-plugins"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "new-claude-application-design-07",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.plugins"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A developer builds a plugin directory containing skills/review/SKILL.md and agents/reviewer.md but no .claude-plugin/plugin.json, assuming it cannot load without one. A teammate loads it for one session with the --plugin-dir flag to test it. What happens?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Nothing loads, because a plugin is recognized only when its manifest declares a name and a version",
+        "why": "States a requirement that does not exist; the manifest reference says the manifest is optional."
+      },
+      {
+        "id": "b",
+        "text": "Only the skill loads, because agents must be listed in a manifest before Claude Code discovers them",
+        "why": "Invents an asymmetry: components in the standard layout are discovered whether or not a manifest exists."
+      },
+      {
+        "id": "c",
+        "text": "Both components load, because the manifest is optional and the plugin name comes from the directory",
+        "why": "Correct. Without a manifest Claude Code loads the standard layout, and with --plugin-dir the directory name becomes the plugin name."
+      },
+      {
+        "id": "d",
+        "text": "Both load, but without a manifest they are not namespaced, so the skill can collide with a project skill",
+        "why": "Components are still namespaced under the plugin name, which comes from the directory in this case."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "The cue is the missing plugin.json. The manifest reference says the manifest is optional: Claude Code loads components from the standard layout and takes the name from the marketplace entry or, with --plugin-dir, the directory. A manifest becomes worth adding when you want a version, description or other metadata.",
+    "cue": "no .claude-plugin/plugin.json",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Plugin manifest reference",
+        "url": "https://code.claude.com/docs/en/plugins-reference"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-037",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.plugins"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A tech lead installs a formatting plugin at project scope and commits .claude/settings.json so that everyone working in the repository gets it. A new teammate pulls the commit and starts Claude Code locally, but the plugin's skills do not appear. What explains this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Project scope is recorded in the gitignored .claude/settings.local.json, so the entry never reached the teammate",
+        "why": "That file is local scope; project scope writes to the committed .claude/settings.json, which the teammate did pull."
+      },
+      {
+        "id": "b",
+        "text": "The teammate's user-scope settings override project settings, so their own empty plugin list takes precedence",
+        "why": "Precedence runs the other way, with project above user, and an empty list does not cancel another scope's entry."
+      },
+      {
+        "id": "c",
+        "text": "The committed entry enables the plugin for collaborators but does not download it, so every collaborator installs it once",
+        "why": "Correct. Enabling and installing are separate layers: settings say what is on, while the plugin files must be fetched per machine."
+      },
+      {
+        "id": "d",
+        "text": "Plugins enabled in a repository load only in cloud sessions, so the teammate must open the repo at claude.ai/code",
+        "why": "Reversed: local sessions load project-enabled plugins once installed, and cloud sessions do not load them from repository settings."
+      }
+    ],
+    "answer": [
+      "c"
+    ],
+    "explanation": "The cue is that the lead committed .claude/settings.json and the teammate only pulled it. Project scope enables the plugin for everyone in the repository, but committing the entry does not download the plugin, so each collaborator installs it once. Settings, disk and session are separate layers a plugin has to reach.",
+    "cue": "commits .claude/settings.json",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Install and manage plugins",
+        "url": "https://code.claude.com/docs/en/discover-plugins"
+      },
+      {
+        "label": "Plugins overview",
+        "url": "https://code.claude.com/docs/en/plugins"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-038",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.plugins"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A security engineer approves a third-party plugin after confirming that the team's permission rules deny network tools and that Claude Code's sandbox is enabled. The plugin's hooks/hooks.json runs a shell script after every edit, and that script uploads changed files to an external server. Why did the existing controls not stop it?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Permission rules apply only to plugins from Anthropic's official marketplace, not to third-party ones",
+        "why": "Permission rules apply to Claude's tool calls whatever marketplace a plugin came from; tier is not the gap."
+      },
+      {
+        "id": "b",
+        "text": "Permission rules and the sandbox cover Claude's tool calls; plugin hooks run outside the sandbox as the user",
+        "why": "Correct. The plugin security page says hooks and server processes run outside the sandbox with the user's privileges."
+      },
+      {
+        "id": "c",
+        "text": "The deny rules were in project settings, and plugin hooks read only user-scope permission rules",
+        "why": "Hooks do not consult permission rules at any scope; they are commands the harness runs on lifecycle events."
+      },
+      {
+        "id": "d",
+        "text": "The sandbox was enabled after the plugin was installed, and it applies only to plugins that are installed later on",
+        "why": "Install order is not the issue; the sandbox never wraps hook processes, whenever the plugin arrived."
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "The cue is that the exfiltration came from a hook script, not a tool call Claude made. Permission rules and the sandbox govern Claude's tool calls; a plugin's hooks, MCP server processes and mods run outside the sandbox with your user privileges. That is why review means reading hooks/hooks.json, .mcp.json and bin/ before install.",
+    "cue": "hooks/hooks.json runs a shell script after every edit",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Plugin security and trust",
+        "url": "https://code.claude.com/docs/en/plugins/security"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-039",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.plugins"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A platform team reviewed every file in a plugin from a partner's marketplace before approving it for the engineering organization. Engineers must keep running exactly the reviewed code until the next review, and the partner pushes changes to the marketplace's main branch weekly. What should the team do?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Turn auto-update on for that marketplace so engineers receive the partner's fixes and stay on a supported version",
+        "why": "Auto-update replaces the files on disk in the background, which is exactly the change the requirement forbids."
+      },
+      {
+        "id": "b",
+        "text": "Copy the plugin's skills into each repository's .claude/skills folder so the team controls the code",
+        "why": "Copies only part of the plugin, drops its hooks and other components, and leaves many unversioned copies to drift."
+      },
+      {
+        "id": "c",
+        "text": "Add a CLAUDE.md note telling Claude not to use any plugin features added after the review date",
+        "why": "Claude cannot tell which features are new, and an advisory note does not stop updated hooks or servers from running."
+      },
+      {
+        "id": "d",
+        "text": "Add the marketplace pinned to the reviewed tag with #ref, keep auto-update off, and update after each review",
+        "why": "Correct. Pinning the source and disabling auto-update keep the reviewed files on disk until the team deliberately moves."
+      }
+    ],
+    "answer": [
+      "d"
+    ],
+    "explanation": "The cue is exactly the reviewed code. A marketplace can be added pinned to a branch or tag with #ref, and auto-update is off by default for third-party marketplaces, but when it is on the files you reviewed can change on disk. Treat the plugin like any dependency: pin, review, then update deliberately.",
+    "cue": "keep running exactly the reviewed code",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Install and manage plugins",
+        "url": "https://code.claude.com/docs/en/discover-plugins"
+      },
+      {
+        "label": "Plugin security and trust",
+        "url": "https://code.claude.com/docs/en/plugins/security"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-040",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.plugins"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A team wants to share its Claude Code setup across twelve repositories: two skills, a code-review subagent and a PostToolUse formatting hook. They also want versioned updates instead of copying .claude folders between repositories. Which two statements about packaging this as a plugin are accurate? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "One plugin can bundle the skills, the subagent and the hook, installed and loaded as a single unit",
+        "why": "Correct. Plugins package skills, agents, hooks, MCP servers and more into one installable, versionable directory."
+      },
+      {
+        "id": "b",
+        "text": "The plugin's skills are namespaced under the plugin name, so they never collide with a repository's own skills",
+        "why": "Correct. Plugin skills run as plugin-name:skill-name, so a local skill with the same name does not clash."
+      },
+      {
+        "id": "c",
+        "text": "The hook has to stay in each repository's settings.json, because plugins can carry only skills and agents",
+        "why": "Plugins can ship hooks in hooks/hooks.json; that is one of the main reasons to package a setup as a plugin."
+      },
+      {
+        "id": "d",
+        "text": "Plugin skills enter context only after someone invokes one, so bundling them adds no per-session cost",
+        "why": "The name and description of each invocable skill sit in context on every turn while the plugin is enabled."
+      },
+      {
+        "id": "e",
+        "text": "Installing the plugin at user scope on the lead's machine enables it for every collaborator in each repository",
+        "why": "User scope reaches one person on one machine; reaching collaborators takes project scope plus an install on each machine."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is versioned updates across many repositories, which is what plugins are for: several components packaged as one unit with releases. Components are namespaced under the plugin name, so they coexist with local ones. The always-on cost of skill descriptions and the meaning of user scope are the usual misconceptions.",
+    "cue": "versioned updates instead of copying .claude folders",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Plugins overview",
+        "url": "https://code.claude.com/docs/en/plugins"
+      },
+      {
+        "label": "Plugin manifest reference",
+        "url": "https://code.claude.com/docs/en/plugins-reference"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  },
+  {
+    "id": "claude-application-design-041",
+    "objective": "claude-application-design",
+    "domain": 2,
+    "subskills": [
+      "cad.plugins"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A team's deploy-tools plugin declares a dependency on a shared utilities plugin, and an engineer installs deploy-tools at project scope from the team marketplace. Months later they plan to remove it and tidy up. Which two statements describe how Claude Code handles the dependency? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Installing deploy-tools also installed and enabled utilities, and it did so at project scope",
+        "why": "Correct. Declared dependencies install and enable at the same scope as the plugin that needs them."
+      },
+      {
+        "id": "b",
+        "text": "Uninstalling deploy-tools leaves the auto-installed utilities in place until claude plugin prune is run",
+        "why": "Correct. Auto-installed dependencies stay behind after an uninstall until you prune them explicitly."
+      },
+      {
+        "id": "c",
+        "text": "Disabling utilities while deploy-tools is still enabled silently disables deploy-tools as well",
+        "why": "Claude Code refuses that disable and prints a chained command that disables both in the right order."
+      },
+      {
+        "id": "d",
+        "text": "Dependencies always install at user scope so that other plugins on the machine can share them",
+        "why": "Dependencies follow the scope of the plugin being installed, so a project install puts them at project scope."
+      },
+      {
+        "id": "e",
+        "text": "Re-enabling deploy-tools later downloads utilities automatically if it is no longer installed",
+        "why": "Enable does not download; if a declared dependency is missing, the enable fails and asks you to install it first."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is installing at project scope, which fixes where the dependency landed. Dependencies install at the same scope, disabling a needed dependency is refused, enabling never downloads, and uninstall leaves auto-installed dependencies until claude plugin prune. Manage plugins like any dependency graph: know what pulls in what.",
+    "cue": "installs deploy-tools at project scope",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Install and manage plugins",
+        "url": "https://code.claude.com/docs/en/discover-plugins"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cad",
+    "status": "active"
+  }
+]

@@ -1,0 +1,1641 @@
+[
+  {
+    "id": "legacy-013",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.messages"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A developer ports a chatbot from another vendor's chat API and keeps its request builder, which puts the operator instructions in an entry with role 'system' at the start of the messages array. Every request now fails with a 400 invalid_request_error before any text is generated. What is the correct fix?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Move the instructions into the top-level system parameter and drop the entry from messages",
+        "why": "Correct. The Messages API takes first-turn instructions in the top-level system field, and a system entry can never be the first item in messages."
+      },
+      {
+        "id": "b",
+        "text": "Change the entry's role to 'assistant' so the instructions read as an earlier model turn",
+        "why": "Relabelling operator rules as something Claude said turns standing instructions into conversation history and does not fix where instructions belong."
+      },
+      {
+        "id": "c",
+        "text": "Wrap the system entry's text in a list of typed content blocks instead of a plain string",
+        "why": "Content blocks are a real format for message content, but the role and position are what the validator rejects, not the string shape."
+      },
+      {
+        "id": "d",
+        "text": "Prepend the instructions to every user message so they travel with each turn instead",
+        "why": "This avoids the 400 but demotes operator rules to user content and repeats them every turn, which costs tokens and weakens their authority."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is a role 'system' entry at the start of messages. The Messages API carries first-turn instructions in the top-level system parameter; newer models accept a system entry only later in a conversation, never as the first entry. Prepending the rules to user turns silences the error but puts operator instructions in the wrong layer.",
+    "cue": "at the start of the messages array",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Using the Messages API",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/working-with-messages"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-001",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.messages"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team builds a multi-turn assistant and, to save tokens, sends only the newest user message on each call, relying on prompt caching to keep earlier turns available to the model. Users complain that the assistant forgets details they gave two turns earlier. What is the cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The Messages API is stateless, so every request must carry the full conversation history it needs",
+        "why": "Correct. The API keeps no conversation state between calls; the model sees only what the current request contains."
+      },
+      {
+        "id": "b",
+        "text": "The cached turns expired after the default 5-minute TTL, so the 1-hour TTL would keep them in memory",
+        "why": "A cache only discounts a prefix that the request still sends; it never supplies turns the request leaves out."
+      },
+      {
+        "id": "c",
+        "text": "The request omits the previous response's message id, which the API uses to link one turn to the next",
+        "why": "Message ids identify responses for logging; the API has no mechanism that loads earlier turns from an id."
+      },
+      {
+        "id": "d",
+        "text": "max_tokens is too low for the model to recall earlier turns, so raising it restores the missing context",
+        "why": "max_tokens caps the length of the response; it has no effect on what earlier content the model can see."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is relying on prompt caching to stand in for conversation history. The Messages API is stateless, so the client resends the turns it wants the model to see on every call; caching only makes a repeated prefix cheaper. Reaching for a longer TTL is the tempting fix, but no cache holds content the request does not send.",
+    "cue": "relying on prompt caching to keep earlier turns available",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Using the Messages API",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/working-with-messages"
+      },
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-002",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.tools"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "An inventory assistant receives one response containing three tool_use blocks, and one of the three lookups times out in the warehouse service. The team wants Claude to keep making parallel calls on later turns and wants the next request to be well formed. Which two actions should the code take when it builds the next request? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Send all three tool_result blocks together in a single user message, each matched by tool_use_id",
+        "why": "Correct. Every result for a parallel batch goes back in the next single user message, which is the format that keeps Claude calling tools in parallel."
+      },
+      {
+        "id": "b",
+        "text": "Return a tool_result for the timed-out lookup with is_error set to true and a short explanation",
+        "why": "Correct. A call that fails still needs a matching tool_result; is_error tells Claude the call failed so it can retry or explain."
+      },
+      {
+        "id": "c",
+        "text": "Send each tool_result in its own user message, in the same order as the original tool_use blocks",
+        "why": "Separate messages per result are the documented way to teach Claude to stop making parallel calls on later turns."
+      },
+      {
+        "id": "d",
+        "text": "Leave the timed-out lookup out of the reply so Claude only reasons about results that succeeded",
+        "why": "Dropping a result leaves a tool_use without a matching tool_result, so the next request is malformed."
+      },
+      {
+        "id": "e",
+        "text": "Put a short text summary ahead of the tool_result blocks so Claude reads the context first",
+        "why": "Tool results must come before any text in that user message; leading with text breaks the parallel-call formatting rules."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is one failed call inside a parallel batch. Return one tool_result per tool_use, all in the next single user message and before any text, and mark the failure with is_error rather than omitting it. Splitting results across messages works once but trains Claude out of parallel calls.",
+    "cue": "one of the three lookups times out",
+    "pattern": "sequence",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Parallel tool use",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use"
+      },
+      {
+        "label": "Tool use overview",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-003",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.tools"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A booking agent passes Claude's tool input straight into a reservation service that crashes when passengers arrives as the string \"2\" instead of an integer. The service owner says every tool input must match the JSON Schema on the first attempt, with no validate-and-retry loop. Which change meets that requirement?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Set strict: true on the tool definition so sampling is constrained to schema-valid input",
+        "why": "Correct. Strict tool use applies grammar-constrained sampling, so the tool input always validates against the schema."
+      },
+      {
+        "id": "b",
+        "text": "Add 'passengers is always an integer' to both the tool description and the system prompt",
+        "why": "Instructions make the right type more likely but are advisory; a must-hold requirement needs an enforced control."
+      },
+      {
+        "id": "c",
+        "text": "Raise the effort level so Claude reasons more carefully about parameter types first",
+        "why": "Effort changes how much Claude reasons, not whether the emitted input is constrained to the schema."
+      },
+      {
+        "id": "d",
+        "text": "Declare passengers as an integer with a minimum of 1 so the schema leaves no doubt",
+        "why": "A clearer schema helps, but without strict mode Claude can still emit a string or omit a required field."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that every input must match on the first attempt with no retry loop. Only strict: true turns the schema into a sampling constraint; descriptions and tighter schemas without it remain requests. A must-hold rule points to the deterministic control, not a better instruction.",
+    "cue": "every tool input must match the JSON Schema",
+    "pattern": "must-means-deterministic",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Strict tool use",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/strict-tool-use"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-004",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.tools",
+      "api.messages"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A research feature gives Claude the web search server tool alongside two client tools. On long queries some responses come back with stop_reason pause_turn and a server_tool_use block that has no matching result, and the loop then crashes while looking for client tool_use blocks to execute. How should the loop handle this stop reason?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Send the paused response back unchanged as the assistant turn so Claude can continue the server-tool work",
+        "why": "Correct. pause_turn means a server-tool loop hit its iteration limit; sending the response back as-is lets Claude resume."
+      },
+      {
+        "id": "b",
+        "text": "Run the search in application code and return the output as a tool_result for the server_tool_use block",
+        "why": "Server tools execute on Anthropic's infrastructure; pause_turn asks you to continue the turn, not to supply a client-side result."
+      },
+      {
+        "id": "c",
+        "text": "Treat the response as a failed request and retry the original call with exponential backoff until it ends",
+        "why": "pause_turn arrives on a successful 200 response; retrying from scratch throws away the work done and can pause again."
+      },
+      {
+        "id": "d",
+        "text": "Raise max_tokens and resend the original request so the model has enough room to finish in one pass",
+        "why": "The pause comes from the server-tool iteration limit, not the output cap, so a larger max_tokens does not address it."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is stop_reason pause_turn with a server_tool_use block. Client tools stop with tool_use and need your tool_result; server tools run on Anthropic's side and pause_turn only asks you to send the assistant content back to continue. Supplying your own result treats a server tool as if it were a client tool.",
+    "cue": "stop_reason pause_turn",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Handling stop reasons",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons"
+      },
+      {
+        "label": "Tool use overview",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "legacy-016",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.streaming"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A chat service streams responses and alerts on any upstream status outside the 2xx range, and its dashboards have shown only HTTP 200 all week. Users still report answers that stop mid-sentence at peak hours, and the stream handler silently skips event types it does not recognise. What is the most likely explanation?",
+    "options": [
+      {
+        "id": "a",
+        "text": "An error event such as overloaded_error arrived mid-stream after the 200 status had been sent",
+        "why": "Correct. The status line is committed before generation finishes, so a failure arrives as an SSE error event that the handler skips."
+      },
+      {
+        "id": "b",
+        "text": "The responses ended early with stop_reason end_turn because peak load shortens generations",
+        "why": "Load does not change where Claude ends a turn; end_turn marks a natural finish, not an interrupted sentence."
+      },
+      {
+        "id": "c",
+        "text": "The client's HTTP connection timed out and the server discarded the remaining chunks silently",
+        "why": "A client timeout would surface as a client-side exception or log entry, and nothing in the stem points to the network."
+      },
+      {
+        "id": "d",
+        "text": "A proxy buffered the SSE stream and discarded the final message_stop event before delivery",
+        "why": "Losing message_stop would not cut text mid-sentence; the text deltas before it would still have arrived."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is all-200 dashboards plus a handler that skips unknown events. A streamed response can carry an error event, for example overloaded_error, after the 200 was sent, so status monitoring cannot see it and the partial answer looks like a silent cut. Network blame is tempting but explains nothing a status-only monitor would miss.",
+    "cue": "silently skips event types it does not recognise",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Streaming messages",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-005",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.streaming"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A metering service bills internal teams for streamed Messages API calls by reading usage from the first event of each stream. Finance notices that billed output tokens are a tiny fraction of what the console reports. Where should the service read output usage instead?",
+    "options": [
+      {
+        "id": "a",
+        "text": "From the message_delta event near the end, whose usage counts are cumulative for the response",
+        "why": "Correct. message_delta carries the final stop_reason and cumulative usage, so it reflects the whole generation."
+      },
+      {
+        "id": "b",
+        "text": "From message_start, after waiting for the stream to finish so that its usage object is updated",
+        "why": "Events are not revised after they are sent; message_start keeps its pre-generation usage however long you wait."
+      },
+      {
+        "id": "c",
+        "text": "By summing the token counts carried on each content_block_delta event as the text arrives",
+        "why": "Content deltas carry text, tool input or thinking fragments, not usage counts, so there is nothing to sum."
+      },
+      {
+        "id": "d",
+        "text": "From the ping events, which report the running token total at intervals during generation",
+        "why": "Ping events are keep-alives with no payload; they can appear anywhere and carry no usage."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is reading usage from the first event. message_start holds an empty message with pre-generation usage; the cumulative output usage arrives on message_delta near the end, or from the SDK's accumulated final message. Waiting on message_start does not help because SSE events are never updated.",
+    "cue": "reading usage from the first event of each stream",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Streaming messages",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "legacy-017",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.vision"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A procurement pipeline reviews 60-page supplier contracts whose payment terms sit in tables and scanned signature pages. It runs its own OCR step and sends Claude the extracted plain text, and reviewers say table rows come back scrambled. What does sending each PDF as a document content block change?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Each page is also processed as an image alongside its extracted text, so tables and layout survive",
+        "why": "Correct. PDF support converts each page to an image and pairs it with extracted text, so visual structure reaches the model."
+      },
+      {
+        "id": "b",
+        "text": "Nothing material, since the API runs the same plain-text extraction that the OCR step already does",
+        "why": "Text-only extraction is what loses the table structure; the document block adds the page images that OCR text lacks."
+      },
+      {
+        "id": "c",
+        "text": "Token cost disappears, since PDF documents are billed as attachments rather than as input tokens",
+        "why": "PDF pages are billed as input tokens, both for extracted text and for each page image."
+      },
+      {
+        "id": "d",
+        "text": "The contracts must first be converted to .docx, the format that document blocks fully support",
+        "why": "It is the other way round: .docx must be converted to text or PDF, while PDF is supported directly."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is scrambled table rows after a text-only OCR step. A PDF document block gives Claude each page as an image plus extracted text, so layout, tables and charts survive. Assuming the API only extracts text is the tempting error; it is exactly the step that loses the structure.",
+    "cue": "table rows come back scrambled",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "PDF support",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/pdf-support"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "legacy-019",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.vision"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A policy Q&A tool answers from supplied handbook PDFs, and auditors must be able to trace each sentence of an answer back to the passage it came from. The team is choosing which feature to enable on the request. Which feature meets the audit requirement most directly?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Citations enabled on the document blocks, so answers carry the exact cited passages and locations",
+        "why": "Correct. With citations on, text blocks carry citation objects with cited_text and a pointer into the supplied document."
+      },
+      {
+        "id": "b",
+        "text": "Summarized thinking display, so auditors can read how the model reasoned its way toward each answer",
+        "why": "A thinking summary shows reasoning, not which source passage supports a sentence; it is not a provenance record."
+      },
+      {
+        "id": "c",
+        "text": "A higher effort level, so the model reads the handbook more carefully before it answers",
+        "why": "Effort may improve accuracy but produces no traceable link from a sentence to its source."
+      },
+      {
+        "id": "d",
+        "text": "A structured output schema with a confidence score field for each sentence of the answer",
+        "why": "A self-reported confidence number is not evidence of where a claim came from and cannot be audited."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is tracing each sentence back to its passage. Citations ground the response in the supplied documents and return the cited text with its location, which is what an auditor checks. Thinking is the tempting distractor, but it explains reasoning rather than sourcing.",
+    "cue": "trace each sentence of an answer back to the passage",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Citations",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/citations"
+      },
+      {
+        "label": "PDF support",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/pdf-support"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-006",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.vision",
+      "api.vendors"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A claims app sends damage photos to Claude as image blocks with a url source pointing at signed links in object storage. The code works against the Claude API, but after the team moves inference to Google Cloud Vertex AI for billing reasons, every image request fails validation. Which change fixes it?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Fetch each photo in the app and send it as a base64 source, the only image source offered there",
+        "why": "Correct. On Google Cloud and Amazon Bedrock only base64 sources are currently available for images and documents."
+      },
+      {
+        "id": "b",
+        "text": "Upload the photos once with the Files API and reference each image by its file_id in the request",
+        "why": "The Files API is a first-party feature that Vertex AI does not offer, so file sources fail there too."
+      },
+      {
+        "id": "c",
+        "text": "Make the signed links publicly readable so the platform can fetch the images without auth",
+        "why": "The problem is the source type, not access: URL sources are not supported on Vertex AI however open the link is."
+      },
+      {
+        "id": "d",
+        "text": "Add the anthropic_version field to the body so that Vertex enables its vision support",
+        "why": "Vertex requires anthropic_version on every request, so text calls would fail too; it does not gate image input."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is the move to Vertex AI with url sources. Partner platforms lag the first-party feature set: on Vertex and Bedrock, images and PDFs go in as base64, and neither URL nor Files API sources are available. The Files API is the tempting fix because it is the first-party answer to repeated images.",
+    "cue": "moves inference to Google Cloud Vertex AI",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Vision",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/vision"
+      },
+      {
+        "label": "Claude on Google Cloud (Vertex AI)",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/claude-on-vertex-ai"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-007",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.thinking"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A chat UI streams answers from a model with thinking on and display set to summarized, but it discards every thinking_delta and never shows the reasoning. The product owner wants the reasoning depth kept exactly as it is, and users complain about a long pause before the first words appear. Which change shortens that pause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Set display to omitted so the server streams only each thinking block's signature before the text",
+        "why": "Correct. With omitted display the server skips streaming thinking text, so the answer starts sooner; thinking and billing are unchanged."
+      },
+      {
+        "id": "b",
+        "text": "Lower the effort level so Claude spends fewer tokens thinking before it starts writing the answer",
+        "why": "This does shorten the pause, but it reduces how much Claude reasons, which the product owner ruled out."
+      },
+      {
+        "id": "c",
+        "text": "Drop thinking_delta events earlier in the client so that the browser renders text deltas sooner",
+        "why": "Client-side filtering cannot reorder the stream; the text deltas still arrive only after the thinking text has streamed."
+      },
+      {
+        "id": "d",
+        "text": "Reduce max_tokens so the thinking phase is capped and the answer begins streaming sooner",
+        "why": "max_tokens is a hard cap on thinking plus answer, so lowering it risks max_tokens stops rather than scheduling thinking."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is keeping reasoning depth unchanged while hiding thinking anyway. Display controls visibility, not billing or depth: with omitted, the server sends an empty thinking block plus its signature, so text starts streaming sooner while the full thinking is still billed as output. Lowering effort is the tempting fix, but it changes the reasoning the stem says to keep.",
+    "cue": "wants the reasoning depth kept exactly as it is",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Thinking",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking"
+      },
+      {
+        "label": "Steering thinking (effort, cost, caching)",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking-steering-and-cost"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-008",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.thinking",
+      "api.tools"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An agent loop with thinking enabled trims tokens by rewriting each prior thinking block to a one-line summary before it sends the tool_result back. Requests in the middle of a tool-use turn now fail with a 400 error that mentions thinking blocks. What should the loop do instead?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Append the assistant content unchanged, passing every thinking block back complete and unmodified",
+        "why": "Correct. Within a tool-use turn, thinking blocks must be returned exactly as received; modified blocks are rejected with a 400."
+      },
+      {
+        "id": "b",
+        "text": "Delete the signature field from each rewritten block so that the API skips checking their content",
+        "why": "The signature is how the server reconstructs the original reasoning; removing it makes the block invalid rather than unchecked."
+      },
+      {
+        "id": "c",
+        "text": "Move the summarized reasoning into the tool_result content so it sits outside thinking blocks",
+        "why": "The original thinking blocks would still be missing or altered, and tool_result is for tool output, not model reasoning."
+      },
+      {
+        "id": "d",
+        "text": "Set display to omitted so that the loop no longer has thinking blocks to carry between requests",
+        "why": "Omitted display still returns thinking blocks, with empty text and a signature, and they must still be passed back."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is rewriting prior thinking blocks during a tool-use turn. Claude continues the same response after a tool result, so its earlier reasoning must come back complete and unmodified; appending response.content whole is the simplest correct code. Switching display is tempting but changes visibility, not the replay rule.",
+    "cue": "rewriting each prior thinking block to a one-line summary",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Thinking",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "legacy-015",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.caching"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A Go service rebuilds long agent conversations for each request, re-encoding every earlier tool_use block's input from a map, and keeps a cache breakpoint on the latest message. The conversation content is unchanged between turns, yet cache_read_input_tokens stays near zero and cache writes appear on every call. What is the most likely cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Map key order is randomized during JSON encoding, so the replayed prefix bytes differ on each request",
+        "why": "Correct. Cache hits need byte-identical prefixes, and languages such as Go and Swift can randomize key order when encoding."
+      },
+      {
+        "id": "b",
+        "text": "Breakpoints placed on messages are ignored, so only the tools and system segments can ever be cached",
+        "why": "Message blocks are cacheable, and the steady cache writes show the breakpoint is being honoured."
+      },
+      {
+        "id": "c",
+        "text": "The 5-minute TTL stops being refreshed once a conversation contains tool_use and tool_result blocks",
+        "why": "Tool blocks do not affect the TTL; there are no reads because the prefix never matches, not because it expired."
+      },
+      {
+        "id": "d",
+        "text": "tool_use blocks are excluded from the cacheable prefix, so every replayed turn is billed at full price",
+        "why": "tool_use and tool_result blocks are cacheable message content like any other block."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is re-encoding tool_use input from a map on every rebuild. Caching is an exact byte match on the prefix, so a non-deterministic key order makes every request look new; keep the original blocks or encode with stable ordering. Blaming the TTL is tempting, but writes on every call show the prefix itself is changing.",
+    "cue": "re-encoding every earlier tool_use block's input from a map",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "new-claude-api-mechanics-01",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.caching"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A support bot caches a large product-docs system prompt behind one breakpoint and has held a high cache-read rate for weeks. A release appends one feature-flagged tool definition to the tools array on every request, while the system prompt and message code are untouched. Cache reads then fall to zero for all traffic, including requests that never call the new tool. What explains the drop?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Tools render first in the cached prefix, so changing the tools array invalidates the system and messages cache too",
+        "why": "Correct. The prefix order is tools, then system, then messages, and a change at one level invalidates it and everything after."
+      },
+      {
+        "id": "b",
+        "text": "The feature flag marks requests as experimental, and experimental requests bypass the prompt cache entirely",
+        "why": "The API knows nothing of application feature flags; the new definition is in every payload whether or not it is used."
+      },
+      {
+        "id": "c",
+        "text": "The new definition pushes the request past the limit of four cache breakpoints, so the cache write is skipped",
+        "why": "The bot uses a single breakpoint and a tool definition adds none, so the four-breakpoint limit is not in play."
+      },
+      {
+        "id": "d",
+        "text": "Tool definitions sit outside the cacheable prefix, so any request that carries a new tool is billed in full",
+        "why": "This reverses the rule: tools are the first segment of the cacheable prefix, which is why changing them matters."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is a tools-array change with an untouched system prompt. The cache is a prefix over tools, system and messages in that order, so editing tools invalidates all three levels for every request that carries the new array. Thinking the system cache is independent of the tool list is the trap.",
+    "cue": "appends one feature-flagged tool definition to the tools array on every request",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-009",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.caching"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "An internal HR assistant puts cache_control on its 300-token system prompt, and requests that share it arrive every 20 to 40 minutes. Both cache_creation_input_tokens and cache_read_input_tokens are 0 on every response, and no error is returned. Which two statements correctly explain the zeros or the next problem the team will hit? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "The prompt is below the model's minimum cacheable length, so it is processed without caching and no error is raised",
+        "why": "Correct. Prefixes shorter than the model's minimum are silently processed uncached, which is exactly what two zero fields show."
+      },
+      {
+        "id": "b",
+        "text": "Once the prefix is long enough to cache, gaps of 20 minutes or more outlast the 5-minute default, so a 1-hour TTL fits",
+        "why": "Correct. The default TTL is 5 minutes, refreshed on use; traffic every 20 to 40 minutes needs the 1-hour TTL to see reads."
+      },
+      {
+        "id": "c",
+        "text": "Adding three more breakpoints inside the prompt lets each smaller segment be cached on its own",
+        "why": "More breakpoints split the same short prefix further; every segment is still below the minimum length."
+      },
+      {
+        "id": "d",
+        "text": "cache_control is ignored on the system field, so the marker belongs on the newest user message",
+        "why": "System blocks are cacheable, and moving the marker to the varying user turn would make every prefix unique."
+      },
+      {
+        "id": "e",
+        "text": "Cache entries are written only after a second identical request, so zeros are expected for a while",
+        "why": "A cacheable prefix is written on the first request and shows up in cache_creation_input_tokens immediately."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is both cache fields at zero with no error on a 300-token prompt. Below the model's minimum, caching silently does nothing; once the prefix is long enough, gaps of 20 minutes or more will still miss the 5-minute TTL, so the 1-hour TTL is the next fix. Adding breakpoints is tempting but cannot make a short prefix cacheable.",
+    "cue": "both cache_creation_input_tokens and cache_read_input_tokens are 0",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-010",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.caching"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A coding agent puts a single cache_control breakpoint on the final block of each request, and each turn appends about 30 interleaved text, tool_use and tool_result blocks. Cache reads were high in short sessions but drop to zero on those long turns, even though earlier content never changes. Which change restores cache reads on the conversation history?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Add a second breakpoint earlier in the conversation so its own 20-block lookback reaches the previous write",
+        "why": "Correct. Each breakpoint looks back at most 20 blocks for a prior write; a second breakpoint starts a window that finds it."
+      },
+      {
+        "id": "b",
+        "text": "Switch the breakpoint to the 1-hour TTL so earlier entries survive while the long turns are running",
+        "why": "The entry has not expired; the lookback from the final block simply stops before it reaches the previous write."
+      },
+      {
+        "id": "c",
+        "text": "Move the breakpoint into the system prompt so the conversation is no longer part of the cache key",
+        "why": "That restores hits on the system prompt only and gives up caching the history, which is most of the input."
+      },
+      {
+        "id": "d",
+        "text": "Sort the tool_result blocks by tool_use_id so the prefix hash stays stable from one turn to the next",
+        "why": "Earlier content is already unchanged, so stability is not the problem; distance from the last write is."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is about 30 new blocks per turn with one breakpoint at the end. Reads look back at most 20 block positions from each breakpoint for an entry an earlier request wrote, so a turn that adds more than that misses; a second breakpoint closer to the previous write fixes it. A longer TTL is tempting but the entry never expired.",
+    "cue": "each turn appends about 30 interleaved text, tool_use and tool_result blocks",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-011",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.caching"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A document assistant caches a long tools array and a long system prompt, each behind its own breakpoint, plus the growing conversation. Before the next request the team is weighing several edits and wants the cached tools and system segments to stay valid. Which two changes leave those segments intact? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Changing tool_choice from auto to none for the next request in the conversation",
+        "why": "Correct. A tool_choice change invalidates only the messages segment; tools and system caches stay valid."
+      },
+      {
+        "id": "b",
+        "text": "Adding an image to the newest user message before sending the next request",
+        "why": "Correct. Adding or removing images affects only the messages segment, leaving tools and system intact."
+      },
+      {
+        "id": "c",
+        "text": "Rewording the description of one tool so that Claude selects it more reliably",
+        "why": "Any change to a tool definition invalidates the whole cache: tools, system and messages."
+      },
+      {
+        "id": "d",
+        "text": "Fixing a typo in the opening instructions at the top of the system prompt",
+        "why": "A system change invalidates the system segment and everything after it, which defeats the goal."
+      },
+      {
+        "id": "e",
+        "text": "Reordering the tools array alphabetically by tool name to keep the code tidy",
+        "why": "Reordering changes the bytes of the tools segment, so all three cached levels are invalidated."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is keeping the tools and system segments valid. A change invalidates its own level and everything after it: tool definitions bust all three, system edits bust system and messages, and tool_choice or image changes touch only messages. Reordering tools looks harmless but still changes the first segment of the prefix.",
+    "cue": "wants the cached tools and system segments to stay valid",
+    "pattern": "scope-boundary",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "legacy-020",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.vendors",
+      "api.batch"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "An enterprise with a large AWS commitment moves an existing Claude API integration to Amazon Bedrock so usage is billed through AWS. The integration uses the Anthropic SDK, an Anthropic API key, and Message Batches for weekly backfills of archived records. Which two changes must the team plan for? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Requests authenticate with AWS credentials through IAM and SigV4 rather than the Anthropic API key",
+        "why": "Correct. Bedrock uses the AWS credential chain, IAM roles or short-term bearer tokens, not an Anthropic key."
+      },
+      {
+        "id": "b",
+        "text": "The weekly backfills need another path, because Message Batches is not offered on Bedrock",
+        "why": "Correct. Message Batches is listed as unsupported on Bedrock, so that part of the integration cannot move as is."
+      },
+      {
+        "id": "c",
+        "text": "The request body must be rewritten, because Bedrock uses a different message and content format",
+        "why": "The Bedrock Messages endpoint takes the same request body shape as the first-party API; client, ID and auth change."
+      },
+      {
+        "id": "d",
+        "text": "Prompt caching must be removed, because cached prefixes are not available through cloud vendors",
+        "why": "Prompt caching works on Bedrock, including the 1-hour TTL; only cache isolation and some details differ."
+      },
+      {
+        "id": "e",
+        "text": "Model IDs can stay exactly as they are, because Bedrock accepts the first-party model strings",
+        "why": "Bedrock model IDs carry an anthropic. prefix, so first-party strings are rejected as unknown models."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is the Message Batches dependency alongside the move to Bedrock. The request body stays the same, while the client, model ID format, authentication and feature set change; Message Batches, the Files API and the Models API are first-party endpoints Bedrock does not offer. Assuming a whole new request format is the tempting overcorrection.",
+    "cue": "Message Batches for weekly backfills",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Claude in Amazon Bedrock",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock"
+      },
+      {
+        "label": "Batch processing",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/batch-processing"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-012",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.vendors"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A bank runs Claude on Amazon Bedrock through the global endpoint, chosen at launch for its availability and lack of a pricing premium. A new regulation says inference for its customers may run only in one named AWS region. Which change satisfies the regulation?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Switch to the regional endpoint for that AWS region and accept its pricing premium over global",
+        "why": "Correct. A regional endpoint resolves to the single region you specify, which is the documented data-residency option."
+      },
+      {
+        "id": "b",
+        "text": "Keep the global endpoint and add a system prompt rule that forbids processing outside the region",
+        "why": "A prompt cannot control where the provider routes inference; residency is an infrastructure setting, not an instruction."
+      },
+      {
+        "id": "c",
+        "text": "Use a geography inference profile, which routes requests across several regions in that geography",
+        "why": "Inference profiles spread traffic across multiple regions within a geography, which fails a single-region rule."
+      },
+      {
+        "id": "d",
+        "text": "Enable prompt caching so that customer prompts are reused in place instead of crossing regions",
+        "why": "Caching changes cost and latency for repeated prefixes; it does not decide which region runs inference."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that inference may run only in one named region. Global endpoints route dynamically across regions for availability, so residency needs a regional endpoint at a 10% premium. A geography inference profile is the tempting middle ground, but it spans several regions.",
+    "cue": "may run only in one named AWS region",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Claude in Amazon Bedrock",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/claude-in-amazon-bedrock"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-013",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.vendors",
+      "api.batch"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team moves its Claude integration from the Claude API to Google Cloud Vertex AI, and single-message calls work after switching to the Vertex client and Google credentials. Two startup jobs still fail: one lists models to read their capabilities, and one submits a Message Batch of catalogue re-tagging requests. What explains both failures?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Vertex AI does not offer the Models API or Message Batches endpoints, so both jobs need another path",
+        "why": "Correct. The Vertex page lists Message Batches and Models among the API endpoints not supported there."
+      },
+      {
+        "id": "b",
+        "text": "Vertex requires the @date snapshot suffix on every model ID, and both of these jobs pass bare IDs",
+        "why": "Current models use bare IDs on Vertex, and the single-message calls already succeed with the same IDs."
+      },
+      {
+        "id": "c",
+        "text": "Both jobs omit anthropic_version from the request body, which Vertex requires only for list and batch calls",
+        "why": "anthropic_version is required on every Vertex request, so working message calls show it is already set."
+      },
+      {
+        "id": "d",
+        "text": "The global region does not host these endpoints, so both jobs must point at a regional endpoint",
+        "why": "Region choice affects routing and residency; these endpoints are absent from the platform in every region."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that message calls work while model listing and batch submission fail. Partner platforms carry the Messages API but not every first-party endpoint: Vertex lacks Message Batches, the Models API and the Files API. Model ID format is the tempting answer, but the working message calls rule it out.",
+    "cue": "lists models to read their capabilities",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Claude on Google Cloud (Vertex AI)",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/claude-on-vertex-ai"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-014",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.vendors"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team deploys a Claude model in Microsoft Foundry under the deployment name support-prod and copies the endpoint and key into its app. Requests that pass the first-party model ID as the model parameter are rejected, while the same body works on the Claude API. What should the model parameter contain?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The deployment name support-prod, because Foundry routes each request to a named deployment",
+        "why": "Correct. In Foundry the deployment name you choose is the value passed in the model parameter."
+      },
+      {
+        "id": "b",
+        "text": "The model ID with an anthropic. prefix, the format used by the AWS-hosted Messages endpoint",
+        "why": "The anthropic. prefix is the Amazon Bedrock convention, not Foundry's."
+      },
+      {
+        "id": "c",
+        "text": "The model ID with an @date snapshot suffix, the format Google Cloud uses for older models",
+        "why": "The @date suffix belongs to older model IDs on Vertex AI and has no meaning in Foundry."
+      },
+      {
+        "id": "d",
+        "text": "The full Target URI, because Foundry reads the model from a URL passed in that parameter",
+        "why": "The Target URI is the base URL for the client; the model parameter takes the deployment name."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is a custom deployment name. Each vendor has its own model identifier convention: Bedrock prefixes anthropic., Vertex uses bare IDs with @date on older models, and Foundry uses your deployment name. The deployment name defaults to the model ID, which is why renaming it breaks code that hard-codes IDs.",
+    "cue": "under the deployment name support-prod",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Claude in Microsoft Foundry",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/claude-in-microsoft-foundry"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "legacy-018",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.data-access",
+      "api.vision"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A contract review assistant attaches the same 90-page PDF as base64 to every turn of long review sessions, and late in a session requests start failing with 413 request_too_large. The team is satisfied with latency and cost; the failures are the problem. Which change addresses it most directly?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Upload the PDF once with the Files API and reference it by file_id in each turn's document block",
+        "why": "Correct. A file_id reference keeps request bodies small no matter how many turns reuse the document."
+      },
+      {
+        "id": "b",
+        "text": "Add a cache_control breakpoint after the PDF so later turns read it from the prompt cache instead",
+        "why": "Caching reduces processing cost and latency, but the full base64 bytes are still sent in every request body."
+      },
+      {
+        "id": "c",
+        "text": "Split the PDF across several parallel requests and merge the separate answers in application code",
+        "why": "Splitting loses whole-document context for cross-references and multiplies the number of calls to manage."
+      },
+      {
+        "id": "d",
+        "text": "Raise max_tokens so that the larger request has more room to fit within the model's limits",
+        "why": "max_tokens caps the response length; it has nothing to do with the size of the request body."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is a 413 request_too_large from base64 bytes resent every turn. The API is stateless, so attached bytes ride along in each request until the body passes the size limit; uploading once and referencing a file_id fixes the payload. Prompt caching is tempting but saves processing, not bytes on the wire.",
+    "cue": "requests start failing with 413 request_too_large",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Files API",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/files"
+      },
+      {
+        "label": "Vision",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/vision"
+      },
+      {
+        "label": "API overview (request size limits)",
+        "url": "https://platform.claude.com/docs/en/api/overview"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-015",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.data-access"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A multi-tenant study app uploads each learner's notes to the Files API and returns the file_id to the browser. The browser later sends that file_id back with each question, and the server forwards it into a document block. A security review flags this design. What should change?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Keep the user-to-file mapping on the server and resolve file IDs there, never accepting them from clients",
+        "why": "Correct. Files are workspace-scoped, so a client-supplied ID could point at another learner's upload."
+      },
+      {
+        "id": "b",
+        "text": "Rely on the Files API to reject any file_id that belongs to a different end user in the workspace",
+        "why": "The Files API has no notion of your end users; any key with workspace access can use any file in it."
+      },
+      {
+        "id": "c",
+        "text": "Download each file before use and compare its contents with the learner's own upload record",
+        "why": "Files you upload cannot be downloaded back, and content comparison is no substitute for an ownership check."
+      },
+      {
+        "id": "d",
+        "text": "Encrypt the file_id in the browser so that learners cannot read or guess other learners' IDs",
+        "why": "Client-side encryption uses a key the client holds; the server would still trust whatever ID comes back."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is the browser sending a file_id back to the server. Uploaded files are accessible to the whole workspace, not scoped to an end user, so file IDs are server-side references and the mapping from user to file belongs in your application. Expecting the API to enforce per-user ownership is the tempting wrong layer.",
+    "cue": "The browser later sends that file_id back",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Files API",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/files"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-016",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.data-access"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A pre-flight cost estimator sends each production request body to the token counting endpoint before making the real call. The production bodies reference PDFs by file_id and enable the web search server tool, and every count request fails with invalid_request_error while the Messages calls succeed. What is the best fix for the estimator?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Count with the PDFs sent as base64 and server tools removed, then read server-tool usage from responses",
+        "why": "Correct. Token counting rejects file and url sources and most server tools; count base64 content and use response usage for the rest."
+      },
+      {
+        "id": "b",
+        "text": "Add the Files API beta header to each count request so the endpoint can resolve the referenced files",
+        "why": "The endpoint rejects file sources by design; a header does not make it resolve them."
+      },
+      {
+        "id": "c",
+        "text": "Move the estimate into a Message Batch, whose results include the exact input token count per request",
+        "why": "Batch results report usage only after running the requests, which defeats a pre-flight estimate and costs money."
+      },
+      {
+        "id": "d",
+        "text": "Retry the count requests with backoff, because token counting shares its rate limit with message creation",
+        "why": "These are validation errors, not rate limiting, and token counting has its own independent rate limit."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is file_id sources plus a server tool in a count request. The counting endpoint takes a Messages-shaped body but returns invalid_request_error for url or file sources and for most server tools, so send base64 to count and read actual usage from responses. Treating the failures as rate limiting misreads a validation error.",
+    "cue": "reference PDFs by file_id and enable the web search server tool",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Token counting",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/token-counting"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "legacy-014",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.batch"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A pipeline submits 5,000 product descriptions to the Message Batches API for category labels and, once processing ends, writes result number i to product row i. Every request succeeded, but QA finds many labels that clearly belong to other products. What is wrong?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Batch results can be returned in any order, so each one must be joined to its row by custom_id",
+        "why": "Correct. Results do not follow submission order, and custom_id is the only link between a result and its request."
+      },
+      {
+        "id": "b",
+        "text": "Batched requests run on a smaller model than requested, so label accuracy drops at volume",
+        "why": "A batch honours the model in each request's params; the labels are plausible, just attached to the wrong rows."
+      },
+      {
+        "id": "c",
+        "text": "Prompt caching inside the batch served one request's cached output to a different request",
+        "why": "Caching reuses input prefixes, never another request's output, so it cannot swap labels between products."
+      },
+      {
+        "id": "d",
+        "text": "The batch hit its 24-hour limit and returned partial results that shifted all the remaining rows",
+        "why": "Every request succeeded, so nothing expired; the shift comes from positional matching, not missing results."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is writing result i to row i. Batch requests are processed independently and their results can come back in any order, so the only safe join is on the custom_id you set at submission. Expiry is the tempting alternative, but the stem says every request succeeded.",
+    "cue": "writes result number i to product row i",
+    "pattern": "diagnosis",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Batch processing",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/batch-processing"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-017",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.batch"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team builds 40,000 requests in code and submits them as one Message Batch, but a misspelled parameter name was added to every params object. They learn of it only hours later, when processing ends and every result is errored. Which practice would have caught the mistake before submission?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Send one request with the same params shape to the Messages API first and fix any error",
+        "why": "Correct. Batch params are validated asynchronously, so a single synchronous dry run surfaces the error immediately."
+      },
+      {
+        "id": "b",
+        "text": "Poll the batch every minute so errored results show up while processing_status is still in_progress",
+        "why": "Validation errors are returned when processing of the whole batch has ended, so faster polling reveals nothing sooner."
+      },
+      {
+        "id": "c",
+        "text": "Set stream to true on each batched request so validation errors surface as soon as they occur",
+        "why": "stream is not supported inside a batch; including it is itself a validation error."
+      },
+      {
+        "id": "d",
+        "text": "Rely on the create call to reject the whole batch whenever any params object fails validation",
+        "why": "Creation accepts the batch; per-request params are checked asynchronously and fail as individual errored results."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is learning of a bad parameter only when processing ends. Message Batches validates each request's params asynchronously and reports errors once the batch has ended, so the documented practice is to dry-run one request shape on the Messages API first. Expecting the create call to reject bad params is the tempting assumption.",
+    "cue": "only hours later, when processing ends",
+    "pattern": "sequence",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Batch processing",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/batch-processing"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-018",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.batch"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A batch of 50,000 support-ticket summaries ends with 46,900 succeeded, 2,600 expired because demand slowed processing, and 500 errored. Some errored results are invalid_request errors from tickets that exceeded a field limit, while the rest are server errors. Which two steps should the recovery script take? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Resubmit only the expired requests and the server-error requests in a new batch, keyed by their original custom_id",
+        "why": "Correct. Expired and server-error requests can succeed unchanged on a retry, and keeping custom_id preserves the join."
+      },
+      {
+        "id": "b",
+        "text": "Fix the inputs behind the invalid_request errors before resubmitting, because unchanged requests will fail again",
+        "why": "Correct. A validation error is deterministic; the same request resubmitted unchanged will error again."
+      },
+      {
+        "id": "c",
+        "text": "Resubmit the entire original batch so that all 50,000 results land together in a single results file",
+        "why": "This pays again for 46,900 requests that already succeeded; joining on custom_id makes one file unnecessary."
+      },
+      {
+        "id": "d",
+        "text": "Ask the API to extend the original batch's expiry so the expired requests can finish processing",
+        "why": "A submitted batch cannot be modified, and expired requests are never processed after the 24-hour window."
+      },
+      {
+        "id": "e",
+        "text": "Budget for the expired and errored requests at the batch rate, since they consumed processing capacity",
+        "why": "Errored, canceled and expired requests are not billed, so there is nothing to budget for them."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is a mix of expired results, server errors and invalid_request errors. Each result is independent: retry what failed for transient reasons as a new batch keyed by custom_id, and fix requests that failed validation first. Resubmitting everything is the tempting simple path but double-bills the successes.",
+    "cue": "Some errored results are invalid_request errors",
+    "pattern": "sequence",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Batch processing",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/batch-processing"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-019",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.batch",
+      "api.data-access"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An auditor asks a team to re-download the results of a Message Batch that the same workspace created six weeks ago. The retrieval script finds the batch and its metadata, but the results can no longer be downloaded. What explains this, and what should the team have done?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Results stay downloadable for 29 days after creation, so the team should store them on first retrieval",
+        "why": "Correct. After 29 days the batch is still visible but its results are no longer available for download."
+      },
+      {
+        "id": "b",
+        "text": "Batches are scoped to the API key that created them, so the team should reuse that original key",
+        "why": "Batches are scoped to the workspace, not the key, and the script already sees the batch from the same workspace."
+      },
+      {
+        "id": "c",
+        "text": "The results_url is single-use and expires after the first download, so the team should keep that copy",
+        "why": "The results file can be fetched repeatedly during the retention period; nothing makes it single-use."
+      },
+      {
+        "id": "d",
+        "text": "Results are deleted as soon as processing_status reaches ended, so they must be fetched while running",
+        "why": "Results only become available once processing ends; deleting them at that point would make batches unusable."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is a six-week-old batch whose metadata survives but whose results do not. Batch results are retained for 29 days after creation, so a pipeline that may need them later should persist them on retrieval. Key scoping is the tempting distractor, but batches are visible across the workspace.",
+    "cue": "created six weeks ago",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Batch processing",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/batch-processing"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-020",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.realtime-vs-batch"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A retailer must re-score 20,000 product listings against new marketplace rules, and the results have to be live before a sale starts in three hours. The team proposes the Message Batches API for its 50% discount and higher throughput. What should they do?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Make realtime Messages API calls in parallel within rate limits, since a batch only guarantees 24 hours",
+        "why": "Correct. Batch completion is promised only within 24 hours, so a hard three-hour deadline needs realtime calls."
+      },
+      {
+        "id": "b",
+        "text": "Submit one batch anyway, because most batches finish inside an hour and the discount halves the bill",
+        "why": "Most within an hour is typical, not guaranteed; under demand, batches can run far longer and requests can expire."
+      },
+      {
+        "id": "c",
+        "text": "Submit one batch with stream set to true so that each result arrives as soon as it is ready",
+        "why": "Streaming is not supported in a batch; results come back as one file after processing ends."
+      },
+      {
+        "id": "d",
+        "text": "Submit one batch with the 1-hour cache TTL so that processing finishes well ahead of the sale",
+        "why": "Caching can lower cost and latency per request but gives the batch no completion guarantee shorter than 24 hours."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is a hard three-hour deadline. The Batch API trades latency guarantees for a 50% discount: most batches finish within an hour, but only the 24-hour window is promised, so a firm deadline of a few hours points to realtime calls. The typical-completion figure is the tempting trap.",
+    "cue": "live before a sale starts in three hours",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Batch processing",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/batch-processing"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-021",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.realtime-vs-batch",
+      "api.batch"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A finance team wants the batch discount for an agent that settles each disputed invoice through four tool calls, where every call's input depends on the previous tool result. They propose putting all four steps for each invoice into one Message Batch as separate requests with sequential custom_ids. Why does this fail, and what should they use?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Batched requests run independently in no set order, so a dependent loop needs realtime calls or a batch per step",
+        "why": "Correct. No request in a batch can see another's output, so each dependent step must wait for the previous result."
+      },
+      {
+        "id": "b",
+        "text": "Message Batches rejects tool definitions, so the steps must run as plain prompts without tools",
+        "why": "Tool use, including server tools, is supported in batch requests; the dependency is the problem, not tools."
+      },
+      {
+        "id": "c",
+        "text": "Sequential custom_ids make the batch process its requests in order, so the plan works as proposed",
+        "why": "custom_id is only a join key; it does not order processing, and results can be returned in any order."
+      },
+      {
+        "id": "d",
+        "text": "Each batched request is limited to a single tool call, so the four steps must merge into one tool",
+        "why": "There is no one-tool-call limit; a batched request is an ordinary Messages request with the same tool support."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that every call depends on the previous tool result. Each batch request is processed independently, so a chain needs either realtime calls or one batch per step, waiting up to 24 hours for each. Treating custom_id as an ordering key is the tempting error; it only joins results to requests.",
+    "cue": "every call's input depends on the previous tool result",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Batch processing",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/batch-processing"
+      },
+      {
+        "label": "Tool use overview",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  },
+  {
+    "id": "claude-api-mechanics-022",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.realtime-vs-batch",
+      "api.streaming"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A product team wants to move its in-app 'explain this chart' feature to the Message Batches API to halve its cost. Users click the button and watch the explanation type out within a few seconds. Which two properties of the Batch API make it a poor fit for this feature? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Batched requests cannot stream, because results come back as a single file once processing ends",
+        "why": "Correct. stream: true is rejected in a batch, so the typing-out experience is impossible."
+      },
+      {
+        "id": "b",
+        "text": "A batch has no latency guarantee shorter than 24 hours, even though most batches finish within an hour",
+        "why": "Correct. A user waiting seconds needs a response now; batch timing is asynchronous and unpredictable."
+      },
+      {
+        "id": "c",
+        "text": "Batched requests cannot include image blocks, so the chart itself could not be sent to the model",
+        "why": "Vision is supported in batch requests, so the chart image is not the obstacle."
+      },
+      {
+        "id": "d",
+        "text": "Every request in a batch must use the same model and parameters, which blocks per-user settings",
+        "why": "Requests in a batch are independent and can mix types and parameters freely."
+      },
+      {
+        "id": "e",
+        "text": "A batch accepts at most 1,000 requests, which is too few for the feature's daily traffic volume",
+        "why": "The documented limit is 100,000 requests or 256 MB per batch, far above 1,000."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is a user watching the answer type out within seconds. Batch gives up streaming and any latency guarantee short of 24 hours in exchange for the discount, so interactive features stay on the realtime Messages API. The image restriction is tempting but false: vision works in batches.",
+    "cue": "watch the explanation type out within a few seconds",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Batch processing",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/batch-processing"
+      },
+      {
+        "label": "Streaming messages",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "active"
+  }
+]

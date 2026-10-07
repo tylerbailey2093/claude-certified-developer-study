@@ -5,14 +5,14 @@ Section 7 of the exam guide, which puts *"build and operate at least one Claude
 application"* in its own bullet — not read about, not watch.
 
 ```
-pip install anthropic jupyter
+pip install anthropic jupyter "mcp[cli]>=2.3,<3"   # mcp only for lab 08
 export ANTHROPIC_API_KEY=sk-ant-...
 jupyter notebook
 ```
 
 **Total cost across all eleven: under $0.20.** Most use Haiku with small payloads.
-Lab 02 is the priciest at roughly $0.05 because caching needs a prefix over ~1,024
-tokens to engage at all.
+Lab 02 is the priciest at roughly $0.05 because caching only engages above a
+model-dependent minimum prefix (512 to 4,096 tokens; see the lab).
 
 ---
 

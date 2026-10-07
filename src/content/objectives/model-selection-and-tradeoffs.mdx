@@ -6,135 +6,231 @@ name: "Model Selection and Tradeoffs"
 weight: 2.7
 tier: 2
 hot: false
+summary: "Pick the tier and thinking configuration that fit the task: Opus, Sonnet and Haiku use cases, which tiers support adaptive thinking and effort, quality/latency/cost per completed task, and the breaking changes that make a model swap a migration rather than a config edit."
+subskills: ["ms.tiers", "ms.adaptive", "ms.tradeoffs", "ms.breaking"]
+related: ["llm-fundamentals", "cost-and-token-management", "configuration-management", "claude-api-mechanics", "output-handling"]
 scope:
   - "Opus vs Sonnet vs Haiku use cases"
   - "adaptive thinking support by tier"
   - "quality/latency/cost tradeoffs"
   - "breaking behavior changes across model releases"
 traps:
-  - "Haiku has no effort parameter - it is differently shaped, not just cheaper"
-  - "effort tuning preserves evaluated behavior; a model swap invalidates every eval"
+  - name: "Haiku is differently shaped, not just cheaper"
+    looksRight: "The tiers form a smooth gradient, so Haiku must accept the same thinking and effort controls with a smaller range."
+    failsBecause: "Claude Haiku 4.5 supports only extended thinking with budget_tokens. Sending adaptive thinking returns a 400 and it has no effort parameter. Moving between Haiku and Sonnet changes the request shape, not just the price."
+    cue: "Stem asks to 'lower effort' or 'enable adaptive thinking' on a Haiku route."
+  - name: "Effort tuning preserves evaluated behaviour; a model swap invalidates every eval"
+    looksRight: "Changing effort and changing the model string are both knobs that trade quality for cost."
+    failsBecause: "Effort changes how much the same model reasons. A different model has different weights, failure modes, tokenizer and defaults, so every eval result was measured on something else."
+    cue: "Stem proposes downgrading the model as the first response to a cost or latency complaint on a route that already passes evals."
+  - name: "Cheapest per token is not cheapest per completed task"
+    looksRight: "Haiku costs a fraction of Opus per token, so it is always the cost answer."
+    failsBecause: "Cost per task includes thinking tokens, retries, escalations and human review of failures, and token counts differ by tokenizer. A cheaper model that fails more often can cost more end to end."
+    cue: "Stem gives a failure or review rate alongside per-token prices."
+  - name: "A model swap is not a string edit"
+    looksRight: "The Messages API is the same, so pointing at the newer model ID is a one-line change."
+    failsBecause: "Newer models reject request shapes older ones accepted (prefill, budget_tokens, sampling parameters, forced tool_choice), count tokens differently, and change defaults such as thinking on and effort level. Requests 400 or behave differently."
+    cue: "Stem says 'after updating the model ID, requests that worked now fail' or 'cost rose at the same price'."
+  - name: "A pinned ID does not freeze everything"
+    looksRight: "Model IDs are pinned snapshots, so behaviour can never change under a fixed ID."
+    failsBecause: "Weights are fixed per ID, but serving infrastructure (router, safety classifiers, sampling logic) can change and occasionally shifts observable behaviour. On pre-4.6 models the dateless alias is a pointer, not a snapshot."
+    cue: "Stem reports a behaviour change with no code or model change. Expect monitoring and evals, not 'the ID must have moved'."
 sources:
-  - label: "Migration guide"
-    url: "https://platform.claude.com/docs/en/about-claude/models/migration-guide"
-  - label: "Models overview"
-    url: "https://platform.claude.com/docs/en/about-claude/models/overview"
+  - { label: "Models overview", url: "https://platform.claude.com/docs/en/about-claude/models/overview", kind: "docs", verified: "2026-10-06" }
+  - { label: "Choosing the right model", url: "https://platform.claude.com/docs/en/about-claude/models/choosing-a-model", kind: "docs", verified: "2026-10-06" }
+  - { label: "Pricing", url: "https://platform.claude.com/docs/en/about-claude/pricing", kind: "docs", verified: "2026-10-06" }
+  - { label: "Thinking (per-model configuration and limits)", url: "https://platform.claude.com/docs/en/build-with-claude/thinking", kind: "docs", verified: "2026-10-06" }
+  - { label: "Effort", url: "https://platform.claude.com/docs/en/build-with-claude/effort", kind: "docs", verified: "2026-10-06" }
+  - { label: "Migrating to Claude Sonnet 5.5", url: "https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide", kind: "docs", verified: "2026-10-06" }
+  - { label: "Model IDs and versioning", url: "https://platform.claude.com/docs/en/about-claude/models/model-ids-and-versions", kind: "docs", verified: "2026-10-06" }
+  - { label: "Prompting best practices (migrating away from prefill)", url: "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices", kind: "docs", verified: "2026-10-06" }
+lastReviewed: "2026-10-06"
 authored: true
 ---
 
-## What this objective actually tests
+## Concept
 
-This objective checks whether you can pick a model tier and a thinking configuration against the actual shape of a task — not whether you can recite marketing copy about "Claude is smart." The exam distinguishes a *quality/latency/cost tradeoff* (a dial you tune) from a *tier capability gap* (a feature that flatly doesn't exist on some tiers, most sharply on Haiku). It also tests whether you understand that a model swap is a breaking change to a system that has already been evaluated, not a config edit — which is the opposite intuition from how most people treat "just point it at a newer model."
+The guide asks you to choose a model **for a task**: match tier to difficulty, latency and volume, know which tiers accept which thinking controls, price the choice per completed task, and recognise that moving to a new release is a migration with breaking changes. Version numbers drift; the tradeoffs do not. Learn the shape of each tier and treat specific IDs and prices as `facts.json` data.
+
+**Scope boundary.** Not this:
+
+- What tokens, thinking, effort and fast mode *are*: <ObjLink id="llm-fundamentals" />.
+- Caching, batch discounts and spend monitoring as cost tools: <ObjLink id="cost-and-token-management" />. The Batch API itself is <ObjLink id="claude-api-mechanics" />.
+- Where the model ID lives and how it is promoted between environments: <ObjLink id="configuration-management" />.
+
+<Callout type="key" title="The single idea that wins the most points">
+Inside one model, **effort** is the low-risk quality/cost dial because it preserves evaluated behaviour. **Changing the model** is the high-risk move: it invalidates evals and can break request shapes. Exhaust effort first; swap tiers only behind evals.
+</Callout>
 
 ## Mechanism
 
-### The current lineup and where each tier sits
+### Opus vs Sonnet vs Haiku use cases
 
-Verified against the models overview page (`platform.claude.com/docs/en/about-claude/models/overview`, checked 2026-08-25):
+<SubskillAnchor id="ms.tiers" />
 
-| Model | API ID | Context / max output | Thinking | Default effort | Price (in/out per MTok) |
-|---|---|---|---|---|---|
-| Claude Fable 5 | `claude-fable-5` | 1M / 128K | Adaptive, **always on** — cannot be disabled | `high` | $10 / $50 |
-| Claude Mythos 5 (Project Glasswing, limited availability) | `claude-mythos-5` | 1M / 128K | Same as Fable 5 | `high` | $10 / $50 |
-| Claude Opus 5 | `claude-opus-5` | 1M / 128K | Adaptive, on by default | `high` | $5 / $25 |
-| Claude Sonnet 5 | `claude-sonnet-5` | 1M / 128K | Adaptive, on by default | `high` | $2 / $10 |
-| Claude Haiku 4.5 | `claude-haiku-4-5` (dated: `claude-haiku-4-5-20251001`) | 200K / 64K | **Extended only** (manual `budget_tokens`) | **Not supported** | $1 / $5 |
+| Tier | Shape | Reach for it when | Current example (from `facts.json`) |
+|---|---|---|---|
+| Haiku | Fastest, cheapest, 200K window, 64K output, extended thinking only | High-volume, latency-sensitive, narrow tasks: routing, classification, extraction, sub-agent work | `claude-haiku-4-5`, $1 / $5 per MTok |
+| Sonnet | Best combination of speed and intelligence, 1M window | Default production and agentic work, code generation, data analysis | `claude-sonnet-5-5`, $2 / $10 |
+| Opus | Deep reasoning, long-running agentic coding and knowledge work, 1M window | Hard multistep reasoning, large refactors, autonomous agents where Sonnet's ceiling binds | `claude-opus-5-5`, $4 / $20 |
 
-[Certain] Claude Sonnet 5's $2/$10 pricing, originally announced as introductory through 2026-08-31, is now confirmed as the **permanent** standard price — the previously scheduled increase to $3/$15 on 2026-09-01 will not happen (pricing page, checked 2026-08-25). If you recall Sonnet 5 as $3/$15 from an earlier snapshot, that number is stale.
+Above Opus sits a "most capable" tier (currently Claude Fable 5.1 at $10 / $50, slower) for work where Opus at high effort still falls short. Comparative latency on the overview runs Fastest (Haiku), Fast (Sonnet), Moderate (Opus), Slower (Fable). [Certain as of 2026-10-06, models overview; drifts]
 
-Legacy tiers still served: Opus 4.8, 4.7, 4.6, 4.5; Sonnet 4.6, 4.5. They exist mainly as migration source points, not as new-build choices.
+Anthropic describes two ways to pick a starting point [Certain, choosing a model]:
 
-### Positioning: capability tier is not just a cost slider
+- **Efficiency-first**: start on Haiku, test, upgrade only for proven capability gaps. Fits prototypes, tight latency, cost-sensitive and high-volume straightforward work.
+- **Capability-first**: start on the strongest model, optimise prompts, then lower effort or downgrade while evals hold. Fits complex reasoning, nuanced understanding, accuracy over cost, high-autonomy agents.
 
-- **Haiku** — fastest, cheapest, 200K context (the one current model *not* on the 1M window), and **structurally different**: it runs extended thinking only, with a hand-set `budget_tokens`, and it has no `effort` parameter at all. Reach for it on narrow, high-volume, latency-sensitive work — classification, routing, moderation, extraction — once evals confirm the quality bar, not by default.
-- **Sonnet** — adaptive thinking, `effort` support, the best balance of intelligence and speed, and now (post the permanent price change) also the cheapest tier with full adaptive-thinking/effort support. This is the default for most production traffic.
-- **Opus** — adaptive thinking on by default, higher cost and latency, aimed at complex agentic coding and enterprise-grade reasoning where Sonnet's ceiling is the limiting factor.
-- **Fable / Mythos** — thinking is mandatory and always on; there is no "turn it off" path. Reserve for maximum-capability, long-horizon agentic work where cost is not the binding constraint.
+The docs disagree on the default: the pricing page says Haiku for simple tasks, Sonnet for most production, Opus for the most complex; the current overview says start most workloads on Opus 5.5. [Certain that both exist; Likely that guide-era items follow the Haiku / Sonnet / Opus split.] Either way, the stem's framing (volume versus feasibility) picks the direction, and evals decide.
 
-The quality/latency/cost triangle is real but it is not the whole test: within a tier, `effort` (`low`→`max`) is the fine-grained dial; *between* tiers, Haiku's missing `effort` parameter means the jump from Haiku to Sonnet is a shape change, not just a bigger dial turn.
+**Exam angle:** "high volume", "narrow", "real time" point to Haiku; "everyday production", "balanced" to Sonnet; "hardest reasoning", "long-horizon agent" to Opus. The distractor defaults to the most capable model for a routing step.
 
-### Two valid selection strategies
+### Adaptive thinking support
 
-The blueprint calls out both directions, and a stem should tell you which applies:
+<SubskillAnchor id="ms.adaptive" />
 
-1. **Start cheap, escalate on eval failure.** Best when request volume is high and most requests are actually easy — Haiku or Sonnet first, promote only the subset that fails your eval bar.
-2. **Start capable, optimize down while evals hold.** Best when feasibility is the open question — prove it works on Opus or Fable first, then step down tier or effort while your eval suite still passes.
+Thinking controls are not uniform across tiers, and that is the testable part:
 
-Evals gate the decision either direction. Neither strategy is "correct" in the abstract — the stem's framing (volume vs. feasibility-first) picks the direction.
+| Model | Adaptive thinking | `budget_tokens` | Effort |
+|---|---|---|---|
+| Haiku 4.5 | 400 error | Required for thinking (min 1,024, below `max_tokens`) | Not supported |
+| Sonnet 4.6, Opus 4.6 | Supported, set explicitly | Deprecated, still works | Supported |
+| Opus 4.7 and later, Sonnet 5 and later, Fable | Supported (on by default from Opus 5 and Sonnet 5) | 400 error | Supported, five levels |
 
-### Effort tuning vs. a model swap
+[Certain, thinking and effort pages] Haiku is the trap: it is not a small Sonnet. You cannot "turn effort down" on it, and adaptive thinking fails outright. Opus 4.5 is the one extended-thinking-only model that also takes effort.
 
-This is the most commonly tested distinction in the objective. Stepping `effort` down (`high`→`medium`→`low`) on the *same* model changes how much the model reasons, not what model is answering — the behavior you already validated with evals is still the behavior in production, just shallower. Swapping the model string is a different model with different training, different failure modes, and every eval you ran is now unverified for the new tier. Effort is the low-risk lever; a tier swap is the high-risk one that should come after effort tuning is exhausted, not before it.
+<PostGuide title="Post-guide detail: thinking defaults on the newest models">
+Opus 5.5 and Fable models run adaptive thinking always; `disabled` is a 400. Sonnet 5.5 rejects `disabled` and uses `thinking: {"type": "between_tools"}` as its lowest setting. Opus 5.5 defaults to `medium` effort while most models default to `high`. [Certain on the thinking and effort pages today.]
+</PostGuide>
 
-### Breaking behavior changes across releases
+**Exam angle:** "mixed difficulty, let the model decide how much to reason" requires an adaptive-capable tier. A stem pairing Haiku with effort or adaptive thinking is describing a request that fails.
 
-"Breaking behavior change" means: code that worked, calling a request shape that was valid, starts returning errors or silently different output purely because the model string changed — and the fix is never "just edit the model string back." Concretely, per the current migration guide:
+### Quality, latency and cost tradeoffs
 
-- **Manual thinking budgets rejected.** `thinking: {type: "enabled", budget_tokens: N}` is deprecated on Opus 4.6 / Sonnet 4.6 (still functional) and returns a **400** on Opus 4.7, Opus 4.8, Opus 5, Sonnet 5, Fable 5, and Mythos 5. The replacement is `thinking: {type: "adaptive"}` plus `output_config.effort`.
-- **Non-default sampling rejected.** `temperature`, `top_p`, `top_k` set to anything but their defaults return 400 on the newest tiers; `effort` and structured outputs took over that role.
-- **Assistant prefill rejected** on the same newest-tier set — a 400, not a silent no-op. Structured outputs (`output_config.format`) or a system-prompt instruction replace it.
-- **Legacy beta headers removed** — stripping outdated `anthropic-beta` values is part of a migration, not optional cleanup.
-- **Context window and max output limits change between generations** — see the table above: Haiku 4.5 alone is still on 200K/64K while every other current tier is 1M/128K.
-- **Tokenizer changes.** [Certain — pricing page, checked 2026-08-25] Claude 4.7 and later models (and Mythos Preview) use a newer tokenizer that produces **approximately 30% more tokens for the same text** than the tokenizer used by Sonnet 4.6 and earlier. A token count or cost estimate carried over from a pre-4.7 model without re-running `count_tokens` will under-count on the new tier.
-- **`max_tokens` carryover.** Where thinking is on by default, reasoning consumes budget before the visible answer starts. A `max_tokens` value copied unchanged from an older, thinking-off model can truncate responses on the new tier for no obvious reason.
+<SubskillAnchor id="ms.tradeoffs" />
 
-The durable exam idea: **a migration is gated on a documentation read and an eval re-run, never on editing the model string alone.** [Guessing — confidence note] The specific breaking-change list above post-dates the July 2026 exam guide, so treat it as engineering knowledge to reason from, not memorized exam content — the pattern ("newer tier, same request shape, different validation rules") is what's actually being tested.
+Apply levers in order of risk [Certain for the guidance on the choosing-a-model and effort pages; the ordering is Likely]:
+
+1. **Effort on the current model.** Often a better lever than switching models. Lower effort means fewer tokens, fewer tool calls, lower latency.
+2. **Tier.** Changes quality, latency and price together, and requires re-running evals.
+3. **Delivery mode.** Fast mode buys output speed on supported Opus models at a premium; batch buys 50% off when nobody is waiting.
+
+**Worked cost per task.** An email triage route extracts five fields per message. Measured on Haiku: 2,000 input tokens, 300 output tokens. Prices from `facts.json`. Thinking volumes are illustrative assumptions.
+
+| Model and setting | Input tokens | Output tokens (text + thinking) | Cost per task | Per 1M tasks |
+|---|---|---|---|---|
+| Haiku 4.5, thinking off | 2,000 | 300 | $0.0020 + $0.0015 = **$0.0035** | $3,500 |
+| Sonnet 5.5, effort `low` | 2,600 | 300 + 300 | $0.0052 + $0.0060 = **$0.0112** | $11,200 |
+| Opus 5.5, effort `medium` | 2,600 | 300 + 900 | $0.0104 + $0.0240 = **$0.0344** | $34,400 |
+
+Two corrections a naive per-token comparison misses. First, Sonnet 5.5 and Opus 5.5 use the newer tokenizer, so the same email is about 30% more input tokens (2,000 becomes about 2,600). [Likely; recount for real] Second, thinking bills as output on tiers where it runs by default.
+
+Now price **completion**, not requests. If Haiku passes a schema-plus-rules validator on 92% of emails and the rest escalate to Sonnet, the cascade costs $0.0035 + 0.08 × $0.0112 = **$0.0044** per completed task. If those failures instead go to a human at $0.50 each, Haiku-only costs $0.0035 + 0.08 × $0.50 = **$0.0435**, more than Opus. The cascade only works when failures are machine-detectable.
+
+<Flow title="Cost-aware cascade" steps={[{label: "Haiku 4.5", kind: "model", note: "cheap first pass"}, {label: "Validator", kind: "guard", note: "schema + business rules"}, {label: "Pass: done", kind: "store"}, {label: "Fail: Sonnet 5.5", kind: "model", note: "escalate the minority"}]} caption="Cost per completed task depends on the escalation rate and on failures being detectable in code." />
+
+**Exam angle:** stems that give a failure rate or review cost next to per-token prices want cost per completed task. The distractor picks the lowest price per MTok.
+
+### Breaking behaviour changes across releases
+
+<SubskillAnchor id="ms.breaking" />
+
+A breaking change means a request shape that worked returns an error, or the same request silently costs or behaves differently, purely because the model ID changed. Two predate the guide [Certain]:
+
+- **Assistant prefill removed** from the Claude 4.6 models onward: a prefilled final assistant turn returns a 400 ("This model does not support assistant message prefill. The conversation must end with a user message."). Replace format-forcing prefill with structured outputs (<ObjLink id="output-handling" />), preamble-skipping with a system prompt instruction, and continuations with a user-turn instruction.
+- **Manual thinking budgets deprecated** on the 4.6 models in favour of adaptive thinking plus effort.
+
+<PostGuide title="Post-guide breaking changes (engineering knowledge, low exam confidence)">
+
+| Change | Models | Symptom | Fix |
+|---|---|---|---|
+| `budget_tokens` rejected | Claude 4.7 and later | 400 "thinking.type.enabled is not supported for this model" | Adaptive thinking plus effort; evaluate 2 or 3 levels |
+| Sampling parameters rejected | Opus 4.7+, Sonnet 5+, Fable | 400 on non-default `temperature`, `top_p`, `top_k` | Remove; use effort, instructions, schemas |
+| Forced `tool_choice` rejected | Opus 5.5, Sonnet 5.5, Fable 5.1 | 400 "tool_choice: type tool and any are not supported for this model." | `auto` plus `strict: true`, or structured outputs |
+| New tokenizer | Claude 4.7 and later models | About 30% more tokens, higher bills, earlier truncation | Recount with `count_tokens`; revisit `max_tokens` |
+| Thinking on by default | Opus 5+, Sonnet 5+ | Old `max_tokens` truncates; output bill rises | Raise `max_tokens`; set effort explicitly |
+| Effort default and calibration | Opus 5.5 (`medium`), Sonnet 5.5 (recalibrated) | Silent quality or cost shift | Set effort explicitly; re-run the effort sweep |
+| Thinking display omitted | Sonnet 5.5 confirmed; other recent models [Likely] | Empty thinking text in UIs | `display: "summarized"` |
+
+[Certain on the Sonnet 5.5 migration guide and thinking page today; model lists drift.]
+
+</PostGuide>
+
+How to migrate safely:
+
+1. **Pin the ID** in configuration, not code. From the 4.6 generation, dateless IDs are fixed snapshots; older dateless names are aliases that move. Weights never change under an ID, but serving infrastructure can. [Certain, model IDs page]
+2. **Read the target's migration guide**, then fix the request shapes above.
+3. **Recount tokens** and re-baseline cost.
+4. **Re-run the eval suite** on the new model, including an effort sweep. Anthropic calls a good evaluation set the most important step in deciding whether to change models. [Certain, choosing a model]
+5. **Canary** behind a config flag with rollback, and watch retirement dates (each ID has its own schedule). See <ObjLink id="configuration-management" />.
+
+**Exam angle:** "after updating the model ID, requests fail with 400" or "same price, higher bill" point here. Distractors: retrying the 400 (not transient), reverting forever (models retire), and shipping after only fixing the errors (no evals).
 
 ## Decision table
 
-| When the stem says... | ...the answer is |
-|---|---|
-| High-volume, latency-sensitive, narrow task (classify/route/moderate), evals pass | Haiku — the fast, cheap tier, not the default-to-capable instinct |
-| A stem asks for finer control over Haiku's reasoning depth via `effort` | Not available — Haiku has no `effort` parameter; use `budget_tokens` under extended thinking instead, or move to a tier that supports adaptive thinking |
-| Quality needs a bump but the current model's behavior is already eval-validated | Step `effort` up first — it preserves the validated model |
-| A team proposes swapping model tier to fix a quality or behavior gap | Only after effort tuning is exhausted — a tier swap invalidates every existing eval |
-| Migrated to a newer model; `thinking.budget_tokens` now 400s | Expected — move to `thinking: {type: "adaptive"}` + `output_config.effort` |
-| Migrated to a newer model; `temperature`/`top_p`/`top_k` now 400s on a previously working call | Expected — newest tiers reject non-default sampling; use `effort` and/or structured outputs |
-| Cost estimate for a migrated workload looks off vs. the prior model | Re-run `count_tokens` — the 4.7+ tokenizer produces ~30% more tokens for identical text |
-| "Feasibility is the open question" for a hard new task | Start capable (Opus/Fable), optimize down while evals hold |
-| "Volume is high, most requests are easy" | Start cheap (Haiku/Sonnet), escalate only what fails evals |
-| Maximum capability needed regardless of cost, long-horizon agentic work | Fable 5 / Mythos 5 — thinking is mandatory, cannot be disabled |
+| If the stem says... | Choose | Why the runner-up loses |
+|---|---|---|
+| Millions of short routing calls, sub-second budget, evals pass on the small model | Haiku | Sonnet or Opus add cost and latency the task does not need |
+| Route already passes evals; cost must drop | Lower effort on the same model | A tier swap invalidates the evals |
+| "Lower the effort" on a Haiku 4.5 route | Not possible: use `budget_tokens` or move to Sonnet | Haiku has no effort parameter |
+| Hard multistep agentic task; feasibility unproven | Start capability-first on Opus, optimise down | Starting cheap cannot tell a capability gap from a prompt problem |
+| Per-token prices plus a failure rate and human review cost | Compare cost per completed task | Lowest price per MTok ignores escalation and review |
+| New model ID, previously valid requests now return 400 | Fix request shapes per the migration guide, then re-run evals | Retrying a 400 never succeeds |
+| Same price per token, bill up about 30% after migration | Recount with `count_tokens` on the new model | Old counts used the previous tokenizer |
+| Behaviour shifted with no code or model change | Monitor and re-run evals | Pinned IDs keep weights, but serving infrastructure can change |
 
-## Code examples
+## Worked walkthrough
 
-Both examples route a request to a tier by task shape, then configure thinking/effort appropriately for that tier — including the Haiku branch, which cannot take `effort` at all.
+<Walkthrough title="Scenario: Moving a clause extractor to a newer Sonnet">
+
+<Step title="Read the scenario">
+A legal-ops team runs a clause extractor on `claude-sonnet-4-6`. It prefills the assistant turn with an opening brace to force JSON and sets `temperature` to 0. To cut cost they change the model string to `claude-sonnet-5-5`. Every request now returns a 400, and the head of legal requires that extraction accuracy must not regress. What is the right next step?
+</Step>
+
+<Step title="Find the constraint">
+Two facts. The failures are 400s caused by request shape: prefill and a non-default sampling value, both rejected on the newer model. And "must not regress" makes evaluated accuracy the acceptance bar, not "requests succeed".
+</Step>
+
+<Step title="Eliminate the distractors">
+Adding retries with backoff fails: a 400 is a validation error, not a transient fault. Moving to Haiku 4.5 because it still accepts prefill swaps tiers to dodge an error and still needs evaluation. Deleting the prefill and temperature lines and shipping fixes the errors but nothing proves accuracy held, and the new tokenizer changes token counts.
+</Step>
+
+<Step title="Choose">
+Replace the prefill with structured outputs (`output_config.format` with the clause schema), remove `temperature`, recount tokens and adjust `max_tokens`, run the extraction eval suite on `claude-sonnet-5-5` at two or three effort levels, then canary behind a config flag with rollback to the pinned old ID.
+</Step>
+
+<Step title="The deciding cue">
+"Every request now returns a 400" says request shape changed. "Must not regress" says evals gate the release. Only the option that does both is correct.
+</Step>
+
+</Walkthrough>
+
+## Code
+
+**Cost per completed task, measured.** Count input under each model's tokenizer, run one request to read real output and thinking tokens, and price with `facts.json` rates. Haiku takes no effort parameter.
 
 ```python
-from anthropic import Anthropic
+import anthropic
 
-client = Anthropic()
+client = anthropic.Anthropic()
 
-def pick_model(task_kind: str) -> str:
-    # Narrow, high-volume, latency-sensitive: cheapest tier, evaluated already.
-    if task_kind in ("classify", "route", "moderate"):
-        return "claude-haiku-4-5"
-    # Default production workload: best balance, adaptive thinking + effort.
-    if task_kind == "general":
-        return "claude-sonnet-5"
-    # Complex agentic coding / deep analysis: highest reasoning ceiling.
-    return "claude-opus-5"
+PRICES = {  # USD per MTok (input, output), from src/data/facts.json
+    "claude-haiku-4-5": (1, 5),
+    "claude-sonnet-5-5": (2, 10),
+    "claude-opus-5-5": (4, 20),
+}
+EMAIL = "Hi, invoice INV-2291 for 4,200 EUR is overdue since 3 Sept. Please confirm the payment date."
+messages = [{"role": "user", "content": f"Extract vendor, invoice_id, amount, currency, due_status.\n<email>{EMAIL}</email>"}]
 
-def run(task_kind: str, prompt: str):
-    model = pick_model(task_kind)
+def run(model: str):
+    extra = {} if model == "claude-haiku-4-5" else {"output_config": {"effort": "low"}}
+    return client.messages.create(model=model, max_tokens=4096, messages=messages, **extra)
 
-    if model == "claude-haiku-4-5":
-        # Haiku is differently shaped, not just cheaper: no `effort` param,
-        # and thinking (if used at all) is manual extended thinking.
-        return client.messages.create(
-            model=model,
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
-        )
-
-    # Sonnet 5 / Opus 5: adaptive thinking on by default, effort is the
-    # depth dial. Step effort down before ever considering a tier swap.
-    return client.messages.create(
-        model=model,
-        max_tokens=16000,
-        thinking={"type": "adaptive"},
-        output_config={"effort": "high"},
-        messages=[{"role": "user", "content": prompt}],
-    )
+for model, (p_in, p_out) in PRICES.items():
+    counted = client.messages.count_tokens(model=model, messages=messages).input_tokens
+    resp = run(model)
+    cost = (resp.usage.input_tokens * p_in + resp.usage.output_tokens * p_out) / 1_000_000
+    print(f"{model:18} counted_in={counted:5} out={resp.usage.output_tokens:5} cost=${cost:.5f}")
 ```
 
 ```typescript
@@ -142,54 +238,136 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
 
-function pickModel(taskKind: string): string {
-  // Narrow, high-volume, latency-sensitive: cheapest tier, evaluated already.
-  if (["classify", "route", "moderate"].includes(taskKind)) {
-    return "claude-haiku-4-5";
-  }
-  // Default production workload: best balance, adaptive thinking + effort.
-  if (taskKind === "general") {
-    return "claude-sonnet-5";
-  }
-  // Complex agentic coding / deep analysis: highest reasoning ceiling.
-  return "claude-opus-5";
-}
+const PRICES: Record<string, [number, number]> = {
+  // USD per MTok (input, output), from src/data/facts.json
+  "claude-haiku-4-5": [1, 5],
+  "claude-sonnet-5-5": [2, 10],
+  "claude-opus-5-5": [4, 20],
+};
+const EMAIL = "Hi, invoice INV-2291 for 4,200 EUR is overdue since 3 Sept. Please confirm the payment date.";
+const messages: Anthropic.MessageParam[] = [
+  { role: "user", content: `Extract vendor, invoice_id, amount, currency, due_status.\n<email>${EMAIL}</email>` },
+];
 
-async function run(taskKind: string, prompt: string) {
-  const model = pickModel(taskKind);
-
-  if (model === "claude-haiku-4-5") {
-    // Haiku is differently shaped, not just cheaper: no `effort` field,
-    // and thinking (if used at all) is manual extended thinking.
-    return client.messages.create({
-      model,
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
-    });
-  }
-
-  // Sonnet 5 / Opus 5: adaptive thinking on by default, effort is the
-  // depth dial. Step effort down before ever considering a tier swap.
-  return client.messages.create({
-    model,
-    max_tokens: 16000,
-    thinking: { type: "adaptive" },
-    output_config: { effort: "high" },
-    messages: [{ role: "user", content: prompt }],
-  });
+for (const [model, [pIn, pOut]] of Object.entries(PRICES)) {
+  const { input_tokens: counted } = await client.messages.countTokens({ model, messages });
+  // Haiku 4.5 has no effort parameter: send output_config only to tiers that accept it.
+  const resp = model === "claude-haiku-4-5"
+    ? await client.messages.create({ model, max_tokens: 4096, messages })
+    : await client.messages.create({ model, max_tokens: 4096, messages, output_config: { effort: "low" } });
+  const cost = (resp.usage.input_tokens * pIn + resp.usage.output_tokens * pOut) / 1_000_000;
+  console.log(model, counted, resp.usage.output_tokens, cost.toFixed(5));
 }
 ```
 
-## Named traps, expanded
+<Output kind="illustrative">
 
-**"Haiku has no effort parameter — it is differently shaped, not just cheaper."** This is attractive to miss because every other axis of the tier comparison (cost, latency, context window) reads as a smooth gradient from Haiku up to Fable, which invites treating `effort` the same way — as if Haiku just has a narrower range. It doesn't have a narrower range; it has a categorically different thinking model. Haiku 4.5 runs **extended thinking only** (manual `budget_tokens`, `type: "enabled"`), the same mechanism older pre-4.6 models use, and the API rejects `effort` on it outright rather than silently clamping it. Recognize this trap whenever a stem asks you to "just lower the effort" or "tune effort down" on a Haiku-tier answer — that option is not available, full stop, and the correct move is either a manual thinking budget or a different tier.
+```text
+claude-haiku-4-5   counted_in=   58 out=   71 cost=$0.00041
+claude-sonnet-5-5  counted_in=   75 out=  204 cost=$0.00219
+claude-opus-5-5    counted_in=   75 out=  512 cost=$0.01054
+```
 
-**"Effort tuning preserves evaluated behavior; a model swap invalidates every eval."** This is attractive because both moves look like "turning a knob to spend less" from the outside — one knob is `effort`, the other is the model string, and a stem can frame them as interchangeable cost levers. They are not equivalent in risk: `effort` changes how hard the *same* model thinks about the *same* weights and the *same* training; a tier swap changes the model entirely, and every eval score you have on record was measured against the old one. Recognize this trap whenever a stem proposes "downgrading the model" as the first response to a cost or latency complaint — the decision table above is explicit that effort comes first, tier swap comes last, and only after re-running evals.
+Multiply by escalation and review rates before comparing.
+
+</Output>
+
+**Migration gate.** Run the same golden set on the pinned old ID and the candidate; promote only if the candidate's pass rate holds. Legacy `claude-sonnet-4-6` appears here as the migration source.
+
+```python
+import json
+
+import anthropic
+
+client = anthropic.Anthropic()
+
+SCHEMA = {
+    "type": "object",
+    "properties": {"clause": {"type": "string", "enum": ["indemnity", "termination", "liability_cap", "other"]}},
+    "required": ["clause"],
+    "additionalProperties": False,
+}
+GOLDEN = [
+    ("Either party may end this agreement on 30 days written notice.", "termination"),
+    ("Total liability shall not exceed fees paid in the prior 12 months.", "liability_cap"),
+]
+
+def label(model: str, text: str) -> str:
+    resp = client.messages.create(
+        model=model,
+        max_tokens=2048,
+        output_config={"format": {"type": "json_schema", "schema": SCHEMA}},
+        messages=[{"role": "user", "content": f"Classify the clause.\n<clause>{text}</clause>"}],
+    )
+    return json.loads(next(b.text for b in resp.content if b.type == "text"))["clause"]
+
+def pass_rate(model: str) -> float:
+    return sum(label(model, t) == want for t, want in GOLDEN) / len(GOLDEN)
+
+baseline, candidate = pass_rate("claude-sonnet-4-6"), pass_rate("claude-sonnet-5-5")
+print(baseline, candidate, "promote" if candidate >= baseline else "hold")
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+const SCHEMA = {
+  type: "object",
+  properties: { clause: { type: "string", enum: ["indemnity", "termination", "liability_cap", "other"] } },
+  required: ["clause"],
+  additionalProperties: false,
+};
+const GOLDEN: [string, string][] = [
+  ["Either party may end this agreement on 30 days written notice.", "termination"],
+  ["Total liability shall not exceed fees paid in the prior 12 months.", "liability_cap"],
+];
+
+async function label(model: string, text: string): Promise<string> {
+  const resp = await client.messages.create({
+    model,
+    max_tokens: 2048,
+    output_config: { format: { type: "json_schema", schema: SCHEMA } },
+    messages: [{ role: "user", content: `Classify the clause.\n<clause>${text}</clause>` }],
+  });
+  const block = resp.content.find((b): b is Anthropic.TextBlock => b.type === "text");
+  return JSON.parse(block?.text ?? "{}").clause;
+}
+
+async function passRate(model: string): Promise<number> {
+  let ok = 0;
+  for (const [text, want] of GOLDEN) if ((await label(model, text)) === want) ok++;
+  return ok / GOLDEN.length;
+}
+
+const baseline = await passRate("claude-sonnet-4-6"); // legacy migration source
+const candidate = await passRate("claude-sonnet-5-5");
+console.log(baseline, candidate, candidate >= baseline ? "promote" : "hold");
+```
 
 ## Recall checks
 
-- A routing step classifies support tickets into five categories at high volume. Which tier fits, and what confirms it's the right call?
-- Why does the API reject `effort` on Claude Haiku 4.5 instead of just ignoring it — what does that rejection tell you about how Haiku's thinking works?
-- A team wants better output quality from a Sonnet 5 call that's already passing its eval suite. What should they try before considering a tier swap to Opus, and why?
-- After migrating from Sonnet 4.6 to Sonnet 5, a request with `thinking: {type: "enabled", budget_tokens: 8000}` starts failing. What changed, and what's the fix?
-- Why can a cost estimate carried over from a pre-4.7 model understate spend on Opus 5 even at an unchanged price-per-token?
+<Recall q="A support router makes millions of short classification calls with a sub-second budget. Which tier fits, and what confirms the choice?">
+Haiku: fastest and cheapest, built for high-volume narrow tasks. An eval on real traffic confirms it; if it fails, escalate the failing slice rather than moving the whole route up a tier.
+</Recall>
+
+<Recall q="Why does a request with adaptive thinking or effort fail on Claude Haiku 4.5?">
+Haiku 4.5 supports only extended thinking with budget_tokens. Adaptive thinking returns a 400 and there is no effort parameter, so moving between Haiku and Sonnet changes request shape, not just price.
+</Recall>
+
+<Recall q="A Sonnet route passes its evals but costs too much. What do you try before changing tier, and why?">
+Lower effort on the same model. It keeps the weights and behaviour the evals measured; a tier swap changes the model and invalidates every result.
+</Recall>
+
+<Recall q="Haiku costs a quarter of Opus per input token. When can Haiku-only still be the more expensive design?">
+When failures need costly handling. If a slice of tasks fails and goes to human review, review cost per completed task can exceed the token savings; a cascade works only when failures are machine-detectable.
+</Recall>
+
+<Recall q="After swapping to a newer model ID, previously valid requests return 400 and the bill rose at the same price per token. Name two likely causes.">
+Rejected request shapes (prefill, budget_tokens, non-default sampling or forced tool_choice) cause the 400s. The newer tokenizer produces about 30% more tokens for the same text, and thinking on by default adds billed output.
+</Recall>
+
+<Recall q="What does a pinned model ID guarantee, and what can still change?">
+The weights stay fixed for the life of the ID. Serving infrastructure such as routing, safety classifiers and sampling logic can still change, so monitoring and periodic evals remain necessary.
+</Recall>

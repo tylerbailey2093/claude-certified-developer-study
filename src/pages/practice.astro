@@ -1,0 +1,16 @@
+---
+import Base from '../layouts/Base.astro';
+import PracticeHub from '../islands/PracticeHub.tsx';
+const base = import.meta.env.BASE_URL;
+---
+<Base title="Practice" crumbs={[{ label: 'Practice' }]} grid="dim">
+  <header class="page-head">
+    <p class="eyebrow">Drill · instant feedback · spaced repetition</p>
+    <h1>Practice</h1>
+    <p class="lede">
+      Pick a mode and run a fixed-length session. After each answer you see why every option is right or wrong. Misses come back as
+      due reviews at 1, 2, 4, 8 and 16 days.
+    </p>
+  </header>
+  <PracticeHub client:load base={base} />
+</Base>

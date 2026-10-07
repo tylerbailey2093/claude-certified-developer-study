@@ -1,0 +1,12 @@
+---
+// <Recall q="Question?">Answer in markdown.</Recall>
+// Self-test prompt with the answer folded away. Works without JS.
+interface Props {
+  q: string;
+}
+const { q } = Astro.props;
+---
+<details class="recall">
+  <summary><span class="recall-tag">recall</span> {q}</summary>
+  <div class="recall-a"><slot /></div>
+</details>

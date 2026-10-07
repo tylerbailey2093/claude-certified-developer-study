@@ -6,148 +6,384 @@ name: "Systems Life Cycle"
 weight: 2.8
 tier: 2
 hot: false
+summary: "Generic IT life cycle management: the phases from planning to retirement, the frameworks that sequence and govern them (Waterfall, Agile, DevOps, ITIL, SRE as examples), release gates, and operating and maintaining a live system, including model deprecations as planned maintenance."
+subskills: ["slc.concepts", "slc.frameworks", "slc.develop-implement", "slc.operate-maintain"]
+related: ["understanding-requirements", "software-engineering-foundations", "configuration-management", "guardrails-and-safe-deployment", "debugging-and-error-handling"]
 scope:
   - "generic IT lifecycle: develop, implement, operate, maintain"
   - "named frameworks: Waterfall, Agile, DevOps, ITIL"
 traps:
-  - "this is GENERIC IT lifecycle, not LLM-specific delivery"
-  - "change management and release gates point at ITIL, not the coding workflow"
+  - name: "Inventing an AI-specific life cycle"
+    looksRight: "LLM features are new and non-deterministic, so a bespoke AI delivery process sounds more rigorous."
+    failsBecause: "The guide scopes generic IT life cycle management. Prompt edits, model swaps and eval runs are ordinary build, test and change activities that existing frameworks already govern."
+    cue: "One option proposes a new purpose-built process; another applies a standard practice (change record, regression test, staged release)."
+  - name: "Treating the coding workflow as change management"
+    looksRight: "The team already uses Scrum and pull-request review, so a production change is already controlled."
+    failsBecause: "Building a change and authorizing it into a live service are different activities. Risk assessment, approval, scheduling and a rollback plan for a production change are service management (ITIL style change control)."
+    cue: "'Live', 'production', 'approval before', 'change record' or 'change advisory board' in the stem."
+  - name: "Doing root-cause work during the outage"
+    looksRight: "Fixing the underlying cause properly is better engineering than a quick workaround."
+    failsBecause: "Incident management restores service as fast as possible (rollback, workaround). Finding and removing the root cause is problem management, done after service is restored."
+    cue: "'Users cannot', 'restore service' point to incident; 'keeps recurring', 'prevent it happening again' point to problem."
+  - name: "Treating a model retirement as an emergency"
+    looksRight: "Swap the model ID on retirement day, since the replacement is newer and better."
+    failsBecause: "Anthropic gives at least 60 days' notice before retiring publicly released models, and requests to retired models fail. That makes migration planned maintenance: audit usage, run regression evals, raise a change, stage the rollout before the date."
+    cue: "'Deprecated', 'retirement date', 'notice received' with options that act now in production or wait until the date."
+  - name: "Waterfall for a feature whose requirements will move"
+    looksRight: "Sequential phases with sign-offs produce the documentation a regulated client wants."
+    failsBecause: "Waterfall fits stable, well-understood scope. LLM output quality is discovered by iterating against evals, so requirements that are expected to change after user feedback point to an iterative framework."
+    cue: "'Requirements will change after pilot feedback' versus 'fixed-scope, fixed-price contract'."
 sources:
-  - label: "Model deprecations"
-    url: "https://platform.claude.com/docs/en/about-claude/model-deprecations"
-  - label: "Versioning"
-    url: "https://platform.claude.com/docs/en/api/versioning"
+  - { label: "Model deprecations", url: "https://platform.claude.com/docs/en/about-claude/model-deprecations", kind: "docs", verified: "2026-10-06" }
+  - { label: "Models overview (pinned snapshots, aliases)", url: "https://platform.claude.com/docs/en/models/overview", kind: "docs", verified: "2026-10-06" }
+  - { label: "Demystifying evals for AI agents", url: "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents", kind: "engineering", verified: "2026-10-06" }
+  - { label: "Using the Four Keys to measure DevOps performance", url: "https://cloud.google.com/blog/products/devops-sre/using-the-four-keys-to-measure-your-devops-performance", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "SRE fundamentals: SLIs, SLAs and SLOs", url: "https://cloud.google.com/blog/products/devops-sre/sre-fundamentals-slis-slas-and-slos", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "SRE error budgets and maintenance windows", url: "https://cloud.google.com/blog/products/management-tools/sre-error-budgets-and-maintenance-windows", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "GitHub Actions deployment environments (docs source)", url: "https://github.com/github/docs/blob/main/content/actions/concepts/workflows-and-actions/deployment-environments.md", kind: "swe-ref", verified: "2026-10-06" }
+  - { label: "Good housekeeping for error budgets (CRE life lessons)", url: "https://cloud.google.com/blog/products/devops-sre/good-housekeeping-error-budgetscre-life-lessons", kind: "swe-ref", verified: "2026-10-07" }
+  - { label: "Incident management at Google: adventures in SRE-land", url: "https://cloud.google.com/blog/products/gcp/incident-management-at-google-adventures-in-sre-land/", kind: "swe-ref", verified: "2026-10-07" }
+  - { label: "SRE keeps digging to prevent problems", url: "https://cloud.google.com/blog/products/management-tools/sre-keeps-digging-to-prevent-problems", kind: "swe-ref", verified: "2026-10-07" }
+  - { label: "DORA capability: streamlining change approval (dora.dev source)", url: "https://github.com/dora-team/dora.dev/blob/main/hugo/content/capabilities/streamlining-change-approval/index.md", kind: "swe-ref", verified: "2026-10-07" }
+  - { label: "What is a dark launch (CRE life lessons)", url: "https://cloud.google.com/blog/products/gcp/cre-life-lessons-what-is-a-dark-launch-and-what-does-it-do-for-me/", kind: "swe-ref", verified: "2026-10-07" }
+lastReviewed: "2026-10-07"
 authored: true
 ---
 
-## What this objective actually tests
+## Concept
 
-This objective tests whether you know the **generic IT systems life cycle and its
-named delivery/operations frameworks** — Waterfall, Agile, DevOps, ITIL — well
-enough to place a described scenario into the right one, including when a Claude
-application is the system being described. It deliberately does **not** test an
-LLM-specific development methodology, because none is named in the blueprint. The
-temptation this objective is built to catch is inventing or recognizing an
-"AI-native SDLC" where the answer is really an existing, decades-old framework
-applied with ordinary judgment.
+The guide's wording is "systems life cycle management concepts and frameworks used to develop, implement, operate, and maintain IT systems." That is **generic IT** (the systems development life cycle, often shortened to SDLC), not LLM-specific delivery. It names no frameworks. Waterfall, Agile and Scrum, DevOps with CI/CD, ITIL service management and SRE are the reasonable examples used on this page, and they are presented as examples, not as a list the guide endorses.
+
+What the objective tests is placement: given a scenario, which phase is it in, which framework or practice governs it, and what is the correct next step. A Claude application is just another system moving through that life cycle. Its unusual parts (prompts, model versions, evals) slot into existing activities: prompts are configuration under change control, evals are the regression test suite, and a model retirement is a dependency end-of-life.
+
+**Scope boundary.**
+
+Not this:
+- Turning a business ask into requirements and an architecture: <ObjLink id="understanding-requirements"/>.
+- Version control, branching, code review, testing technique, and SDLC integration of day-to-day dev practices: <ObjLink id="software-engineering-foundations"/>.
+- Managing configuration files, environments and settings: <ObjLink id="configuration-management"/>.
+- Guardrails and safe release of model behaviour: <ObjLink id="guardrails-and-safe-deployment"/>.
+- Building and debugging eval harnesses: <ObjLink id="debugging-and-error-handling"/>.
+
+<Callout type="key" title="The point-winning idea">
+When an option invents an "AI life cycle", it is almost always the distractor. The right answer applies an ordinary practice: a change record, a regression test, a staged release, an incident or problem process, a planned migration.
+</Callout>
 
 ## Mechanism
 
-**The generic life cycle.** Regardless of framework, a system moves through the
-same broad arc: plan → analyze/design → develop → test → implement (deploy) →
-operate → maintain → retire. Frameworks differ in how they sequence, gate, and
-iterate through this arc — not in whether the arc exists. A stem that describes
-any of these phases for *any* kind of system, Claude-powered or not, is testing
-this generic model first.
+### Life cycle management concepts
 
-**The four named frameworks, and what each is actually for:**
+<SubskillAnchor id="slc.concepts" />
 
-- **Waterfall** — strictly sequential phases with formal sign-off gates between
-  them; requirements are frozen early. Fits fixed-scope, heavily regulated builds
-  where the cost of a late requirements change is very high. Poor fit for
-  anything whose behavior can't be fully specified up front — which describes
-  most model-backed features, since output quality is discovered empirically
-  through iteration, not derived from a spec.
-- **Agile / Scrum** — iterative delivery in fixed-length sprints, a prioritized
-  backlog, incremental releases, retrospectives. Fits work where requirements
-  sharpen through feedback. This is the natural fit for prompt-and-eval iteration:
-  you rarely get a prompt right on the first pass, and each sprint can ship a
-  measurably better version.
-- **DevOps** — a culture and toolchain unifying development and operations:
-  CI/CD pipelines, infrastructure as code, automated testing as a release gate,
-  continuous monitoring, fast rollback. Fits any system that deploys frequently
-  and needs automated confidence before each deploy. For a Claude application,
-  the CI/CD gate gains an additional automated check beyond unit and integration
-  tests: an **eval suite**, because model output is graded against criteria, not
-  asserted for exact string equality.
-- **ITIL** — an IT **service management** framework, not a delivery methodology.
-  It governs how a *live, already-built* system is operated: incident management
-  (restore service fast), problem management (find root cause), **change
-  management** (any modification to a production system is a documented,
-  risk-assessed, approved change record), and release management (how approved
-  changes reach production in a controlled way). A stem naming a change advisory
-  board, a documented risk assessment before a production change, or an incident
-  ticket is describing ITIL-style service management — regardless of whether the
-  system under discussion happens to be a Claude application.
+Every framework walks the same arc. They differ in how often they loop and where they put gates.
 
-**Where Claude-application work maps onto these frameworks — as engineering
-practice, not a reinvention.** Three wrinkles are specific to model-backed
-systems, but each is an instance of an existing framework concept, not a new one:
+<Flow title="Generic systems life cycle" steps={[{label: "Plan + analyse", kind: "client", note: "business case, requirements"}, {label: "Design", kind: "decision"}, {label: "Build + test", kind: "model", note: "code, prompts, evals"}, {label: "Deploy", kind: "guard", note: "release gate"}, {label: "Operate + maintain", kind: "store", note: "monitor, change, fix"}, {label: "Retire", kind: "tool", note: "decommission"}]} caption="Iterative frameworks loop from operate back to plan many times; Waterfall walks it once per release." />
 
-1. **Model deprecation is a scheduled life-cycle event**, functionally identical
-   to end-of-life planning for any other dependency (a database version, a
-   language runtime). Anthropic publishes model lifecycle states — Active,
-   Legacy, Deprecated, Retired — with a deprecated model given a named
-   replacement and a retirement date, and at least 60 days' notice before
-   retirement for publicly released models. [Verified: platform.claude.com/docs/en/about-claude/model-deprecations] Planning the migration, testing
-   the replacement against your eval suite well before the retirement date, and
-   scheduling the cutover is ordinary maintain-phase / DevOps-gate work, not a
-   new discipline.
-2. **Prompts are versioned artifacts under change control** — the same discipline
-   applied to any other piece of production configuration or code: source
-   control, review, and a rollback path.
-3. **Regression testing requires evals, not exact-match tests**, because model
-   output is non-deterministic. This changes *what* the DevOps test gate checks,
-   not *whether* a test gate exists — Agile and DevOps already expect an
-   automated quality gate before release; evals are simply the correct instrument
-   for a probabilistic component.
+| Phase | Question it answers | Typical artifact | Claude application example |
+|---|---|---|---|
+| Plan | Should we build this, and why? | Business case, scope | Which process to automate, success metric |
+| Analyse | What must it do and within what limits? | Requirements, acceptance criteria | Eval cases, latency and residency limits |
+| Design | How will it be structured? | Architecture, interfaces | Workflow vs agent, schema, tool contracts |
+| Build | Make it | Code, configuration | Prompts and tool code in version control |
+| Test | Does it meet the criteria? | Test results | Eval suite pass rates against thresholds |
+| Deploy (implement) | Put it into service | Release record, cutover plan | Pinned model ID promoted to production |
+| Operate | Keep it running | Monitoring, incident records | Error rates, latency, refusal and cost trends |
+| Maintain | Keep it fit as things change | Change records | Prompt fixes, model migration |
+| Retire | Remove it safely | Decommission plan | Remove keys, archive logs per retention policy |
 
-**The scope trap, stated plainly.** If a stem asks you to name or design a
-lifecycle "for AI systems," the correct move is almost always to answer with one
-of the four generic frameworks — applied with the three wrinkles above — rather
-than to invent or select something LLM-specific. The objective's scope is
-explicit on this point: generic IT life cycle management, applied to Claude
-systems, not a bespoke model-delivery life cycle.
+Concepts that recur across frameworks: **entry and exit criteria** (a phase gate), **traceability** from requirement to test, **baselines** (an approved version you can return to), **separation of environments**, and the difference between **deployment** (code is running somewhere) and **release** (users get it).
+
+**Exam angle:** "which phase" questions hinge on the artifact named. Acceptance criteria are analysis; a rollback plan is deployment; a recurring-failure investigation is operation.
+
+### Life cycle frameworks
+
+<SubskillAnchor id="slc.frameworks" />
+
+| Framework | Shape | Fits when | Poor fit when |
+|---|---|---|---|
+| Waterfall | Sequential phases, sign-off between each, scope fixed early | Requirements stable and well understood, contractual fixed scope, heavy documentation needed | Requirements expected to change, quality discovered by experiment |
+| Agile (e.g. Scrum) | Short iterations, prioritized backlog, working increment each sprint, retrospectives | Requirements sharpen through feedback; prompt and eval iteration | A single fixed delivery with no room for feedback |
+| DevOps with CI/CD | Shared ownership of build and run; automated build, test and deploy pipeline | Frequent small releases needing automated confidence | Organizations without automated tests to gate on |
+| ITIL | Service management practices for live services: incident, problem, change, release, service level | Governing changes and support of a production service | Describing how a team writes code |
+| SRE | Reliability engineered with SLOs and error budgets | Balancing release velocity against reliability with numbers | Systems with no measurable service level |
+
+These combine rather than compete. A typical team builds in Scrum sprints, ships through a CI/CD pipeline, governs production changes through ITIL-style change control, and decides how much risk to take using SRE error budgets. Delivery frameworks (Waterfall, Agile) answer *how work is sequenced*. DevOps answers *how changes flow to production*. ITIL answers *how a live service is governed and supported*.
+
+DevOps performance is commonly measured with the four DORA keys: deployment frequency, lead time for changes, change failure rate and time to restore service. The first two measure velocity, the last two stability. **[Certain]**
+
+**Exam angle:** "sprints", "backlog", "retrospective" point to Agile; "pipeline", "every merge" to DevOps; "change advisory board", "incident ticket", "service level" to ITIL; "error budget", "SLO" to SRE; "sign-off before the next phase" to Waterfall.
+
+### Developing and implementing systems
+
+<SubskillAnchor id="slc.develop-implement" />
+
+Development and implementation move a change through **environments** (development, test or staging, production), each closer to real users and data. A **release gate** is an exit criterion that must pass before promotion. GitHub's deployment-environment documentation states the mechanism plainly: protection rules configured for an environment must pass before a job that targets it is sent to a runner. **[Certain]** Typical gates:
+
+- Automated tests, and for a Claude feature, the **eval suite** at or above its thresholds.
+- Security and dependency checks.
+- Human approval where policy requires it.
+- A written **rollback plan** and the baseline to roll back to.
+
+For non-deterministic components the test gate changes instrument, not purpose. Anthropic's eval guidance distinguishes **capability evals** (start with low pass rates, measure what the system can newly do) from **regression evals** (should stay near 100% and protect existing behaviour), and recommends running them "on each agent change and model upgrade as the first line of defense". **[Certain]**
+
+Implementation strategies are generic: **big bang** (switch everyone at once), **phased** (by group or region), **parallel run** (old and new side by side, compare results), and **pilot**. A **dark launch** is the traffic-level form of a parallel run: real requests are mirrored to the new version and its responses are discarded before they reach users. **[Certain]** That is different from a feature flag that is switched off, where the new code is deployed but receives no traffic at all. Modern pipelines add canary releases (phased, often with automated rollback) and feature flags (decouple deployment from release). For a Claude system, pin the exact model ID per environment. Anthropic states that every model ID is a pinned snapshot, including dateless IDs from the 4.6 generation on, while older aliases resolve to a dated ID. **[Certain]** Promoting a new model is then an explicit configuration change that passes the same gate as code.
+
+**Exam angle:** "before promoting to production", "must pass", "compare old and new on live traffic" point here. The distractor is testing in production after the fact, or a manual spot check presented as a gate.
+
+### Operating and maintaining systems
+
+<SubskillAnchor id="slc.operate-maintain" />
+
+Operation keeps the service within its agreed level. SRE vocabulary makes that measurable: an **SLI** is a direct measurement of service behaviour, an **SLO** is the numeric target for it, and an **SLA** is a promise to users with penalties, normally looser than the internal SLO. **[Certain]** The **error budget** is what remains between the SLO and 100%. When a run of bad releases overspends it, Google's CRE guidance calls a freeze on new feature releases the canonical (last-resort) response, lasting until the overspend is removed and the team is confident it will not recur; the freed effort goes to reliability work. **[Certain]**
+
+For a Claude application, choose SLIs that cover both the service and the model's behaviour:
+
+- **Availability**: share of calls that end in an HTTP error (429, 5xx, timeouts) after retries.
+- **Latency**: time to first token for streamed, user-facing calls; total time for background work.
+- **Output health**: distribution of `stop_reason`. A rising share of `max_tokens` means truncated answers; a rising share of `refusal` means inputs or prompts have drifted. Both arrive on a 200, so an HTTP-only dashboard misses them.
+- **Quality**: a sampled slice of live traffic graded by the same evals used at the release gate.
+- **Cost**: tokens and spend per request, against the budget set during requirements.
+
+ITIL-style practices divide the work. The split between restoring service and removing causes is well sourced: Google's SRE write-ups mitigate first (often by rollback) and dig for the root cause afterwards to stop recurrence. **[Certain]** The ITIL practice names below are the standard labels for that split; ITIL's own publications were not reachable for this page **[Likely]**.
+
+| Practice | Goal | Claude application example |
+|---|---|---|
+| Incident management | Restore service fast | Error spike after a prompt change: roll back to the baseline prompt |
+| Problem management | Find and remove root cause | Why does extraction fail on scanned forms every month-end? |
+| Change management (change enablement in ITIL 4) | Assess, approve and schedule changes to live services | Prompt edit or model swap goes through a change record with a rollback plan |
+| Service level management | Agree and track targets | Latency and accuracy SLOs reported monthly |
+
+Changes are commonly classed as **standard** (pre-approved, low risk, routine), **normal** (assessed and approved case by case) and **emergency** (expedited to fix an incident), and ITIL 4 renamed change management to change enablement. **[Likely]** One caution from delivery research: DORA finds that approval by an external body such as a change advisory board hurts delivery performance, and recommends peer review captured in the development platform plus automated checks. **[Certain]** Where policy mandates a board, it still governs the production change.
+
+Maintenance is classically corrective (fix faults), adaptive (keep up with a changing environment), perfective (improve) and preventive (remove latent faults before they fail), the taxonomy usually attributed to ISO/IEC 14764 **[Likely]**: the standard was not reachable for this page. **A model deprecation is adaptive maintenance.** Anthropic's lifecycle states are Active, Legacy (no further updates), Deprecated (still works, replacement and retirement date assigned) and Retired (requests fail). It gives at least 60 days' notice before retiring publicly released models, and recommends testing replacements well before the retirement date. **[Certain]** A Console usage export breaks usage down by API key and model, which is how you find every caller still on the deprecated model. **[Certain]**
+
+<Sequence title="Model retirement handled as planned maintenance" actors={["Vendor", "Team", "Staging", "Change control", "Production"]}
+  messages={[["Vendor", "Team", "deprecation notice + retirement date"],
+             ["Team", "Team", "audit usage", "note"],
+             ["Team", "Staging", "run regression evals on replacement"],
+             ["Staging", "Team", "pass rates vs baseline", "reply"],
+             ["Team", "Change control", "normal change + rollback plan"],
+             ["Change control", "Team", "approved, scheduled", "reply"],
+             ["Team", "Production", "phased rollout of new pinned ID"]]}
+  caption="Every step is an existing practice: audit, regression test, change record, staged release." />
+
+The final phase, **retirement** of your own system, is also a life cycle step: revoke keys, remove scheduled jobs, and archive or delete logs according to the retention requirement.
+
+**Exam angle:** "restore", "recurring", "approve the change", "retirement date" each name a practice. The distractor swaps incident for problem, or treats a scheduled event as an emergency change.
 
 ## Decision table
 
-| When the stem says… | The answer is… |
-|---|---|
-| "change advisory board," "documented risk assessment before any production change," "incident ticket" | ITIL-style service management (change/release/incident management) |
-| "sprints," "backlog," "retrospective," "requirements sharpen through iteration" | Agile / Scrum |
-| "every change needs sign-off before the next phase begins," scope frozen early, heavily regulated fixed-scope build | Waterfall |
-| "automated pipeline," "deploys on every merge," "rolls back automatically" | DevOps / CI-CD |
-| A vendor or team proposes a purpose-built "AI development lifecycle" for a Claude feature | Almost always a distractor — the generic life cycle plus Agile/DevOps/ITIL practices already covers it |
-| "the model we depend on is being retired" | A scheduled life-cycle / maintenance event — plan the migration and eval the replacement before the retirement date, don't treat it as an emergency |
-| Stem never mentions "artificial intelligence" or "LLM" and is purely about *how production changes get approved* | Still ITIL — the coding methodology (Agile/DevOps) governs building the feature, not approving a change to a live one |
+| If the stem says... | Choose | Why the runner-up loses |
+|---|---|---|
+| Requirements will sharpen after pilot users try it | Agile iterations with eval-gated increments | Waterfall freezes scope before quality is known |
+| Fixed-scope, fixed-price build with formal sign-off per phase | Waterfall | Agile assumes the backlog can change |
+| A prompt edit must be approved before it reaches the live service | Change management (a change record) | Pull-request review covers the code, not authorization into production |
+| Users cannot get answers right now after a release | Incident management: roll back to the baseline | Root-cause analysis first prolongs the outage |
+| The same failure keeps recurring every month-end | Problem management | Raising another incident each time treats the symptom |
+| Pinned model is deprecated with a retirement date | Planned migration: audit, regression evals, normal change, staged rollout | Waiting for the date fails requests; swapping in production skips the gate |
+| Every merge should deploy automatically if checks pass | CI/CD pipeline with eval and test gates | A manual release checklist does not scale to every merge |
+| Releases keep breaking reliability and the error budget is spent | Freeze feature releases and shift effort to reliability work until the overspend is gone | Shipping more features spends budget that is already gone |
+| New version must see real traffic but no user may receive its output | Dark launch: mirror requests, discard responses, compare | A canary or pilot lets the new version answer real users |
+| An option proposes a new "LLMOps life cycle" for the feature | Reject it; apply the standard practice | Existing frameworks already govern these activities |
 
-This objective is intentionally not code-bearing. It tests correctly identifying
-and applying named IT management frameworks — a conceptual/process skill — rather
-than an API or SDK surface, so no Python/TypeScript examples are included here.
+## Worked walkthrough
 
-## Named traps, expanded
+<Walkthrough title="Scenario: the HR policy assistant on a deprecated model">
 
-**This is GENERIC IT lifecycle, not LLM-specific delivery.** The most common way
-this trap fires is a stem that sounds like it wants a novel answer because it
-mentions prompts, evals, or model versions — but the correct answer is still one
-of the four named frameworks, because those specifics are just Claude-flavored
-instances of activities (testing, deployment, change control) those frameworks
-already cover. Answering with an invented "AI lifecycle" concept, even a
-plausible-sounding one, is the wrong move whenever a standard framework already
-fits.
+<Step title="Read the scenario">
+An internal HR policy assistant built on Claude has been in production for a year. The company runs formal change management for every production system. The vendor has announced that the pinned model is deprecated, with a retirement date seven weeks away and a named replacement. A team lead proposes swapping the model ID in production this Friday because the replacement is newer. What should the team do next?
+</Step>
 
-**Change management and release gates point at ITIL, not the coding workflow.**
-Agile and DevOps describe how a team builds and ships; they do not, by
-themselves, describe how an organization *governs* a change once a system is
-live in production. A stem describing formal approval, documented risk, or a
-change record for a production modification — including bumping a pinned model
-version or editing a live prompt — is testing ITIL-style service management, even
-inside a team that uses Scrum to build features and DevOps automation to deploy
-them. The two are not mutually exclusive; a team can build with Agile, deploy
-with DevOps tooling, and still be required to route every production change
-through an ITIL change record.
+<Step title="Find the constraint">
+Two facts decide it. "Deprecated, with a retirement date" makes this a known, scheduled event: planned adaptive maintenance, not an emergency. "Formal change management for every production system" means the swap is a production change and must be authorized as one.
+</Step>
+
+<Step title="Eliminate the Friday swap">
+Changing the ID directly in production skips the test gate and bypasses change control. Newer does not mean equivalent: prompts tuned for one model can regress on another, which is exactly what a regression eval exists to catch.
+</Step>
+
+<Step title="Eliminate waiting and inventing">
+Waiting for the retirement date fails because requests to retired models fail; it turns planned work into an incident. Drafting a new AI-specific life cycle policy first fails because existing change management already covers a production configuration change.
+</Step>
+
+<Step title="Choose">
+Audit which keys still call the deprecated model, run the regression eval suite against the replacement in staging, then raise a normal change with results and a rollback plan, and roll out in phases well before the retirement date.
+</Step>
+
+<Step title="The deciding cue">
+"Formal change management for every production system" together with "retirement date seven weeks away". A known date plus a governed production service means a planned, tested, approved change.
+</Step>
+
+</Walkthrough>
+
+## Code
+
+**A deprecation-aware model config that fails CI before a retirement date.** The pins live in configuration per environment; a check run on every build flags any pin inside the warning window. The legacy ID below is used only because this is a migration example. Dates come from the model deprecations page and drift **[Likely]**.
+
+```python
+from datetime import date
+
+# Pinned model per environment (configuration, under change control).
+PINS = {
+    "dev": "claude-sonnet-5-5",
+    "staging": "claude-sonnet-5-5",
+    "prod": "claude-sonnet-4-5",  # legacy ID, shown for the migration example
+}
+
+# From the model deprecations page, verified 2026-10-06.
+RETIREMENTS = {
+    "claude-sonnet-4-5": (date(2026, 11, 30), "claude-sonnet-5-5"),
+}
+
+
+def check_pins(today: date, warn_days: int = 60) -> list[str]:
+    problems = []
+    for env, model in PINS.items():
+        if model in RETIREMENTS:
+            retire_on, replacement = RETIREMENTS[model]
+            days_left = (retire_on - today).days
+            if days_left <= warn_days:
+                problems.append(
+                    f"{env}: {model} retires {retire_on} ({days_left} days); "
+                    f"raise a change to migrate to {replacement}"
+                )
+    return problems
+
+
+issues = check_pins(date(2026, 10, 6))
+for line in issues:
+    print("BLOCK", line)
+raise SystemExit(1 if issues else 0)
+```
+
+```typescript
+const PINS: Record<string, string> = {
+  dev: "claude-sonnet-5-5",
+  staging: "claude-sonnet-5-5",
+  prod: "claude-sonnet-4-5", // legacy ID, shown for the migration example
+};
+
+// From the model deprecations page, verified 2026-10-06.
+const RETIREMENTS: Record<string, { retireOn: string; replacement: string }> = {
+  "claude-sonnet-4-5": { retireOn: "2026-11-30", replacement: "claude-sonnet-5-5" },
+};
+
+function checkPins(today: Date, warnDays = 60): string[] {
+  const problems: string[] = [];
+  for (const [env, model] of Object.entries(PINS)) {
+    const r = RETIREMENTS[model];
+    if (!r) continue;
+    const daysLeft = Math.round((Date.parse(r.retireOn) - today.getTime()) / 86_400_000);
+    if (daysLeft <= warnDays) {
+      problems.push(`${env}: ${model} retires ${r.retireOn} (${daysLeft} days); raise a change to migrate to ${r.replacement}`);
+    }
+  }
+  return problems;
+}
+
+const issues = checkPins(new Date("2026-10-06"));
+issues.forEach((line) => console.log("BLOCK", line));
+process.exit(issues.length ? 1 : 0);
+```
+
+<Output kind="illustrative">
+BLOCK prod: claude-sonnet-4-5 retires 2026-11-30 (55 days); raise a change to migrate to claude-sonnet-5-5
+</Output>
+
+**A regression gate for the migration.** The candidate model must match the baseline on the regression suite before the change is raised. This is the test phase's exit criterion, not a new process.
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+BASELINE, CANDIDATE = "claude-sonnet-4-5", "claude-sonnet-5-5"  # legacy baseline: migration example
+CASES = [
+    ("How many days of parental leave do full-time staff get? Answer with a number.", "26"),
+    ("Is the policy library the source of truth for leave? Answer yes or no.", "yes"),
+]
+SYSTEM = "Answer from the HR policy: full-time staff get 26 days of parental leave. The policy library is authoritative."
+
+
+def text_of(resp) -> str:
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+
+def pass_rate(model: str) -> float:
+    ok = 0
+    for question, expected in CASES:
+        resp = client.messages.create(
+            model=model, max_tokens=50, system=SYSTEM,
+            messages=[{"role": "user", "content": question}],
+        )
+        ok += expected in text_of(resp).lower()
+    return ok / len(CASES)
+
+
+base, cand = pass_rate(BASELINE), pass_rate(CANDIDATE)
+print(f"baseline {base:.0%}  candidate {cand:.0%}")
+raise SystemExit(0 if cand >= base else 1)  # exit criterion for the test phase
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+const BASELINE = "claude-sonnet-4-5"; // legacy baseline: migration example
+const CANDIDATE = "claude-sonnet-5-5";
+const CASES: [string, string][] = [
+  ["How many days of parental leave do full-time staff get? Answer with a number.", "26"],
+  ["Is the policy library the source of truth for leave? Answer yes or no.", "yes"],
+];
+const SYSTEM = "Answer from the HR policy: full-time staff get 26 days of parental leave. The policy library is authoritative.";
+
+const textOf = (r: Anthropic.Message) => r.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+
+async function passRate(model: string): Promise<number> {
+  let ok = 0;
+  for (const [question, expected] of CASES) {
+    const resp = await client.messages.create({
+      model,
+      max_tokens: 50,
+      system: SYSTEM,
+      messages: [{ role: "user", content: question }],
+    });
+    if (textOf(resp).toLowerCase().includes(expected)) ok++;
+  }
+  return ok / CASES.length;
+}
+
+const base = await passRate(BASELINE);
+const cand = await passRate(CANDIDATE);
+console.log(`baseline ${base * 100}%  candidate ${cand * 100}%`);
+process.exit(cand >= base ? 0 : 1);
+```
+
+<Output kind="illustrative">
+baseline 100%  candidate 100%
+</Output>
 
 ## Recall checks
 
-1. Name the four frameworks in this objective's scope, in one clause each, without
-   looking them up.
-2. Explain why Waterfall is generally a poor fit for a Claude-feature build, in one
-   sentence, using the concept of "fully specified up front."
-3. A stem describes a change advisory board approving a prompt edit before it
-   reaches production. Which framework is being tested, and why is "Agile" a
-   tempting but wrong answer?
-4. Name the three Claude-specific wrinkles on the generic life cycle, and for each
-   one, name the existing framework concept it's really an instance of.
-5. A vendor pitches a proprietary "LLMOps lifecycle" as fundamentally different
-   from DevOps. What's the one-sentence rebuttal this objective expects you to be
-   able to give?
+<Recall q="Name the generic life cycle phases in order, and say where a rollback plan belongs.">
+Plan, analyse, design, build, test, deploy, operate, maintain, retire. The rollback plan is part of deployment (implementation): it must exist before promotion so the baseline can be restored if the release fails.
+</Recall>
+
+<Recall q="A team builds with Scrum and deploys through CI/CD. Why might a production prompt edit still need a change record?">
+Scrum and CI/CD govern how work is built and shipped; authorizing a change into a live service is service management. Where the organization runs change control, the prompt edit is a production configuration change and goes through it like any other.
+</Recall>
+
+<Recall q="Distinguish incident management from problem management with a Claude example.">
+Incident management restores service fast, for example rolling back a prompt that broke extraction. Problem management later finds and removes the root cause, for example why scanned forms fail every month-end.
+</Recall>
+
+<Recall q="Why is a model deprecation planned maintenance rather than an emergency?">
+Anthropic assigns a retirement date and a replacement and gives at least 60 days' notice for publicly released models, so there is time to audit usage, run regression evals, raise a normal change and stage the rollout. Waiting for the date fails requests.
+</Recall>
+
+<Recall q="When does Waterfall fit better than Agile?">
+When scope is stable, well understood and contractually fixed, and sign-off between phases is required. When requirements are expected to change after feedback, as with most LLM features, an iterative framework fits better.
+</Recall>
+
+<Recall q="What does an exhausted error budget tell a team to do?">
+Freeze feature releases and shift effort to reliability work until the overspend is removed and the service is back within its SLO. The budget is the gap between the SLO and 100%, so spending past it means users are seeing more failures than agreed.
+</Recall>

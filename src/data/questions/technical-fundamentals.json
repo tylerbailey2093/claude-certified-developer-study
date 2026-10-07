@@ -1,0 +1,1497 @@
+[
+  {
+    "id": "legacy-042",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.websockets"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A developer is adding token-by-token output to a Rust service that has no official SDK, so it calls the Messages API over raw HTTPS with `stream: true` set in the body. Before writing the parser, they need to know what arrives on the open response. Which format should the parser handle?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Server-sent events on the HTTPS response: named events, each carrying a JSON data payload",
+        "why": "Correct. With stream set, the Messages API answers with a text/event-stream response of named SSE events, each with a JSON data line, so an SSE parser is what the client needs."
+      },
+      {
+        "id": "b",
+        "text": "WebSocket frames, after the client upgrades the connection with a 101 Switching Protocols handshake",
+        "why": "WebSockets are a real duplex transport, but the Claude API offers no WebSocket endpoint; any WebSocket in a Claude app is one the team built itself."
+      },
+      {
+        "id": "c",
+        "text": "One JSON object per poll, fetched by repeating the request with a cursor until the reply is done",
+        "why": "Polling fits asynchronous jobs such as batches you check on later; a streamed Messages call delivers deltas on one open response instead."
+      },
+      {
+        "id": "d",
+        "text": "Length-prefixed protobuf messages on a gRPC server stream negotiated over HTTP/2",
+        "why": "gRPC server streaming is a real pattern elsewhere, but the Messages API is a JSON REST API and streams with SSE, not protobuf frames."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding detail is `stream: true` on a Messages call: the response becomes server-sent events on an ordinary HTTPS response. WebSocket is the tempting answer because streaming sounds bidirectional, but generation is one-way once the request is sent, and Anthropic hosts no WebSocket endpoint.",
+    "cue": "with `stream: true` set in the body",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Streaming Messages",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
+      },
+      {
+        "label": "API versions",
+        "url": "https://platform.claude.com/docs/en/api/versioning"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "legacy-043",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.sdk-rest"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A bank's mainframe team must call the Messages API from a runtime that has no official Anthropic SDK, so they will send raw HTTPS requests. Their architect asks what the decision actually costs them compared with a team using the Python SDK. Which statement is accurate?",
+    "options": [
+      {
+        "id": "a",
+        "text": "They must build what the SDK supplies: the required headers, retries with backoff, timeouts, SSE parsing and error typing",
+        "why": "Correct. The SDK wraps the same REST endpoints and adds header management, retry logic, timeouts, streaming helpers and typed errors; without it, the team writes that layer."
+      },
+      {
+        "id": "b",
+        "text": "They pay a different per-token rate, because raw REST traffic is billed outside the SDK pricing tier and metered separately",
+        "why": "Pricing is per token for the model and endpoint used; the client library has no effect on what a request costs."
+      },
+      {
+        "id": "c",
+        "text": "They need a separate kind of credential, because API keys are issued only for use inside the SDKs",
+        "why": "The same API key authenticates raw HTTP and SDK calls; the SDK simply reads it from the environment and sets the header for you."
+      },
+      {
+        "id": "d",
+        "text": "They lose access to features such as tool use and streaming, which exist only as SDK-side helpers",
+        "why": "Tool use and streaming are API features available to any HTTP client; the SDK only adds convenience helpers on top of them."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is \"no official Anthropic SDK\": the API is the same, so capability and price do not change, but the client-side engineering the SDK provides becomes the team's job. The tempting distractor is a capability loss; streaming and tools are API features, and only the helpers around them are SDK-specific.",
+    "cue": "has no official Anthropic SDK",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "API overview",
+        "url": "https://platform.claude.com/docs/en/api/overview"
+      },
+      {
+        "label": "Python SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/python"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "new-technical-fundamentals-02",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.sdk-rest",
+      "tf.engineering"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A platform team's standard says every Messages API call in their Python monorepo must retry transient failures with backoff, and no engineer should have to remember to add it. All services already use the official Python SDK. How should the team meet the standard?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Build the SDK client in one shared module with max_retries set explicitly, and have every service import that client",
+        "why": "Correct. The SDK's built-in retries apply to every call made through the client, so a shared, explicitly configured client turns the standard into code rather than a habit."
+      },
+      {
+        "id": "b",
+        "text": "Add a retry decorator to each call site and enforce it through an item on the code-review checklist",
+        "why": "This depends on authors and reviewers remembering, which the standard rules out, and the decorator would also stack on top of the SDK's own retries."
+      },
+      {
+        "id": "c",
+        "text": "Wrap the shared client in an outer three-attempt retry loop so that every call gets extra protection",
+        "why": "The SDK already retries; an outer loop multiplies attempts (three outer times three inner is nine) exactly when the API is overloaded."
+      },
+      {
+        "id": "d",
+        "text": "Add a system prompt line telling Claude to ask the caller for a retry whenever a response looks incomplete or truncated",
+        "why": "A system prompt shapes generated text; it cannot intercept or resend an HTTP request that failed before any text was produced."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "\"No engineer should have to remember\" calls for a control that runs every time without human effort: the SDK client's retry configuration, applied once in a shared module. The outer retry loop looks like extra safety but stacks a second retry layer on the SDK's and amplifies load during incidents.",
+    "cue": "no engineer should have to remember to add it",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Python SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/python"
+      },
+      {
+        "label": "Errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "new-technical-fundamentals-04",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.websockets"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A voice assistant streams Claude's spoken reply to a phone app, and the user can talk over it to cut it off. The interrupt has to reach the server while the reply is still streaming, and the API key stays on the company's backend. What should carry the interrupt from the phone?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A WebSocket between the phone and the backend, which aborts its upstream streaming request on an interrupt frame",
+        "why": "Correct. The duplex need is between phone and backend, so the WebSocket belongs there; the backend holds the key, and closing its upstream request stops further generation."
+      },
+      {
+        "id": "b",
+        "text": "A client message sent back up the existing SSE stream that the backend holds open to the Messages API",
+        "why": "Server-sent events flow one way, from server to client; the backend cannot send an interrupt to Claude over the stream it is reading."
+      },
+      {
+        "id": "c",
+        "text": "A WebSocket opened by the phone directly to the Messages API so the interrupt shares the reply's connection",
+        "why": "The Claude API exposes no WebSocket endpoint, and connecting from the phone would put the API key on the device."
+      },
+      {
+        "id": "d",
+        "text": "Muting playback on the phone while the backend lets the reply finish streaming so the transcript stays whole",
+        "why": "Muting changes only what the phone plays; relaying less does not stop generation, so the rest of the reply is still produced."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that the interrupt must travel while the reply is still streaming: a client-to-server message mid-response, which is a duplex need. That puts a WebSocket between phone and backend, and SSE between backend and Claude. Sending the interrupt up the SSE stream is tempting but impossible, because SSE is one-way.",
+    "cue": "while the reply is still streaming",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Streaming Messages",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
+      },
+      {
+        "label": "TypeScript SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript"
+      },
+      {
+        "label": "MDN: The WebSocket API",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/web/api/websockets_api/index.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "new-technical-fundamentals-05",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.sdk-rest"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "An Elixir service has no official SDK, so its team hand-writes the retry policy for raw Messages API calls. They want to retry only failures where resending the identical request after a short backoff can succeed, and they log the error body of each failure. Which two failures belong in the retry list? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "A 529 response whose error type is overloaded_error",
+        "why": "Correct. A 529 reports temporary load across the API, so the same request can succeed after a backoff; the SDKs retry every 5xx for this reason."
+      },
+      {
+        "id": "b",
+        "text": "A connection reset before any response bytes arrived",
+        "why": "Correct. A network failure says nothing about the request itself, so a resend can succeed; the SDKs retry connection errors by default."
+      },
+      {
+        "id": "c",
+        "text": "A 413 request_too_large on a request with a big PDF",
+        "why": "A 413 means the payload exceeds the byte limit, so the identical payload fails identically; shrink, split, or upload the file instead."
+      },
+      {
+        "id": "d",
+        "text": "A 400 invalid_request_error naming an unknown beta",
+        "why": "A 400 describes a problem with the request itself; resending the same unknown beta name returns the same error every time."
+      },
+      {
+        "id": "e",
+        "text": "A 429 with no retry-after and an enforced_spend_limit_reached code",
+        "why": "This is the tier spend cap, not a rate limit: it carries no retry-after and keeps failing until access resumes or the limit is raised."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The rule \"resending the identical request after a short backoff can succeed\" separates transient failures (connection errors, 408, 409, rate-limit 429s, 5xx including 529) from request errors. The most tempting wrong pick is the spend-cap 429, because 429 is normally retryable; its missing retry-after and error code mark it as a limit that retries cannot clear.",
+    "cue": "resending the identical request after a short backoff can succeed",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      },
+      {
+        "label": "Rate limits",
+        "url": "https://platform.claude.com/docs/en/api/rate-limits"
+      },
+      {
+        "label": "Python SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/python"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "new-technical-fundamentals-07",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.sdk-rest"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A compliance script must list every Message Batch in a workspace that now holds several thousand of them. An engineer wrote a loop that reads `next_page` from each response and passes it back as `page`, copied from a sessions example, and the loop ends after the first page. What is the most direct fix?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Iterate the SDK's batches list call in a plain for loop, which follows that endpoint's cursor fields for you",
+        "why": "Correct. Batches use after_id, has_more and last_id rather than next_page, and the SDK's auto-pagination follows whichever scheme the endpoint uses."
+      },
+      {
+        "id": "b",
+        "text": "Raise the limit query parameter to its maximum so that every batch in the workspace fits on the first page",
+        "why": "Page size is capped, so a workspace with thousands of batches still spans several pages; this delays the bug rather than fixing it."
+      },
+      {
+        "id": "c",
+        "text": "Keep the loop but sleep between requests, because an empty next_page is how the API signals rate limiting",
+        "why": "Rate limiting returns a 429 with retry-after; a missing next_page here means the endpoint uses a different cursor scheme."
+      },
+      {
+        "id": "d",
+        "text": "Poll the list endpoint every minute and union the results until the total count stops changing between polls",
+        "why": "Repeated polling returns the same first page each time, so the union never grows past it and the script still misses batches."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The buried detail is that the loop was copied from a sessions example: newer list endpoints use page and next_page, while Message Batches use after_id, has_more and last_id. The SDK's auto-pagination hides the difference. Raising the page size is the tempting fix, but it only postpones the failure.",
+    "cue": "copied from a sessions example",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "API overview",
+        "url": "https://platform.claude.com/docs/en/api/overview"
+      },
+      {
+        "label": "Python SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/python"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-001",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.sdk-rest",
+      "tf.engineering"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "During an API overload incident, a service's dashboards show one user action producing up to nine Messages API requests. The service uses the official TypeScript SDK with default settings, and each call site goes through a helper that makes up to three attempts on any thrown error with no delay. Which change best fixes the amplification?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Remove the outer helper and set maxRetries on the shared client to the attempt budget the team wants",
+        "why": "Correct. The SDK already retries the right statuses with backoff and honours retry-after; one configured layer removes the multiplication without losing that behaviour."
+      },
+      {
+        "id": "b",
+        "text": "Keep the helper but add exponential backoff with jitter between its three attempts so retries spread out",
+        "why": "Backoff spaces the attempts out, but two stacked layers still send up to nine requests per action into an API that is shedding load."
+      },
+      {
+        "id": "c",
+        "text": "Set maxRetries to 0 on the client and keep the helper's three immediate attempts as the only retry layer",
+        "why": "This caps attempts at three but drops backoff and retry-after handling, and the helper still retries 400s and other errors that cannot succeed."
+      },
+      {
+        "id": "d",
+        "text": "Raise the client timeout so fewer calls fail during the incident and fewer of them enter the retry chain",
+        "why": "A longer timeout does not reduce overload errors, and timeouts are retried too, so each attempt just holds a connection longer."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "Nine requests per action is three helper attempts around three SDK attempts. The fix is one retry layer, and the SDK's is the better one because it retries only retryable statuses and backs off. Disabling SDK retries and keeping the helper is the tempting option, but that helper retries any thrown error immediately.",
+    "cue": "makes up to three attempts on any thrown error with no delay",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "TypeScript SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript"
+      },
+      {
+        "label": "Errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-002",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.sdk-rest"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A customer reports a cut-off answer, and Anthropic support asks for something that identifies the exact API call involved. The service uses the official Python SDK and today logs only the user ID and a timestamp for each call. What should the service start logging?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The `_request_id` on each response object, which carries the value of the request-id header",
+        "why": "Correct. Every response carries a unique request-id, exposed by the SDK as _request_id and in error bodies as request_id; it is what support uses to find a call."
+      },
+      {
+        "id": "b",
+        "text": "The full Python stack trace captured at the point where the SDK call returned to application code",
+        "why": "A stack trace describes your own process, not the request on Anthropic's side, and a successful call has no exception to trace."
+      },
+      {
+        "id": "c",
+        "text": "The anthropic-organization-id header from each response, which identifies who sent the request",
+        "why": "The organization ID is the same for every call your organization makes, so it cannot single out one request."
+      },
+      {
+        "id": "d",
+        "text": "A UUID the service generates for each call and writes into its own log line next to the user ID",
+        "why": "A locally generated ID helps correlate your own logs, but Anthropic has never seen it and cannot look a call up by it."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that support needs to identify the exact API call: only the request-id assigned by the API does that, and the SDK exposes it as _request_id. A home-grown UUID is the tempting answer because it is unique, but it exists only in your logs.",
+    "cue": "identifies the exact API call involved",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      },
+      {
+        "label": "Python SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/python"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-003",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.sdk-rest"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A report generator calls `client.messages.create` with a very large max_tokens and no streaming, over a network path that drops connections left idle for more than a few minutes. The Python SDK raises an error before any request is sent, warning that the call may take longer than about ten minutes. The team needs the complete Message object at the end. What is the intended fix?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Call `client.messages.stream(...)` and take `get_final_message()` once the stream completes",
+        "why": "Correct. Streaming keeps the connection active, so the SDK's guard does not apply, and the helper accumulates the same Message a non-streaming call would return."
+      },
+      {
+        "id": "b",
+        "text": "Pass a larger timeout on the call so the SDK's duration check stops raising before it sends",
+        "why": "Overriding the timeout does disable the check, but the call then waits idle for many minutes on a path that drops idle connections, so it fails with no response."
+      },
+      {
+        "id": "c",
+        "text": "Wrap the call in a retry loop so the request goes through on a later attempt after the check",
+        "why": "The guard is a deterministic check on the request's parameters; it raises the same error on every attempt and nothing is ever sent."
+      },
+      {
+        "id": "d",
+        "text": "Move the call onto a background worker thread so the web request is no longer held for ten minutes",
+        "why": "Running elsewhere in the process does not change the SDK's check or the idle-connection risk; the call still raises before sending."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding detail is a network path that drops idle connections: a long non-streaming call sits silent until the whole reply is ready, which is exactly what gets dropped. Streaming with the accumulation helper keeps data flowing and still yields the whole Message. Raising the timeout is tempting because it does stop the SDK's check, but the connection is still cut.",
+    "cue": "drops connections left idle for more than a few minutes",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Python SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/python"
+      },
+      {
+        "label": "Errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-004",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.sdk-rest"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An operations engineer is testing two beta features together from a shell script that calls the Messages API with curl rather than an SDK. The request must enable both features at once. How should the script select them?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Send one anthropic-beta header that lists both feature names, separated by a comma",
+        "why": "Correct. Betas are selected with the anthropic-beta request header, and several features go in one header as a comma-separated list."
+      },
+      {
+        "id": "b",
+        "text": "Add a betas array to the JSON request body next to the model and messages fields",
+        "why": "betas is an SDK method argument that the SDK turns into the header; in a raw request the feature names belong in anthropic-beta."
+      },
+      {
+        "id": "c",
+        "text": "Set the anthropic-version header to the date string from each beta name",
+        "why": "anthropic-version selects the API version, such as 2023-06-01; beta dates are part of a feature name, not a version."
+      },
+      {
+        "id": "d",
+        "text": "Append both beta names as query parameters on the /v1/messages request URL",
+        "why": "The Messages API does not read beta selection from the query string, so the features would not be enabled."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is curl rather than an SDK: on the wire, betas are an anthropic-beta header, comma separated for several. The tempting distractor is a betas array in the body, because that is what SDK code looks like; the SDK converts that argument into the header for you.",
+    "cue": "with curl rather than an SDK",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Beta headers",
+        "url": "https://platform.claude.com/docs/en/api/beta-headers"
+      },
+      {
+        "label": "API overview",
+        "url": "https://platform.claude.com/docs/en/api/overview"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-005",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.sdk-rest"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A Python worker decides whether to requeue a failed call by checking if `str(e)` contains \"overloaded\" or \"rate limit\". After an SDK upgrade, some overload failures stop matching and get dropped instead of requeued. What is the most robust fix?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Catch the SDK's typed exceptions, such as RateLimitError and InternalServerError, and branch on class or status code",
+        "why": "Correct. The SDK raises a specific APIError subclass per status, so branching on type or status_code is stable when message wording changes."
+      },
+      {
+        "id": "b",
+        "text": "Pin the SDK to the old version permanently so the wording of error messages can never change again",
+        "why": "Pinning freezes your client but not the API's message text, and it blocks security and feature updates indefinitely."
+      },
+      {
+        "id": "c",
+        "text": "Keep matching on lowercase substrings and add another keyword each time a new message wording shows up in the logs",
+        "why": "Message text is free-form and can change at any time, so every new wording is another silent miss until someone notices."
+      },
+      {
+        "id": "d",
+        "text": "Parse the HTTP reason phrase from the raw response and compare it against a list of known phrases",
+        "why": "Reason phrases are optional free text and absent in HTTP/2, so this replaces one fragile string match with another."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is matching on `str(e)`: the message is for humans, while the exception class and status code are the contract. The SDK maps 429 to RateLimitError and 500 and above, including 529, to InternalServerError. Adding keywords is the tempting quick fix but stays fragile.",
+    "cue": "checking if `str(e)` contains",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Python SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/python"
+      },
+      {
+        "label": "Errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-006",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.engineering",
+      "tf.sdk-rest"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A chat endpoint sits behind a load balancer with a 60-second idle timeout and makes non-streaming calls through the official SDK with its default timeout and retries. On slow days users receive gateway errors, yet no SDK exception or request ID appears in the service's logs. The platform team will not change the shared load balancer's settings. Which change addresses the cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Set the SDK timeout well below 60 seconds and stream long replies, so failures surface inside the service",
+        "why": "Correct. With a ten-minute default timeout the load balancer kills the request first, outside your code; a shorter timeout and streaming bring the failure back where you can log and handle it."
+      },
+      {
+        "id": "b",
+        "text": "Raise max_retries so that a slow attempt is followed by a faster one before the user notices the delay",
+        "why": "More retries lengthen the worst case, which is roughly the timeout times the number of attempts, so the load balancer still cuts the request off first."
+      },
+      {
+        "id": "c",
+        "text": "Raise the load balancer's idle timeout to ten minutes so that it matches the SDK's default request timeout",
+        "why": "The platform team has ruled out changing the shared load balancer, and even a longer limit would leave users waiting tens of minutes once retries stack up."
+      },
+      {
+        "id": "d",
+        "text": "Wrap every SDK call in a try/except that logs each exception the SDK raises before re-raising it",
+        "why": "The SDK never raises within 60 seconds, because its own timeout has not expired, so there is nothing for the handler to log."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding detail is that no SDK exception or request ID is logged: an outer layer with a shorter timeout is ending the request before the SDK does. Timeouts must be layered so the innermost one fires first, and long outputs should stream. Raising the load balancer timeout is tempting, but it only relocates the problem.",
+    "cue": "no SDK exception or request ID appears",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Python SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/python"
+      },
+      {
+        "label": "Errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-007",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.sdk-rest"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A CI job calls the Messages API with curl, and the API rejects every request, while the same JSON payload works through the Python SDK on a developer's laptop. The curl command sends the API key and a content-type of application/json. What is the job most likely missing?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The anthropic-version header, which the SDK sends automatically on every request",
+        "why": "Correct. Every request must carry anthropic-version (for example 2023-06-01); the SDK adds it automatically, so it is the classic omission in hand-built calls."
+      },
+      {
+        "id": "b",
+        "text": "An anthropic-beta header, because the API treats raw HTTP traffic as beta usage",
+        "why": "anthropic-beta is optional and only enables specific beta features; standard Messages calls do not need it."
+      },
+      {
+        "id": "c",
+        "text": "A User-Agent naming an official SDK, which the API checks before accepting calls",
+        "why": "The API authenticates the key and validates headers and body; it does not require an SDK user agent."
+      },
+      {
+        "id": "d",
+        "text": "The anthropic-workspace-id header, which every API key needs on raw HTTP calls",
+        "why": "The workspace header is required only with a multi-workspace key, and the SDK does not send it for you either."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is the header list: key and content-type are present, and the third required header, anthropic-version, is the one the SDK adds silently. The workspace header is the tempting pick because it is real, but it is needed only for multi-workspace keys and would fail the SDK call too.",
+    "cue": "sends the API key and a content-type of application/json",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "API overview",
+        "url": "https://platform.claude.com/docs/en/api/overview"
+      },
+      {
+        "label": "API versions",
+        "url": "https://platform.claude.com/docs/en/api/versioning"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-008",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.sdk-rest"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team's hand-written Swift client decodes every Messages API response into a strict struct that rejects unknown fields, and its stream parser throws on any event type it does not recognise. It has worked for a year with anthropic-version pinned to the same value. What risk does this design carry?",
+    "options": [
+      {
+        "id": "a",
+        "text": "New response fields and event kinds can appear under the same pinned version, and this client would reject them",
+        "why": "Correct. The versioning policy preserves existing inputs and outputs but allows new output values and new event types, so clients should ignore what they do not recognise."
+      },
+      {
+        "id": "b",
+        "text": "Pinning anthropic-version means newly released models will reject requests until the header is moved to a newer date",
+        "why": "Model availability is chosen by the model ID, not the version header; new models work under the existing version."
+      },
+      {
+        "id": "c",
+        "text": "Strict decoding disables prompt caching, because the API can only match cached prefixes for clients that accept every field",
+        "why": "Prompt caching depends on the request prefix sent to the API; how a client decodes the response has no effect on it."
+      },
+      {
+        "id": "d",
+        "text": "Anthropic may remove deprecated output fields within a version, so some struct fields will silently decode as null",
+        "why": "The policy is the reverse: existing output parameters are preserved within a version, while additions are allowed."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding detail is a parser that throws on unrecognised event types. The versioning policy allows additions within a version, such as new enum values and stream event types, but not removals, so robust clients skip what they do not know. The removal option is tempting because it sounds like normal API drift, but it inverts the policy.",
+    "cue": "throws on any event type it does not recognise",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "API versions",
+        "url": "https://platform.claude.com/docs/en/api/versioning"
+      },
+      {
+        "label": "Streaming Messages",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-009",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.engineering",
+      "tf.sdk-rest"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A Python web service constructs a new Anthropic client inside every request handler and lets it go out of scope when the handler returns. Under load it shows rising latency from new TLS handshakes and occasional connection errors, though the API reports no overload. Which change fits best?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Create one client when the process starts, reuse it in every handler, and close it on shutdown",
+        "why": "Correct. The client owns a connection pool; one long-lived client reuses connections instead of opening a new one per request."
+      },
+      {
+        "id": "b",
+        "text": "Raise max_retries so the connection errors seen under load are retried more times before failing",
+        "why": "More retries hide the symptom and add load; the cause is connection churn from creating a client per request."
+      },
+      {
+        "id": "c",
+        "text": "Lower the client's timeout so that slow handshakes are abandoned sooner and retried on a new socket",
+        "why": "A shorter timeout turns slow handshakes into more failures and more retries, each of which opens yet another connection."
+      },
+      {
+        "id": "d",
+        "text": "Switch to the AsyncAnthropic client but keep creating a fresh instance in every request handler",
+        "why": "The async client has the same pooling model, so a new instance per request still throws away its connections each time."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding detail is a new client inside every request handler: each one builds its own connection pool, so connections are never reused. Reuse one long-lived client per process. Switching to the async client is tempting for a web service, but it keeps the per-request construction that causes the churn.",
+    "cue": "constructs a new Anthropic client inside every request handler",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Python SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/python"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-010",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.sdk-rest",
+      "tf.engineering"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A payments-support team is moving a raw-HTTP Claude integration onto the official TypeScript SDK. Their old client builds headers, retries transient failures, de-duplicates refund tool calls with an idempotency key, and caps concurrency to their rate tier. Which two parts of that code can they delete because the SDK provides them? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "The code that sets the authentication, anthropic-version and content-type headers",
+        "why": "Correct. The SDK sends the authentication, version and content-type headers automatically on every request."
+      },
+      {
+        "id": "b",
+        "text": "The backoff-and-retry logic for 429, 529 and dropped connections",
+        "why": "Correct. The SDK retries connection errors, 408, 409, 429 and 5xx twice by default with exponential backoff, so a hand-written copy would stack on top of it."
+      },
+      {
+        "id": "c",
+        "text": "The idempotency check that stops a retried refund from being issued twice",
+        "why": "The SDK makes the API call safe to retry, but your refund side effect is yours; the idempotency check must stay in your tool handler."
+      },
+      {
+        "id": "d",
+        "text": "The concurrency limiter sized from the organization's request and token limits",
+        "why": "The SDK does not know your rate limits or traffic shape, so bounding concurrency remains the application's job."
+      },
+      {
+        "id": "e",
+        "text": "The redaction step that strips account numbers before prompts are logged",
+        "why": "The SDK does not inspect or redact your data; it only transmits what you give it, so the redaction step stays."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is moving onto the official SDK: header management and retries with backoff are built in, so keeping them duplicates work, and duplicated retries multiply load. Idempotency is the tempting third pick because it sounds like retry plumbing, but it protects your side effects, which the SDK cannot see.",
+    "cue": "onto the official TypeScript SDK",
+    "pattern": "scope-boundary",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "API overview",
+        "url": "https://platform.claude.com/docs/en/api/overview"
+      },
+      {
+        "label": "TypeScript SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-011",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.websockets"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An internal docs assistant shows answers in the browser as they are written. Users never send anything while an answer is streaming, and each new question is a separate request. How should the backend deliver the text to the browser?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Relay the text deltas to the browser as server-sent events, or as a streaming fetch response",
+        "why": "Correct. The traffic is one-way during a reply, so an SSE or streaming HTTP response from the backend gives progressive text with the least machinery."
+      },
+      {
+        "id": "b",
+        "text": "Hold a WebSocket open per tab so the server can push text and the client can send at any time",
+        "why": "A WebSocket adds duplex framing, heartbeats and reconnect logic that nothing here uses, since the client never sends mid-reply."
+      },
+      {
+        "id": "c",
+        "text": "Have the browser poll a results endpoint every 250 ms and append whatever text has arrived",
+        "why": "Polling adds latency and a stream of mostly empty requests compared with one open streaming response."
+      },
+      {
+        "id": "d",
+        "text": "Return the whole answer in one JSON response once the backend's call to Claude has finished",
+        "why": "A single response at the end does not show text as it is written, which is the requirement."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that users never send anything while an answer streams, so the channel only needs to be one-way. SSE or a streaming fetch is the simplest fit. A WebSocket is the tempting choice because it also pushes text, but its duplex capability goes unused.",
+    "cue": "Users never send anything while an answer is streaming",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Streaming Messages",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
+      },
+      {
+        "label": "MDN: EventSource",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/web/api/eventsource/index.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-012",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.websockets"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "Streaming works on a developer's laptop, where the backend relays answers to the browser as server-sent events and they appear word by word. In staging, behind the company's reverse proxy with response compression enabled, the page shows nothing for twenty seconds and then the whole answer at once, while backend logs show deltas arriving from Claude steadily. What is the likely cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The reverse proxy or compression layer is buffering the response, so disable buffering on that route and flush each event",
+        "why": "Correct. Deltas reach the backend on time, so something between backend and browser is holding the body; buffering proxies and compression do exactly that."
+      },
+      {
+        "id": "b",
+        "text": "The staging API key belongs to a lower usage tier, and lower usage tiers receive complete responses instead of streamed ones",
+        "why": "Usage tiers change rate limits and spend caps, not whether streaming is available, and the logs show the stream arriving."
+      },
+      {
+        "id": "c",
+        "text": "The SDK detects a proxy between it and the API and falls back to a single non-streaming response",
+        "why": "The backend logs show deltas arriving steadily from Claude, so the upstream leg is still streaming as intended."
+      },
+      {
+        "id": "d",
+        "text": "Staging has no WebSocket upgrade route, so the browser falls back to receiving the answer as one blob",
+        "why": "The relay uses SSE over HTTP, which needs no upgrade route; a missing WebSocket route would fail outright rather than delay."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding detail is that backend logs show deltas arriving steadily, which clears the Claude leg and places the delay between backend and browser. Reverse proxies and compression middleware often wait for a full body. The SDK fallback option is tempting, but the logs already rule it out.",
+    "cue": "backend logs show deltas arriving from Claude steadily",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Streaming Messages",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
+      },
+      {
+        "label": "MDN: Using server-sent events",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/web/api/server-sent_events/using_server-sent_events/index.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-013",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.websockets",
+      "tf.engineering"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A writing app relays Claude's streamed output to browsers over WebSockets held by its backend. Users on flaky mobile networks report tabs that silently stop updating, and billing shows answers being generated twice after those users reconnect. Which two changes address these reports? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Send application heartbeats and mark a socket dead when they go unanswered within a timeout",
+        "why": "Correct. Idle or half-open sockets are not detected by the protocol on their own; heartbeats turn a silent stall into a detectable disconnect."
+      },
+      {
+        "id": "b",
+        "text": "On reconnect, resume from the last delivered message ID instead of resending the user's prompt",
+        "why": "Correct. Resuming by an application message ID avoids starting a second generation, which is what produced the duplicate charges."
+      },
+      {
+        "id": "c",
+        "text": "Move the backend's upstream Claude call to a WebSocket so both legs share one reconnect policy",
+        "why": "The Claude API streams over SSE and has no WebSocket endpoint; the upstream leg cannot be switched."
+      },
+      {
+        "id": "d",
+        "text": "Raise the SDK's max retries so dropped browser sockets are reconnected by the client library",
+        "why": "The SDK retries the backend's requests to Claude; it knows nothing about the browser socket your backend holds."
+      },
+      {
+        "id": "e",
+        "text": "Rely on the browser WebSocket object's built-in reconnection with backoff when the network drops",
+        "why": "The browser WebSocket API has no automatic reconnection; that is an EventSource behaviour, so the app must build it."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Two symptoms, two fixes: silent stalls need heartbeats to detect dead sockets, and duplicate generations need resume-by-message-ID instead of replaying the prompt. Built-in reconnection is the tempting wrong pick because EventSource has it, but the WebSocket API does not.",
+    "cue": "billing shows answers being generated twice",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "MDN: The WebSocket API",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/web/api/websockets_api/index.md"
+      },
+      {
+        "label": "MDN: Using server-sent events",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/web/api/server-sent_events/using_server-sent_events/index.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-014",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.websockets",
+      "tf.engineering"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A support widget streams Claude's answers through the company's backend. Analytics show many users close the tab partway through an answer, yet usage reports show those answers' output tokens at full length. What change stops generating text nobody reads?",
+    "options": [
+      {
+        "id": "a",
+        "text": "When the client disconnects, abort the upstream stream so that generation stops at that point",
+        "why": "Correct. Closing the upstream request stops further generation, whereas relaying less does not; the backend must propagate the disconnect."
+      },
+      {
+        "id": "b",
+        "text": "Lower max_tokens on every request so that the answers people abandon cost less to generate",
+        "why": "This truncates every answer, including those users read to the end, and still generates abandoned answers up to the new cap."
+      },
+      {
+        "id": "c",
+        "text": "Stop forwarding deltas once the client disconnects, and let the backend's stream run to its end",
+        "why": "Relaying less does not stop generation: the upstream request keeps running, so every token is still produced; only the relay to the browser stops."
+      },
+      {
+        "id": "d",
+        "text": "Send these requests through the Batch API so that abandoned answers are billed at the lower rate",
+        "why": "Batch results are asynchronous and cannot stream to a waiting user, and discounted tokens nobody reads are still wasted."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is full-length output tokens for abandoned answers: the backend never cancels the upstream request. Closing the upstream request stops further generation; relaying less does not. Stopping the relay is the tempting option, but it saves bandwidth, not generation.",
+    "cue": "usage reports show those answers' output tokens at full length",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "TypeScript SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-015",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.websockets"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A backend streaming a long answer from Claude loses its upstream connection about two thirds of the way through, after receiving many text deltas. The product owner does not want users to wait for, or the company to pay for, the first two thirds being generated again. What should the backend do?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Send a continuation request that includes the partial text received so far and asks the model to carry on from there",
+        "why": "Correct. The documented recovery is to capture the partial response and construct a continuation request, so only the remainder is generated."
+      },
+      {
+        "id": "b",
+        "text": "Reconnect with a Last-Event-ID header so the API replays the stream from the last event the backend received",
+        "why": "Last-Event-ID is a browser EventSource reconnection feature; the Messages API does not resume a dropped stream by event ID."
+      },
+      {
+        "id": "c",
+        "text": "Let the SDK resend the original request automatically, so that the stream resumes where the connection dropped",
+        "why": "A resend of the original request starts generation from the beginning, which is exactly the delay and cost the owner wants to avoid."
+      },
+      {
+        "id": "d",
+        "text": "Resend the original request with a larger max_tokens value so the full answer fits in a single attempt this time",
+        "why": "The drop was a network failure, not truncation, and a fresh request still regenerates the first two thirds."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding constraint is avoiding regeneration of what already arrived, which rules out any fresh request. The streaming docs describe capturing the partial response and sending a continuation request. Last-Event-ID is the tempting answer because it is real SSE resumption, but it belongs to EventSource, not to the Claude API.",
+    "cue": "does not want users to wait for, or the company to pay for",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Streaming Messages",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
+      },
+      {
+        "label": "MDN: Using server-sent events",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/web/api/server-sent_events/using_server-sent_events/index.md"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-016",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.websockets"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "To remove a backend hop, a front-end developer proposes pointing the browser's native EventSource at the Messages API, since both speak server-sent events. The app's API key is meant to stay off users' machines. Why does this design not work?",
+    "options": [
+      {
+        "id": "a",
+        "text": "EventSource takes only a URL and a credentials flag, so it cannot send the POST body or key header the API needs",
+        "why": "Correct. A Messages call is a POST with a JSON body and an authentication header; EventSource can do neither, and the key would ship to the browser anyway."
+      },
+      {
+        "id": "b",
+        "text": "The Messages API streams over WebSocket frames, which an EventSource object has no way to parse",
+        "why": "The Messages API does stream SSE; the obstacle is how the request is made and authenticated, not the response format."
+      },
+      {
+        "id": "c",
+        "text": "EventSource cannot reconnect after a dropped connection, so long answers would be lost on any brief network blip",
+        "why": "EventSource reconnects automatically after a drop; reconnection is one of its few built-in features."
+      },
+      {
+        "id": "d",
+        "text": "Browsers refuse server-sent events from another origin unless the connection uses HTTP/2 or HTTP/3",
+        "why": "Cross-origin SSE is governed by CORS, not by HTTP version, so this is not what blocks the design."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is the browser's native EventSource: its constructor takes a URL and a credentials option, so it can only make a simple GET-style request with no custom headers or body. The format matches, which makes the idea tempting, but a Messages call needs a POST, a body and a key that must stay server-side.",
+    "cue": "pointing the browser's native EventSource at the Messages API",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "MDN: EventSource",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/web/api/eventsource/index.md"
+      },
+      {
+        "label": "TypeScript SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-017",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.websockets"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "An architect sets a rule for a Claude product: use a WebSocket between client and backend only where the client has something to send while a reply is in flight. Everything else uses plain requests or one-way streams. Which two features justify a WebSocket under that rule? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "A voice mode that uploads microphone audio continuously while the spoken reply plays back",
+        "why": "Correct. Audio flows up while the reply flows down, so the client sends during the reply and needs a duplex channel."
+      },
+      {
+        "id": "b",
+        "text": "A coding pane where the user can stop an answer mid-stream and redirect it with a short note",
+        "why": "Correct. The stop and redirect travel from client to backend while the answer is still streaming, which is the duplex case the rule names."
+      },
+      {
+        "id": "c",
+        "text": "A read-only FAQ widget that renders each answer progressively as text streams in",
+        "why": "Display-only streaming is one-way, so an SSE or streaming fetch response covers it without a socket."
+      },
+      {
+        "id": "d",
+        "text": "A report page that checks once a minute whether a long document analysis job has ended",
+        "why": "Occasional status checks for a job nobody is watching live are a good fit for simple polling."
+      },
+      {
+        "id": "e",
+        "text": "The backend's own connection to the Messages API for every streamed generation",
+        "why": "The Claude API streams over SSE and offers no WebSocket endpoint, so this leg cannot use one."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The rule turns on the client sending while a reply is in flight: voice upload and mid-stream stop or redirect both do. The backend-to-Claude leg is the tempting third pick because it carries the stream, but it is SSE by the API's design.",
+    "cue": "the client has something to send while a reply is in flight",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "MDN: The WebSocket API",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/web/api/websockets_api/index.md"
+      },
+      {
+        "label": "Streaming Messages",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-018",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.engineering"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A queue worker asks Claude to draft a customer email, sends it through the mail provider, then acknowledges the job. When a worker is killed after sending but before acknowledging, the queue redelivers the job and customers receive two different emails. Which change prevents the duplicate?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Record an idempotency key derived from the job ID and check it before the worker sends any email",
+        "why": "Correct. The redelivery is legitimate queue behaviour; making the side effect idempotent means the second run sees the key and skips the send."
+      },
+      {
+        "id": "b",
+        "text": "Set max_retries to 0 on the SDK client so a redelivered job cannot call the Messages API again",
+        "why": "SDK retries are not the cause: the queue redelivers the whole job, and disabling retries only drops recoverable API failures."
+      },
+      {
+        "id": "c",
+        "text": "Set temperature to 0 so a redelivered job produces the same email text as the first attempt",
+        "why": "Even identical text would still be sent twice, and low temperature does not guarantee identical outputs anyway."
+      },
+      {
+        "id": "d",
+        "text": "Tell Claude in the system prompt to check whether this customer has already received the email",
+        "why": "The model cannot see your mail provider's history, and a prompt instruction is a request, not a guarantee."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is killed after sending but before acknowledging: at-least-once delivery will rerun the job, so the email send must be idempotent. AI calls make this worse because the rerun produces a different email. Disabling SDK retries is tempting but targets the wrong layer.",
+    "cue": "killed after sending but before acknowledging",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "MDN: Idempotent",
+        "url": "https://github.com/mdn/content/blob/main/files/en-us/glossary/idempotent/index.md"
+      },
+      {
+        "label": "Python SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/python"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-019",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.engineering"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A startup's single-page app calls Claude through the TypeScript SDK in the browser, which works only after a developer sets dangerouslyAllowBrowser to true. The security requirement is that the API key never reaches end users' devices. What should the team do?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Move the Claude call to a backend that holds the key, and expose only the app's own authenticated endpoint",
+        "why": "Correct. The key stays on a server, and browsers talk to an endpoint you control and can authenticate, rate limit and log."
+      },
+      {
+        "id": "b",
+        "text": "Keep the flag but inject the key from an environment variable at build time instead of hardcoding it",
+        "why": "Build-time variables are compiled into the bundle, so the key still ships to every browser that loads the app."
+      },
+      {
+        "id": "c",
+        "text": "Keep the flag but obfuscate the key inside the minified bundle so that it is hard to find by reading",
+        "why": "Obfuscation slows a reader down but the browser must recover the real key to send it, so anyone can capture it."
+      },
+      {
+        "id": "d",
+        "text": "Keep the flag but use a separate key with a low spend limit that is reserved for browser traffic only",
+        "why": "A spend limit caps the damage after a leak but still puts a usable key on every device, which the requirement forbids."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding phrase is that the key never reaches end users' devices: any design that keeps the browser calling Claude directly ships the key. The SDK disables browser use by default for this reason. A low-limit key is tempting because it limits damage, but it does not meet the requirement.",
+    "cue": "never reaches end users' devices",
+    "pattern": "must-means-deterministic",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "TypeScript SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-020",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.engineering"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "During incidents, an on-call team cannot tell which exact API call a customer complaint refers to, or whether answers are being cut off by the output budget. They are adding fields to the one structured log record written per Claude call. Which two fields answer those questions? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "The request ID from each response or error body",
+        "why": "Correct. The request ID identifies the exact call, both in your logs and for Anthropic support."
+      },
+      {
+        "id": "b",
+        "text": "The stop_reason of every completed response",
+        "why": "Correct. A stop_reason of max_tokens shows an answer was cut off by the output budget, even though the call returned 200."
+      },
+      {
+        "id": "c",
+        "text": "Full request and response bodies via ANTHROPIC_LOG=debug",
+        "why": "Debug logging records whole bodies, which may contain sensitive data, and still needs the two specific fields to answer quickly."
+      },
+      {
+        "id": "d",
+        "text": "A local stack trace captured on every successful call",
+        "why": "A stack trace describes your process, and successful calls raise nothing, so it answers neither question."
+      },
+      {
+        "id": "e",
+        "text": "The API key used, so calls can be tied to a credential",
+        "why": "Logging secrets is a security failure, and the key is the same across many calls, so it cannot identify one."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is the pair of questions: identify a call (request ID) and detect output-budget truncation (stop_reason). Debug logging is tempting because it captures everything, but it exposes sensitive bodies in production and is not a structured field.",
+    "cue": "cut off by the output budget",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      },
+      {
+        "label": "Stop reasons and fallback",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons"
+      },
+      {
+        "label": "Python SDK",
+        "url": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/python"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "technical-fundamentals-021",
+    "objective": "technical-fundamentals",
+    "domain": 5,
+    "subskills": [
+      "tf.engineering"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team's CI suite calls the live Messages API and asserts that each reply equals an exact expected sentence; it fails intermittently and costs money on every run. The goal is for CI to prove their code retries 529s, stops on 400s and handles a max_tokens stop. What should they change?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Inject a fake client or mock at the HTTP boundary that returns scripted 529, 400 and max_tokens responses",
+        "why": "Correct. Scripted responses make the plumbing tests deterministic and free, and they can produce errors the live API will not return on demand."
+      },
+      {
+        "id": "b",
+        "text": "Set temperature to 0 in CI so that the exact-match assertions on the reply text become stable",
+        "why": "Low temperature does not guarantee identical text, and it cannot make the API return a 529 or 400 when a test needs one."
+      },
+      {
+        "id": "c",
+        "text": "Keep the live calls but retry each failing test up to three times before marking the build red",
+        "why": "Retrying flaky tests hides the flakiness, adds cost, and still never exercises the error paths the goal names."
+      },
+      {
+        "id": "d",
+        "text": "Replace the exact-match checks with an LLM judge that scores whether each reply is close enough to the expected one",
+        "why": "A judge suits grading output quality in an eval, but it does not produce the error and stop conditions the code must handle."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is what CI must prove: retry, stop and stop_reason handling are integration behaviour, so they are tested deterministically with scripted responses. Model wording belongs in evals. The LLM judge is tempting because it fixes the flaky assertion, but it still never exercises the error paths.",
+    "cue": "prove their code retries 529s, stops on 400s",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Stop reasons and fallback",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons"
+      },
+      {
+        "label": "Errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  }
+]

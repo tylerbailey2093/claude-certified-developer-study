@@ -1,0 +1,651 @@
+[
+  {
+    "id": "legacy-035",
+    "objective": "debugging-and-error-handling",
+    "domain": 4,
+    "subskills": [
+      "dbg.isolation"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An invoice pipeline writes Claude's extracted totals into a warehouse table, and finance reports wrong totals on about one row in twenty. For those rows, the logged raw API responses contain the correct total with stop_reason end_turn. Where should debugging focus first?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The integration code between the response and the table: block selection, parsing, mapping and writes",
+        "why": "Correct. The model produced the right value and finished normally, so the defect lives in the code that turns a correct response into a stored row."
+      },
+      {
+        "id": "b",
+        "text": "The prompt and model choice, since the extraction instructions are evidently too loose for some invoices",
+        "why": "Prompt or model changes fix wrong model output; here the raw output is already correct, so they cannot repair the stored value."
+      },
+      {
+        "id": "c",
+        "text": "The max_tokens budget, since a total near the end of the response is likely being truncated on some rows",
+        "why": "stop_reason end_turn means the response finished normally; truncation would show max_tokens instead."
+      },
+      {
+        "id": "d",
+        "text": "The temperature setting, since sampling variance is producing a different total on some of the calls",
+        "why": "Variance would show up as wrong values in the raw responses, but the logged raw responses hold the correct totals."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that the logged raw responses contain the correct total: correct raw output plus a wrong stored value places the defect in the integration layer. end_turn rules out truncation. Tightening the prompt is the tempting move, but no prompt change repairs code that mishandles a correct answer.",
+    "cue": "the logged raw API responses contain the correct total",
+    "pattern": "diagnosis",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Stop reasons and fallback",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "legacy-036",
+    "objective": "debugging-and-error-handling",
+    "domain": 4,
+    "subskills": [
+      "dbg.isolation",
+      "dbg.traces"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team gates releases on an LLM judge that scores summary quality from 1 to 5. The judge gives the same score on every rerun, so the team trusts it, yet user complaints about summaries keep rising after releases it approved. What is missing?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Calibration of the judge against human-labelled summaries, measuring how often the two agree",
+        "why": "Correct. A model-based grader needs checking against human graders before its scores are trusted; stability shows only that it is consistent."
+      },
+      {
+        "id": "b",
+        "text": "A larger model for the judge, since a stronger grader will produce more trustworthy quality scores",
+        "why": "A bigger judge can still be consistently wrong; without comparison to human labels, nobody knows whether it measures quality."
+      },
+      {
+        "id": "c",
+        "text": "More test cases in the eval set, so the judge's average score rests on a larger sample of summaries",
+        "why": "More cases scored by an unvalidated judge multiply the same unverified signal rather than checking it."
+      },
+      {
+        "id": "d",
+        "text": "A lower temperature on the judge, so its scores become even more repeatable across repeated runs",
+        "why": "The scores are already repeatable; repeatability is not the problem, accuracy is."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that the team trusts the judge because it gives the same score on every rerun: consistency is not accuracy. Anthropic's eval guidance is to test LLM graders for reliability and calibrate them against human judgment. A larger judge is the tempting fix, but it is still unvalidated.",
+    "cue": "gives the same score on every rerun",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Define success criteria and build evaluations",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
+      },
+      {
+        "label": "Demystifying evals for AI agents",
+        "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "legacy-037",
+    "objective": "debugging-and-error-handling",
+    "domain": 4,
+    "subskills": [
+      "dbg.traces",
+      "dbg.error-types"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A claims-triage service's error dashboard has been green for a month: every Messages API call returns HTTP 200. Over the same month, adjusters increasingly report records with empty or missing fields. Which signal should the team add to monitoring to catch this kind of regression?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The rate of schema-validation failures and non-end_turn stop reasons among successful calls",
+        "why": "Correct. Quality failures arrive on HTTP 200, so the team needs alerts on validation failures, truncation and refusals, not only on status codes."
+      },
+      {
+        "id": "b",
+        "text": "The rate of 429 rate_limit_error responses across all of the service's calls to the API",
+        "why": "429s are visible HTTP failures; the dashboard already shows none, so tracking them would not reveal this regression."
+      },
+      {
+        "id": "c",
+        "text": "Total monthly spend on the API compared with the same month in the previous year",
+        "why": "Spend moves for many reasons, such as volume or prompt length, and says nothing direct about field quality."
+      },
+      {
+        "id": "d",
+        "text": "Overall request volume per hour, with an alert when traffic drops below the usual baseline",
+        "why": "Volume tracks demand, not output quality; the calls are succeeding at normal volume while producing bad records."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding detail is that every call returns HTTP 200 while the records degrade: a silent regression that a status dashboard cannot see. Monitoring must track quality signals such as schema failures and stop reasons. The 429 rate is tempting because it is a standard API metric, but it only sees outright failures.",
+    "cue": "every Messages API call returns HTTP 200",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Stop reasons and fallback",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons"
+      },
+      {
+        "label": "Errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "new-debugging-and-error-handling-01",
+    "objective": "debugging-and-error-handling",
+    "domain": 4,
+    "subskills": [
+      "dbg.recovery"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A structured-extraction pipeline receives a response with stop_reason max_tokens while the JSON object is still open. An on-call engineer ships a patch that sends the partial JSON back to Claude and asks it to close the braces and fill in the remaining fields. Bad records keep appearing afterwards. What is the best explanation and fix?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The missing fields were never generated, so the repair invents them; raise max_tokens and regenerate",
+        "why": "Correct. Truncation means the tail content does not exist; a repair pass wraps valid syntax around invented or dropped values, while a larger budget produces the real content."
+      },
+      {
+        "id": "b",
+        "text": "The repair call needs a lower temperature so the filled-in fields vary less between attempts",
+        "why": "Temperature changes sampling variance, but the repair is still guessing at fields that were never produced."
+      },
+      {
+        "id": "c",
+        "text": "The original call needed a stop sequence so the JSON object would close before the token limit",
+        "why": "A stop sequence ends generation on purpose at a chosen string; it cannot make a response that hit max_tokens complete."
+      },
+      {
+        "id": "d",
+        "text": "The pipeline should resend the original request with the same max_tokens until a complete one returns",
+        "why": "With the same budget the same output length is needed, so the response is likely to be cut off again."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is the repair pass on a max_tokens stop: the trailing content was never generated, so repair fabricates it. The documented options are to raise max_tokens or continue the response. A stop sequence is the tempting distractor, but it controls intentional stops, not budget truncation.",
+    "cue": "sends the partial JSON back to Claude",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Stop reasons and fallback",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "debugging-and-error-handling-001",
+    "objective": "debugging-and-error-handling",
+    "domain": 4,
+    "subskills": [
+      "dbg.error-types",
+      "dbg.recovery"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A chat backend's stream logs show HTTP 200 and several text deltas, followed by an error event whose type is overloaded_error. The on-call engineer proposes filing for a higher rate limit. What is the correct reading of this failure?",
+    "options": [
+      {
+        "id": "a",
+        "text": "API-wide overload reported mid-stream; retry with backoff or degrade, since a higher limit will not help",
+        "why": "Correct. overloaded_error is the streaming twin of a 529: load across all users, not your organization's limit, so backoff and graceful degradation are the recovery."
+      },
+      {
+        "id": "b",
+        "text": "The organization exceeded its output tokens per minute, so a request for a higher rate limit is right",
+        "why": "Hitting your own limit returns rate_limit_error with a 429 and retry-after, not overloaded_error."
+      },
+      {
+        "id": "c",
+        "text": "The reply reached max_tokens and the server closed the stream, so raise max_tokens for later calls",
+        "why": "A max_tokens stop is reported as a stop_reason in message_delta, not as an error event."
+      },
+      {
+        "id": "d",
+        "text": "The parser hit an unknown event type, so it should skip unrecognised events and carry on reading",
+        "why": "Skipping unknown event types is good practice, but an error event reports a real failure and must not be ignored."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is an error event whose type is overloaded_error: after the 200 has been sent, failures arrive as events, and this type means API-wide overload (HTTP 529 in a non-streaming call). The rate-limit increase is the tempting fix, but your own limit produces rate_limit_error, and capacity across all users is not something a limit request changes.",
+    "cue": "an error event whose type is overloaded_error",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Streaming Messages",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
+      },
+      {
+        "label": "Errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "debugging-and-error-handling-002",
+    "objective": "debugging-and-error-handling",
+    "domain": 4,
+    "subskills": [
+      "dbg.error-types",
+      "dbg.recovery"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A scoring job built on the official Python SDK fails with RateLimitError after the SDK's retries run out. The response carries no retry-after header, and the error message says the organization has reached its monthly API usage threshold. A teammate proposes raising max_retries to 10 with longer backoff. What should the team do?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Stop retrying: the tier's spend cap is reached, so raise the limit or wait until access resumes",
+        "why": "Correct. The spend-cap 429 has no retry-after and keeps failing, including through SDK retries, until the cap is raised or the month rolls over."
+      },
+      {
+        "id": "b",
+        "text": "Raise max_retries as proposed so the backoff outlasts the refill of the rate-limit token bucket",
+        "why": "Token-bucket refills apply to rate limits, which carry retry-after; a spend cap does not refill within minutes."
+      },
+      {
+        "id": "c",
+        "text": "Cap concurrency with a semaphore sized from the anthropic-ratelimit remaining headers",
+        "why": "Pacing helps with RPM or token-per-minute limits, but this 429 is about spend, so slower requests still fail."
+      },
+      {
+        "id": "d",
+        "text": "Ramp traffic more gradually, because a sharp jump in usage triggered an acceleration limit",
+        "why": "Acceleration limits are real 429 causes, but the message names the monthly usage threshold, which is the spend cap."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cues are no retry-after header and a message about the monthly usage threshold: this is the tier spend cap, which shares the 429 rate_limit_error type with ordinary rate limits but cannot be cleared by retrying. Raising max_retries is the tempting fix because 429 usually means retry, but every attempt fails until access resumes.",
+    "cue": "no retry-after header",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Rate limits",
+        "url": "https://platform.claude.com/docs/en/api/rate-limits"
+      },
+      {
+        "label": "Errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "debugging-and-error-handling-003",
+    "objective": "debugging-and-error-handling",
+    "domain": 4,
+    "subskills": [
+      "dbg.error-types"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "Users of a research assistant report answers that stop mid-sentence or come back empty. The service's logs show only HTTP 200 responses, and its error handler, which catches SDK exceptions, has recorded nothing. Which two stop_reason values should the team start counting and alerting on? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "max_tokens",
+        "why": "Correct. The response hit the output budget and stopped mid-content, which arrives on a 200 and raises no exception."
+      },
+      {
+        "id": "b",
+        "text": "refusal",
+        "why": "Correct. A declined request arrives on a 200 with this stop_reason and little or no content, and raises no exception."
+      },
+      {
+        "id": "c",
+        "text": "end_turn",
+        "why": "This is the normal completion; alerting on it would fire on every healthy response."
+      },
+      {
+        "id": "d",
+        "text": "tool_use",
+        "why": "In a tool-enabled loop this is expected: the model is asking your code to run a tool, not failing."
+      },
+      {
+        "id": "e",
+        "text": "overloaded_error",
+        "why": "This is an error type delivered as an HTTP 529 or a stream error event, not a stop_reason value."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is that logs show only HTTP 200 responses: truncation and refusal are stop_reason values on successful responses, so an exception handler never sees them. overloaded_error is the tempting wrong pick because it sounds like a failure, but it is an error type, not a stop_reason.",
+    "cue": "logs show only HTTP 200 responses",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Stop reasons and fallback",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons"
+      },
+      {
+        "label": "Refusals and fallback",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "debugging-and-error-handling-004",
+    "objective": "debugging-and-error-handling",
+    "domain": 4,
+    "subskills": [
+      "dbg.recovery",
+      "dbg.isolation"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An agent loop starts failing on its second tool call with a 400 invalid_request_error that points at a content block in the messages array. The failures began the day a refactor landed that merges consecutive user messages to shrink history. What is the most likely fix?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Fix the history builder so tool_result blocks come first in the content of the user turn after each tool_use",
+        "why": "Correct. A 400 that names a message position after a history refactor is a request-builder bug; tool_result blocks must immediately follow their tool_use and come first in that user turn's content array."
+      },
+      {
+        "id": "b",
+        "text": "Let the SDK retry the 400 with exponential backoff, since the agent loop is now running under much heavier load",
+        "why": "A 400 describes the request itself, so the identical request fails identically; the SDK deliberately does not retry it."
+      },
+      {
+        "id": "c",
+        "text": "Move to a model with a larger context window, since the agent's history is growing too long",
+        "why": "Context overflow is not what the error points to, and the failure started with a code change, not with longer sessions."
+      },
+      {
+        "id": "d",
+        "text": "Tell Claude in the system prompt to stop calling tools whose results the app cannot return",
+        "why": "The model is calling tools correctly; the malformed request is built by your code, which a prompt cannot fix."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding detail is timing: the 400 began with a refactor that merges user messages, so the request builder is now producing an invalid history, most likely separating or reordering tool_result blocks. Read the error's message position and fix the builder. Retrying is the tempting generic response, but 400s are not retryable.",
+    "cue": "began the day a refactor landed",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Errors",
+        "url": "https://platform.claude.com/docs/en/api/errors"
+      },
+      {
+        "label": "Handle tool calls",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "debugging-and-error-handling-005",
+    "objective": "debugging-and-error-handling",
+    "domain": 4,
+    "subskills": [
+      "dbg.traces"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An agent's traces for failing sessions show the same search tool called with identical input eight times in a row before the session hits its turn cap. Each of those tool_result blocks contains an empty string, while the search service's own logs show timeouts for those queries. What is the most likely cause?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The tool handler swallows the timeout and returns an empty result, so return an error the model can act on",
+        "why": "Correct. An empty result tells the model nothing went wrong, so it retries the same call; a tool_result marked as an error with a clear message lets it change course."
+      },
+      {
+        "id": "b",
+        "text": "The model's max_tokens is too low, so it cannot finish its reasoning and keeps retrying the same call",
+        "why": "A low budget would show a max_tokens stop_reason, not a run of complete tool_use turns with identical inputs."
+      },
+      {
+        "id": "c",
+        "text": "The API is rate limiting the tool calls, so add exponential backoff between iterations of the loop",
+        "why": "Client tools run in your code, not through the API's rate limits, and the timeouts are in the search service."
+      },
+      {
+        "id": "d",
+        "text": "The model's sampling is too random to converge, so raise the turn cap to give it more room to recover",
+        "why": "More turns would only produce more identical calls, since the model keeps receiving the same empty result."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The trace pattern of repeated identical tool calls with empty results points to an error being swallowed: the search service timed out, but the handler reported success with nothing in it. Return the failure in the tool_result so the model can respond. Raising the turn cap is tempting, but it just extends the loop.",
+    "cue": "Each of those tool_result blocks contains an empty string",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Handle tool calls",
+        "url": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "debugging-and-error-handling-006",
+    "objective": "debugging-and-error-handling",
+    "domain": 4,
+    "subskills": [
+      "dbg.traces"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "After a Tuesday deploy, a chat service's per-call logs show cache_read_input_tokens falling to zero on every call. The same logs show input_tokens growing every turn until long sessions fail with an invalid_request_error saying the prompt is too long. Which two root causes do these traces point to? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "The deploy put a per-request value ahead of the cache breakpoint, so the cached prefix no longer matches",
+        "why": "Correct. Cache reads dropping to zero right after a deploy means the cached prefix changed on every request, such as a timestamp or request ID in the system prompt."
+      },
+      {
+        "id": "b",
+        "text": "Conversation history is appended on every turn without any trimming, summarization or compaction",
+        "why": "Correct. input_tokens rising every turn until the prompt is too long is the signature of unbounded history."
+      },
+      {
+        "id": "c",
+        "text": "The SDK's automatic retries are resending each request, which doubles the input tokens it reports",
+        "why": "Each attempt is a separate call with its own usage, so retries do not inflate input_tokens on a single logged call."
+      },
+      {
+        "id": "d",
+        "text": "The deploy raised max_tokens, and max_tokens counts toward the input size of every request sent",
+        "why": "max_tokens caps output length; it is not part of input_tokens, so it cannot make input grow turn over turn."
+      },
+      {
+        "id": "e",
+        "text": "The API's overload is returning partial responses that the service stores twice in the history",
+        "why": "Overload shows up as 529 or an error event, and nothing in these traces shows errors or duplicated turns."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Each trace signal maps to a cause: cache reads at zero after a deploy mean the cached prefix changed, and input_tokens rising every turn means history is never trimmed. The retry option is tempting during any incident, but per-call usage is not affected by retries.",
+    "cue": "cache_read_input_tokens falling to zero on every call",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      },
+      {
+        "label": "Context windows",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/context-windows"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "debugging-and-error-handling-007",
+    "objective": "debugging-and-error-handling",
+    "domain": 4,
+    "subskills": [
+      "dbg.isolation"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A ticket classifier mislabels about 5% of tickets, and the logged raw responses confirm the wrong label came from the model. When an engineer rebuilds the request from the ticket text and sends it twenty times, every reply is correct. What should they check next?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Diff a logged production request against the rebuilt one, since system prompt, model ID, tools or context may differ",
+        "why": "Correct. When a faithful replay should reproduce but does not, compare what production actually sent with what you assumed it sent."
+      },
+      {
+        "id": "b",
+        "text": "Conclude the model is non-deterministic and add an instruction to be consistent to the system prompt",
+        "why": "Twenty clean replays at a 5% failure rate is weak evidence either way, and a vague instruction does not address a request that may differ."
+      },
+      {
+        "id": "c",
+        "text": "Inspect the parser that maps the label into the ticketing system, since a fault that will not reproduce is usually integration",
+        "why": "The logged raw responses already contain the wrong label, so the parser is receiving bad input rather than causing it."
+      },
+      {
+        "id": "d",
+        "text": "Raise the temperature on the replay so that it reproduces the variance that production is showing",
+        "why": "Changing a parameter makes the replay less faithful to production, which defeats the point of replaying the exact request."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding detail is that the engineer rebuilt the request from the ticket text instead of replaying the logged request. A replay only isolates the model layer if it is the exact request: same model ID, system prompt, tools and assembled context. The parser option is tempting because 'not reproducible' feels like integration, but the raw output was already wrong.",
+    "cue": "rebuilds the request from the ticket text",
+    "pattern": "sequence",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Define success criteria and build evaluations",
+        "url": "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  },
+  {
+    "id": "debugging-and-error-handling-008",
+    "objective": "debugging-and-error-handling",
+    "domain": 4,
+    "subskills": [
+      "dbg.recovery"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A legal-research tool sometimes receives stop_reason refusal on requests that reviewers agree are legitimate. Its current code resends the identical request to the same model up to three times before showing an error. What recovery fits this signal?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Send the refused request to a fallback model, and discard any partial output from the refused attempt",
+        "why": "Correct. A refusal is a decision by that model's classifiers, so the documented recovery is a fallback model, and partial output before a refusal should not be kept."
+      },
+      {
+        "id": "b",
+        "text": "Keep resending with exponential backoff, since refusals come from transient load on the safety classifier",
+        "why": "A refusal is a policy decision, not a load symptom; resending the same request to the same model tends to get the same decision."
+      },
+      {
+        "id": "c",
+        "text": "Catch the refusal in the SDK exception handler and route it into the existing retry path for API errors",
+        "why": "A refusal arrives as a normal 200 response with a stop_reason, so no exception is raised for a handler to catch."
+      },
+      {
+        "id": "d",
+        "text": "Append the partial output from the refused attempt and ask the same model to continue from that point",
+        "why": "Continuing is a recovery for truncation; after a refusal the partial output should be discarded, not built on."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is resending the identical request to the same model: a refusal is a classifier decision on that model, so the recovery is a fallback model rather than a retry. The continuation option is tempting because it works for max_tokens, but refusal output is to be discarded.",
+    "cue": "resends the identical request to the same model",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Refusals and fallback",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback"
+      },
+      {
+        "label": "Stop reasons and fallback",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-tf-debugging",
+    "status": "active"
+  }
+]

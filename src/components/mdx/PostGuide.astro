@@ -1,0 +1,13 @@
+---
+// Marks material that changed after the July 2026 exam guide. Real engineering
+// knowledge, but exam items were probably not written against it.
+interface Props {
+  since?: string;
+  title?: string;
+}
+const { since, title = 'Post-guide change: engineering knowledge, low exam confidence' } = Astro.props;
+---
+<aside class="callout callout-postguide">
+  <p class="callout-title">{title}{since ? ` · ${since}` : ''}</p>
+  <slot />
+</aside>

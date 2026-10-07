@@ -1,0 +1,86 @@
+[
+  {
+    "id": "legacy-057",
+    "objective": "claude-hooks",
+    "domain": 7,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "A team writes a PreToolUse hook to block destructive commands. During an incident they discover the hook crashed on a malformed payload and the command ran anyway. What went wrong?",
+    "options": [
+      {
+        "id": "a",
+        "text": "PreToolUse hooks cannot block tool execution",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "The script exited with code 1, which is a non-blocking error, so the action proceeded",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "Hooks only run in interactive mode, not headless",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "The matcher was case-insensitive and failed to match",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "Only exit code 2 blocks and returns stderr to the model as the reason. Exit 1 is treated as a non-blocking hook error and the tool call proceeds, so a crashing guard script fails open rather than closed. Guard scripts need their own error handling.",
+    "cue": "",
+    "pattern": "unclassified",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "legacy",
+    "status": "needs-rationale"
+  },
+  {
+    "id": "new-claude-hooks-01",
+    "objective": "claude-hooks",
+    "domain": 7,
+    "subskills": [],
+    "type": "single",
+    "select": 1,
+    "stem": "An engineering team adds a CLAUDE.md rule stating Claude Code must never run `git push --force` against the main branch. During a migration, a contributor pastes instructions from a Slack thread into the chat that override this rule, and the agent force-pushes to main anyway. Which control would have prevented this regardless of what instructions the agent received during that session?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A more detailed CLAUDE.md rule listing examples of what counts as a force push",
+        "why": ""
+      },
+      {
+        "id": "b",
+        "text": "A PreToolUse hook matching the Bash tool that inspects the command and exits 2 to block any force push targeting main",
+        "why": ""
+      },
+      {
+        "id": "c",
+        "text": "A PostToolUse hook that reverts the push once it detects one occurred",
+        "why": ""
+      },
+      {
+        "id": "d",
+        "text": "A system-prompt instruction paired with a lower sampling temperature",
+        "why": ""
+      }
+    ],
+    "answer": [
+      "b"
+    ],
+    "explanation": "A rule that must always hold needs a deterministic control, not a prompt instruction that pasted text can override. A PreToolUse hook runs before the tool executes and, on exit 2, blocks it outright regardless of what the model was told in-session. More detailed CLAUDE.md wording is still a request, not a guarantee. PostToolUse fires after the push already happened, and a force push can rewrite history other developers have already pulled, so it cannot reliably undo the damage. Temperature affects sampling variance, not policy compliance.",
+    "cue": "",
+    "pattern": "must-means-deterministic",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [],
+    "author": "v1-new",
+    "status": "needs-rationale"
+  }
+]

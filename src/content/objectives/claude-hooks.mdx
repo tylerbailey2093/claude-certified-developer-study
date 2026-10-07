@@ -6,117 +6,296 @@ name: "Claude Hooks"
 weight: 1
 tier: 3
 hot: false
+summary: "Hooks as deterministic guardrails: PreToolUse blocks before a tool runs (exit 2 or a JSON deny), other non-zero exits fail open, PostToolUse cannot undo, a hook allow never overrides a deny rule, and denylist guards need layering with permission rules and sandboxing."
+subskills: ["hk.guardrails", "hk.destructive"]
+related: ["agent-construction-with-claude", "guardrails-and-safe-deployment", "claude-code-operation", "ai-application-security", "configuration-management"]
 scope:
   - "hooks for guardrails and safety controls to prevent destructive actions"
 traps:
-  - "PreToolUse can block; PostToolUse cannot undo"
-  - "EXIT 2 BLOCKS. Exit 1 is a non-blocking error and the action proceeds - guards fail OPEN"
-  - "matchers are case-sensitive regex against the TOOL NAME, not prompt text"
+  - name: "PostToolUse as a preventive control"
+    looksRight: "A hook right next to the tool call that checks for rm -rf sounds like protection, whichever side of the call it sits on."
+    failsBecause: "PreToolUse can block; PostToolUse cannot undo. By the time PostToolUse fires the tool has already run, so exit 2 there only shows stderr to Claude as feedback."
+    cue: "'Prevent', 'before it runs', 'must never happen' with one option on PostToolUse and one on PreToolUse."
+  - name: "Exit 1 means blocked"
+    looksRight: "Unix convention says a non-zero exit is failure, so a guard that exits 1 has stopped the command."
+    failsBecause: "Exit 2 blocks. Exit 1, like any other non-zero code without valid JSON, is a non-blocking error and the action proceeds. A guard that crashes (127 for a missing interpreter or jq) fails open unless it traps its own errors and exits 2."
+    cue: "'The guard script errored and the command ran anyway', 'works on my laptop, not on the CI runner'."
+  - name: "Matchers read the prompt"
+    looksRight: "A matcher of 'delete' or 'drop table' should catch dangerous requests."
+    failsBecause: "Matchers are case-sensitive patterns against the tool name (Bash, Write, mcp__db__query), not prompt text or arguments. Inspecting the command or file path is the hook script's job."
+    cue: "A matcher in an option looks like a sentence or keyword instead of a tool name."
+  - name: "A hook allow overrides deny rules"
+    looksRight: "Hooks run before permission rules, so a hook that returns allow should win."
+    failsBecause: "Hooks run first so they can deny early. A hook allow does not bypass deny or ask rules; settings and plugin hooks can tighten what the rules allow, never loosen it."
+    cue: "A deny rule in settings still blocks a call a custom hook approved."
+  - name: "A regex denylist is a security boundary"
+    looksRight: "The hook greps for rm -rf, so recursive deletes are impossible."
+    failsBecause: "Pattern guards match text, not intent. Lab 09 shows /bin/rm slipping past a whitespace-anchored regex, and wrappers such as bash -c defeat most parsers and Bash deny rules alike. Layer hooks with deny rules, least privilege and OS-level sandboxing."
+    cue: "'The guard was in place but a variant of the command still ran'; one option adds sandboxing or credentials scoping alongside the hook."
 sources:
-  - label: "Hooks reference"
-    url: "https://code.claude.com/docs/en/hooks"
+  - { label: "Hooks reference", url: "https://code.claude.com/docs/en/hooks", kind: "docs", verified: "2026-10-06" }
+  - { label: "Hooks guide", url: "https://code.claude.com/docs/en/hooks-guide", kind: "docs", verified: "2026-10-06" }
+  - { label: "Configure permissions", url: "https://code.claude.com/docs/en/permissions", kind: "docs", verified: "2026-10-06" }
+  - { label: "Settings files and precedence", url: "https://code.claude.com/docs/en/settings", kind: "docs", verified: "2026-10-06" }
+  - { label: "Agent SDK: hooks", url: "https://code.claude.com/docs/en/agent-sdk/hooks", kind: "docs", verified: "2026-10-06" }
+lastReviewed: "2026-10-06"
 authored: true
 ---
 
-## What this objective actually tests
+## Concept
 
-The lightest objective by weight, but conceptually load-bearing across the whole exam: whenever a stem says something **must** or **always** happen, the deterministic-control pattern this objective teaches is the reasoning tool that picks the right answer, even in items formally scored under other domains. A prompt instruction is a request the model can be talked out of; a hook is code that runs whether the model "wants" to or not.
+The lightest objective by weight, but its reasoning is reused all over the exam: a prompt is a request, a hook is a control. Hooks are commands (or HTTP calls, MCP tool calls, prompts or agents) that Claude Code runs at fixed lifecycle points. The safety-relevant one is `PreToolUse`, which sees each tool call before it executes and can stop it.
+
+This page covers how a hook blocks, how it fails, where it is registered, and what it cannot do.
+
+Not this:
+- Hooks as SDK callbacks inside your own agent: <ObjLink id="agent-construction-with-claude" hash="ss-ac-hooks" />.
+- Permission modes and settings scopes in general: <ObjLink id="claude-code-operation"/> and <ObjLink id="configuration-management"/>.
+- Broader guardrail layers (input filters, output validation, human approval): <ObjLink id="guardrails-and-safe-deployment"/>.
+
+<Callout type="key" title="The point-winning idea">
+To prevent an action, use `PreToolUse` and block with exit 2 (or a JSON deny). Every other non-zero exit, a crash, or a timed-out command hook lets the action proceed. If the guard must hold, make it fail closed and back it with a deny rule.
+</Callout>
 
 ## Mechanism
 
-**The event that blocks**: `PreToolUse` runs *before* a tool call executes and is the only hook event that can prevent it. `PostToolUse` runs after the tool has already succeeded — it can report to the model (via stderr) but it **cannot undo or block** an action that already happened. A stem asking "which hook stops a destructive command before it runs" is asking for `PreToolUse`; a stem describing a hook that fires *after* damage occurred is describing `PostToolUse`, which was never in a position to prevent it.
+### Hooks as guardrails and safety controls
 
-**Exit-code semantics — the single highest-value fact in this objective**: [verified against `code.claude.com/docs/en/hooks`, current as of this writing]
+<SubskillAnchor id="hk.guardrails" />
 
-| Exit code | Effect |
+<Flow title="Where a PreToolUse guard sits" steps={[{label: "Claude emits tool_use", kind: "model"}, {label: "PreToolUse hooks", kind: "guard", note: "exit 2 or deny blocks here"}, {label: "Deny and ask rules", kind: "guard", note: "evaluated even after a hook allow"}, {label: "Mode and allow rules", kind: "decision"}, {label: "Tool runs", kind: "tool"}, {label: "PostToolUse", kind: "guard", note: "feedback only"}]} caption="A hook deny holds even in bypassPermissions. Nothing after the tool runs can take it back." />
+
+**The contract is the exit code** **[Certain]**:
+
+| Exit | Effect on PreToolUse |
 |---|---|
-| `0` | Success — the tool call proceeds through normal permission flow (unless JSON output on stdout carries an explicit `permissionDecision: "deny"`) |
-| `1` | **Non-blocking error** — the tool call **proceeds anyway**. This is the footgun: ordinary Unix convention treats 1 as "failure," but Claude Code does not treat it as a block. A hook that crashes, throws, or exits 1 for any reason **fails open** — it protected nothing. |
-| `2` | **Blocking error** — blocks the tool call immediately, regardless of any JSON output, and stderr is surfaced back to the model as the reason. This is the only reliable "stop it" signal for most hook events. |
+| `0` | No block. Stdout that is a JSON object is read for decisions such as `permissionDecision: "deny"` |
+| `2` | Blocks the call. Stderr (or the JSON reason) is fed back to Claude. Wins even over JSON that says `allow` |
+| Anything else | Non-blocking error unless stdout holds valid JSON; the call proceeds with a `hook error` notice |
 
-The practical consequence: a guard script must be written so that its unhappy paths (malformed input, an unexpected exception, a missing dependency) are caught and mapped to `exit 2`, not left to fall through to a bare crash — a crash typically yields a non-2 exit code, which is a pass-through, not a block.
+A missing script or interpreter exits 127 and lands in the same non-blocking bucket; the docs warn that "a mistyped path in `settings.json` leaves the gate silently disabled". Hooks can also return structured JSON: `permissionDecision` of `allow`, `deny`, `ask` or `defer`, with `deny` taking precedence when several hooks disagree.
 
-**Matchers** run against the **tool name** (e.g. `Bash`, `Write`), as a case-sensitive regex — not against the prompt text or the tool's arguments. A hook meant to catch a dangerous shell command still needs its own logic (parsing `tool_input.command`) to inspect *what* the tool call actually contains; the matcher only decides *whether the hook runs at all* for that tool.
+**Per event.** Exit 2 blocks `PreToolUse`, `UserPromptSubmit` (the prompt never reaches Claude) and `Stop` (Claude keeps working). It cannot block `PostToolUse` ("the tool already ran") and is not honoured on `PermissionRequest`, which decides through its own JSON.
+
+**Matchers** select which tool calls run the hook, by tool name. Letters, digits, `_`, spaces and pipe-separated names are exact matches; any other character makes the matcher an unanchored, case-sensitive regex, so `Edit.*` also matches `NotebookEdit` **[Certain]**. Arguments are invisible to the matcher: the script reads `tool_input` from stdin.
+
+**Fail closed.** Lab 09 ran this for real on 2026-10-06: a guard with a typo exited 127 and the simulated `rm -rf /` was allowed; the same script with `set -euo pipefail` and an `ERR` trap that exits 2 blocked instead. For a security guard, blocking everything until someone fixes it is the right trade; for a formatter, failing open is fine. Timeouts follow the same logic: a timed-out command hook on `PreToolUse` does not block, while an Agent SDK callback that times out does **[Certain]** (recent behaviour).
+
+**Where hooks are registered** **[Certain]**: `~/.claude/settings.json` (all your projects), `.claude/settings.json` (shared, committed), `.claude/settings.local.json` (personal), managed policy settings (organization-wide), a plugin's `hooks/hooks.json`, and skill or subagent frontmatter (active after the skill is invoked, or while the subagent runs). Hooks from different levels merge rather than replace. Administrators can set `allowManagedHooksOnly` so only managed hooks run, and project hooks wait for workspace trust.
+
+**Exam angle:** "must happen every time", "regardless of permission mode" point to a PreToolUse hook. Distractors: a CLAUDE.md or system prompt rule, a PostToolUse hook, a guard that exits 1.
+
+### Preventing destructive actions
+
+<SubskillAnchor id="hk.destructive" />
+
+Typical targets are recursive deletes, force pushes, writes to production systems and edits to secrets files. Build the guard in layers, because each layer has a known gap:
+
+| Layer | Stops | Known gap |
+|---|---|---|
+| Deny rule, for example `Bash(rm *)`, `Edit(//secrets/**)` | The usual spelling, in every mode | `/bin/rm`, `bash -c 'rm ...'` per the permissions docs |
+| PreToolUse hook parsing the command or path | Variants your parser understands | Anything your parser does not (wrappers, encodings) |
+| Least privilege: read-only credentials, no prod tokens in the environment | Actions the identity cannot perform at all | Needs IAM work, not just config |
+| OS sandbox for filesystem and network | Damage outside allowed paths and hosts | Setup cost |
+
+**What hooks cannot do:**
+- **Undo.** PostToolUse can log, alert, add context or replace the output Claude sees; the file is still deleted.
+- **Override rules.** A hook allow "doesn't bypass deny rules from settings" **[Certain]**.
+- **See everything.** Files referenced with `@` in a prompt are inserted without a tool call, so no PreToolUse hook fires; the docs point to a `Read` deny rule instead **[Certain]**.
+- **Match intent.** A denylist matches text; lab 09 showed `/bin/rm -rf build` passing a whitespace-anchored regex.
+
+Hands-on: [Lab 09](../../labs/09_hooks/) runs a guard, the 127 footgun and the fail-closed fix.
+
+**Exam angle:** "a variant of the command still ran" points to layering (deny rule, least privilege, sandbox), not a longer regex. "Undo the deletion" is never a hook answer.
 
 ## Decision table
 
-| When the stem says... | ...the answer is |
-|---|---|
-| Something **must** or **always** happen before an action proceeds | A hook (deterministic control) — never a system-prompt instruction |
-| A guard script crashed on bad input and the dangerous command still ran | Exit 1 (or an uncaught crash) is non-blocking — the hook failed open, not closed |
-| A team wants to reliably stop a command before it executes | `PreToolUse` with `exit 2` on the blocking path |
-| A hook fires after a destructive command already ran and tries to "undo" it | Wrong event — `PostToolUse` cannot block or undo; only report |
-| A hook's matcher is written against message text like "delete the database" | Wrong target — matchers match the tool name, not prompt content |
-| stderr from a hook needs to explain *why* an action was blocked to the model | `exit 2` — its stderr is what gets surfaced as the block reason |
+| If the stem says... | Choose | Why the runner-up loses |
+|---|---|---|
+| Stop a destructive command before it runs | `PreToolUse` hook that exits 2 (or JSON deny) | `PostToolUse` fires after the tool ran |
+| Guard errored and the command ran anyway | Trap errors and exit 2 (fail closed) | Exit 1 or 127 is a non-blocking error |
+| Must hold even in bypassPermissions | Hook deny or a deny rule | Allow lists and modes are evaluated later |
+| A custom hook approved a call a settings deny rule blocks | The deny rule wins; fix the rule | A hook allow never bypasses deny or ask rules |
+| Matcher written as "drop table" never fires | Match the tool name, inspect `tool_input` in the script | Matchers never see prompt text or arguments |
+| `/bin/rm` or `bash -c` slipped past the guard | Add least privilege and sandboxing to the hook | A longer regex leaves the next variant open |
+| Org-wide guard users must not disable | Managed settings hook, optionally `allowManagedHooksOnly` | Project or user hooks can be edited or disabled |
 
-## Code examples
+## Worked walkthrough
+
+<Walkthrough title="Scenario: the force push that the guard missed">
+
+<Step title="Read the scenario">
+A platform team ships `.claude/settings.json` with a PreToolUse hook on `Bash` that blocks `git push --force` to protected branches. It works on laptops. On the new CI runner image, Claude Code force-pushed to `main`. The hook log shows `PreToolUse hook error: jq: command not found`. What is the best fix?
+</Step>
+
+<Step title="Find the constraint">
+"Hook error" plus "jq: command not found" says the guard never reached its logic. The shell returned 127, which is a non-blocking error, so the push proceeded. The guard failed open.
+</Step>
+
+<Step title="Eliminate the wrong event and the prompt">
+Moving the check to `PostToolUse` fires after the push landed. Adding "never force push" to CLAUDE.md is advisory and does not fix a broken control.
+</Step>
+
+<Step title="Eliminate the wrong exit code">
+Changing the script's block path from `exit 2` to `exit 1` makes it worse: exit 1 is also non-blocking.
+</Step>
+
+<Step title="Choose">
+Make the guard fail closed (no external dependency, or an `ERR` trap that exits 2), add a `Bash(git push --force *)` deny rule as a second layer, and protect `main` with branch protection on the server.
+</Step>
+
+<Step title="The deciding cue">
+"Hook error" in the log. Any exit other than 2 lets the action through, so the fix is the guard's own error handling, not a different event or a stronger prompt.
+</Step>
+
+</Walkthrough>
+
+## Code
+
+**A fail-closed guard for Bash, Edit and Write.** It splits compound commands, normalizes `/bin/rm` to `rm`, catches force pushes and protected paths, and exits 2 on any internal error. Register it with the JSON below.
 
 ```python
 #!/usr/bin/env python3
-# .claude/hooks/guard.py — PreToolUse hook, matcher: "Bash"
-import json, re, sys
+# .claude/hooks/guard.py: PreToolUse guard for Bash, Edit and Write.
+# Exit 2 blocks and stderr becomes the reason Claude reads. Any unexpected error also exits 2.
+import json
+import shlex
+import sys
+
+PROTECTED = (".env", "/secrets/", ".git/")
+OPERATORS = {"&&", "||", ";", "|", "&"}
+
+
+def segments(command: str):
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    current = []
+    for token in lexer:
+        if token in OPERATORS:
+            yield current
+            current = []
+        else:
+            current.append(token)
+    yield current
+
+
+def block_reason(event: dict):
+    tool, args = event["tool_name"], event["tool_input"]
+    if tool in ("Edit", "Write"):
+        path = args["file_path"]
+        return f"{path} is a protected path." if any(p in path for p in PROTECTED) else None
+    for words in segments(args["command"]):
+        if not words:
+            continue
+        program = words[0].rsplit("/", 1)[-1]  # /bin/rm counts as rm
+        flags = [w for w in words[1:] if w.startswith("-")]
+        if program == "rm" and any(f == "--recursive" or (not f.startswith("--") and "r" in f.lower()) for f in flags):
+            return "Recursive rm is blocked by policy."
+        if program == "git" and "push" in words and any(w.startswith(("--force", "-f", "+")) for w in words[2:]):
+            return "Force push is blocked. Open a pull request instead."
+    return None
+
 
 try:
-    payload = json.load(sys.stdin)                  # hook input arrives as JSON on stdin
-    command = payload.get("tool_input", {}).get("command", "")
-except Exception as e:
-    # Any parse failure must still resolve to a block, not a silent pass-through.
-    print(f"guard.py: could not parse hook input: {e}", file=sys.stderr)
-    sys.exit(2)                                      # fail CLOSED, not open
-
-if re.search(r"(^|\s)rm\s+(-[a-z]*r|--recursive)", command, re.IGNORECASE):
-    print("Recursive rm is blocked by project policy.", file=sys.stderr)
-    sys.exit(2)      # EXIT 2 BLOCKS — stderr returns to Claude as the reason
-
-sys.exit(0)           # exit 0 proceeds. exit 1 would be a NON-BLOCKING error — the footgun.
+    reason = block_reason(json.load(sys.stdin))
+except Exception as exc:  # malformed payload, unbalanced quotes, missing key: fail closed
+    print(f"guard error, failing closed: {exc!r}", file=sys.stderr)
+    sys.exit(2)
+if reason:
+    print(reason, file=sys.stderr)
+    sys.exit(2)
+sys.exit(0)
 ```
 
 ```typescript
 #!/usr/bin/env -S npx tsx
-// .claude/hooks/guard.ts — PreToolUse hook, matcher: "Bash"
+// .claude/hooks/guard.ts: same policy. Simpler tokenizing than Python's shlex, so quoted
+// operators are split too; the try/catch still turns any failure into exit 2.
 import { readFileSync } from "node:fs";
 
-interface HookInput { tool_input?: { command?: string } }
+const PROTECTED = [".env", "/secrets/", ".git/"];
 
-let command = "";
+function blockReason(event: { tool_name: string; tool_input: Record<string, string> }): string | null {
+  const { tool_name: tool, tool_input: args } = event;
+  if (tool === "Edit" || tool === "Write") {
+    return PROTECTED.some((p) => args.file_path.includes(p)) ? `${args.file_path} is a protected path.` : null;
+  }
+  for (const segment of args.command.split(/&&|\|\||;|\||&/)) {
+    const words = segment.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) continue;
+    const program = words[0].split("/").pop();
+    const flags = words.slice(1).filter((w) => w.startsWith("-"));
+    if (program === "rm" && flags.some((f) => f === "--recursive" || (!f.startsWith("--") && /r/i.test(f)))) {
+      return "Recursive rm is blocked by policy.";
+    }
+    if (program === "git" && words.includes("push") && words.slice(2).some((w) => /^(--force|-f|\+)/.test(w))) {
+      return "Force push is blocked. Open a pull request instead.";
+    }
+  }
+  return null;
+}
+
 try {
-  const payload: HookInput = JSON.parse(readFileSync(0, "utf-8")); // stdin, fd 0
-  command = payload.tool_input?.command ?? "";
-} catch (e) {
-  process.stderr.write(`guard.ts: could not parse hook input: ${e}\n`);
-  process.exit(2);                                    // fail CLOSED on parse failure
+  const reason = blockReason(JSON.parse(readFileSync(0, "utf8")));
+  if (reason) {
+    process.stderr.write(reason + "\n");
+    process.exit(2);
+  }
+  process.exit(0);
+} catch (err) {
+  process.stderr.write(`guard error, failing closed: ${err}\n`);
+  process.exit(2); // fail closed
 }
-
-if (/(^|\s)rm\s+(-[a-z]*r|--recursive)/i.test(command)) {
-  process.stderr.write("Recursive rm is blocked by project policy.\n");
-  process.exit(2);   // EXIT 2 BLOCKS — stderr returns to Claude as the reason
-}
-
-process.exit(0);      // exit 0 proceeds. exit 1 would be NON-BLOCKING — fails open.
 ```
 
 ```json
 {
   "hooks": {
     "PreToolUse": [
-      { "matcher": "Bash", "hooks": [{ "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/guard.py" }] }
+      { "matcher": "Bash|Edit|Write", "hooks": [{ "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/guard.py" }] }
     ]
+  },
+  "permissions": {
+    "deny": ["Bash(rm -rf *)", "Bash(git push --force *)", "Edit(//secrets/**)"]
   }
 }
 ```
 
-## Named traps, expanded
+The Python guard was run directly with PreToolUse payloads on stdin, the way Claude Code invokes a command hook:
 
-**PreToolUse can block; PostToolUse cannot undo.** This is attractive to get wrong because both events sit right next to a tool call and "runs after" can read as "still has a chance to intervene." It's wrong because by the time `PostToolUse` fires, the tool has already executed — a destructive command has already run, a file has already been deleted. Recognize this trap whenever a stem describes a hook meant to *prevent* something and places it at the wrong lifecycle point; only `PreToolUse` (and only with `exit 2`) is a preventive control.
+<Output kind="executed" date="2026-10-06">
+Bash  ls -la                          exit=0 ALLOW
+Bash  rm -rf build                    exit=2 BLOCK  Recursive rm is blocked by policy.
+Bash  /bin/rm -rf build               exit=2 BLOCK  Recursive rm is blocked by policy.
+Bash  make clean && rm -r dist        exit=2 BLOCK  Recursive rm is blocked by policy.
+Bash  git push --force origin main    exit=2 BLOCK  Force push is blocked. Open a pull request instead.
+Bash  git push origin +main           exit=2 BLOCK  Force push is blocked. Open a pull request instead.
+Bash  echo 'a|b' | wc -c              exit=0 ALLOW
+Bash  bash -c 'rm -rf build'          exit=0 ALLOW
+Write /repo/.env                      exit=2 BLOCK  /repo/.env is a protected path.
+Bash  echo 'unbalanced                exit=2 BLOCK  guard error, failing closed: ValueError('No closing quotation')
+</Output>
 
-**Exit 2 blocks. Exit 1 is a non-blocking error and the action proceeds — guards fail open.** This is the highest-value single fact in the objective precisely because it inverts a reasonable assumption: Unix engineers default to treating exit 1 as "failure, stop." Claude Code does not. A hook script that isn't explicitly written to catch its own failure modes and map them to `exit 2` will, on a crash, silently let the dangerous action through — the opposite of what the team believed they'd deployed. Recognize this trap in any stem where a guard "crashed" or "errored" and the forbidden action happened anyway; the answer is exit-code semantics, not a bug in the matcher or the tool call itself.
-
-**Matchers are case-sensitive regex against the tool name, not prompt text.** This is attractive to get wrong because it's natural to think of a hook as "catching a dangerous request," which sounds like it should inspect what the user or model asked for. It's wrong because the matcher's only job is selecting *which tool calls* trigger the hook at all (`Bash`, `Write`, etc.); inspecting the actual content of that call — a shell command, a file path — is the guard script's own responsibility once it's already running. Recognize this trap whenever a stem's matcher example looks like a sentence or keyword rather than a tool name.
+Read the last three rows. `bash -c` still gets through, which is why the hook is one layer, not the boundary. The unbalanced quote shows fail-closed in action: a parse error blocks a harmless command, the price of a guard that never fails open.
 
 ## Recall checks
 
-- A `PreToolUse` guard script throws an unhandled exception on a malformed payload. What exit code does that typically produce, and what happens to the tool call as a result?
-- Why can't a `PostToolUse` hook be used to stop a destructive `rm -rf` from taking effect?
-- Write the one-sentence rule that decides, for any stem, whether "the answer is a hook" versus "the answer is a system-prompt instruction."
-- What does a matcher actually match against — and what has to happen inside the hook script itself to catch a dangerous argument?
-- Why is exit code 1 sometimes called "the footgun" in hook design, and what should a guard script's exception handler exit with instead?
+<Recall q="Which hook event can stop a destructive tool call, and what does exit 2 do on PostToolUse?">
+PreToolUse, because it runs before the tool executes; exit 2 or a JSON deny blocks the call and the reason goes back to Claude. On PostToolUse exit 2 only shows stderr to Claude, because the tool already ran.
+</Recall>
+
+<Recall q="A guard script exits 1 when it finds a forbidden command. What happens, and what should it do instead?">
+Exit 1 without valid JSON is a non-blocking error, so the command runs and the transcript shows a hook error notice. The guard should exit 2, or exit 0 with a JSON permissionDecision of deny.
+</Recall>
+
+<Recall q="What does a hook matcher match against, and where does command inspection happen?">
+The tool name, as an exact name or pipe-separated list, or as an unanchored case-sensitive regex when it contains other characters. The command, file path or SQL is read from tool_input inside the hook script.
+</Recall>
+
+<Recall q="Can a PreToolUse hook that returns allow override a deny rule in settings.json?">
+No. Deny and ask rules are evaluated regardless of what the hook returns, so hooks can tighten restrictions but never loosen them past what the permission rules allow.
+</Recall>
+
+<Recall q="Why is a regex hook alone not enough to prevent recursive deletes, and what completes the defence?">
+It matches text, so variants such as /bin/rm or bash -c wrappers can slip past both regexes and Bash deny rules. Add deny rules, least-privilege credentials and an OS-level sandbox, and make the hook fail closed.
+</Recall>

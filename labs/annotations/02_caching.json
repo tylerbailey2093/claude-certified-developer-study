@@ -1,0 +1,69 @@
+{
+  "cells": {
+    "c01": {
+      "output": "sdk 0.xx.x",
+      "kind": "illustrative",
+      "notice": [
+        "MODEL and CHEAP come from src/data/facts.json. Model IDs drift, so lab 00 prints the live list for you to check against.",
+        "text_of joins every text block. Every lab uses it instead of content[0].text, because on current models the first block is often a thinking block."
+      ]
+    },
+    "c03": {
+      "output": "approx tokens: 6012",
+      "kind": "illustrative",
+      "notice": [
+        "About 6,000 tokens clears every current minimum, including Haiku 4.5's 4,096. Your count will differ slightly by model, because current models use a newer tokenizer.",
+        "Below the model's minimum, caching fails silently: no error, just cache_creation_input_tokens of 0. Measuring the prefix is the only way to know."
+      ]
+    },
+    "c05": {
+      "output": "run 1\n  write=6031    read=0       uncached_in=14",
+      "kind": "illustrative",
+      "notice": [
+        "write is the whole prefix up to and including the block that carries cache_control: both system blocks. You paid 1.25x base input on those tokens.",
+        "uncached_in is only the question after the breakpoint. That split is what makes caching cheap when the prefix is large and the suffix is small."
+      ]
+    },
+    "c07": {
+      "output": "run 2\n  write=0       read=6031    uncached_in=13\nrun 3\n  write=0       read=6031    uncached_in=11",
+      "kind": "illustrative",
+      "notice": [
+        "write drops to 0 and read equals the earlier write: the second and third calls reused the stored prefix at 0.1x input price.",
+        "The questions changed but sit after the breakpoint, so they do not affect the cache key. Only content before the breakpoint has to match byte for byte.",
+        "Each read also refreshes the 5-minute TTL, so steady traffic keeps the entry warm without a longer TTL."
+      ]
+    },
+    "c09": {
+      "output": "poisoned run 1\n  write=6046    read=0       uncached_in=12\npoisoned run 2\n  write=6046    read=0       uncached_in=10\n\nread stays at 0. Every call is now a fresh write at 1.25x input price.\nThe fix is PLACEMENT, not TTL: move volatile values out of the cached prefix.",
+      "kind": "illustrative",
+      "notice": [
+        "Nothing errored. The only signal is cache_read_input_tokens falling to 0 while cache_creation_input_tokens stays high on every call.",
+        "A longer TTL would not help, because the prefix never repeats. The fix is to move the timestamp after the breakpoint (for example, into the user message).",
+        "In a typical failure scenario like this one, the deciding clue is a value that changes per request inside the cached prefix."
+      ]
+    },
+    "c11": {
+      "output": "no cache      $1,000.00\ncached        $100.01\npoisoned      $1,250.00  (every call a write)\nsaved         $899.99  (90.0%)",
+      "kind": "illustrative",
+      "notice": [
+        "These numbers are arithmetic from list prices, not a measurement: 5,000-token prefix, 100,000 calls, Sonnet 5.5 at $2 per million input tokens.",
+        "A poisoned cache costs 25% more than not caching at all, because every call pays the write premium and none gets the read discount.",
+        "The multipliers depend on the model: reads are 0.05x on Opus 5.5 and 0.025x on Fable 5.1, so rerun the cell with your model's numbers."
+      ]
+    }
+  },
+  "checkpoint": [
+    {
+      "q": "What is the prefix order? (three things, in order)",
+      "a": "tools, then system, then messages. The cache key is built over that rendered order, so a change at any level invalidates that level and everything after it. That is why changing a tool definition breaks the system and message caches too."
+    },
+    {
+      "q": "Name three ways to invalidate a cache.",
+      "a": "Any byte change before the breakpoint does it: a timestamp or request ID interpolated into the system prompt, adding, removing or reordering tool definitions, or non-deterministic JSON key order in serialized content. Switching models also misses, because caches are model-scoped, and changing thinking, effort or tool_choice invalidates the message-level cache. Finally, an entry simply expires if nothing reads it within its TTL."
+    },
+    {
+      "q": "Where do you place breakpoints, and why does content order matter?",
+      "a": "Put a breakpoint at the end of the stable content, typically the last block of the static system prompt or the last tool, and keep everything volatile after it; you get at most four breakpoints per request. Order matters because the match is an exact prefix: stable content placed after a volatile value can never be reused, however many markers you add."
+    }
+  ]
+}

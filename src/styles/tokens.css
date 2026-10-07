@@ -1,0 +1,172 @@
+/* ==========================================================================
+   Design tokens. Lakehouse-inspired palette (navy, lava, oat) with DM Sans and
+   DM Mono. Dark is the default; light is the oat variant. Every text/background
+   pair here is checked by scripts/check_contrast.ts (4.5:1 text, 3:1 UI).
+
+   Lava #FF3621 fails AA as text on oat (3.39:1), so in light mode it is used
+   for fills and marks only and --accent-text is a darker red.
+   ========================================================================== */
+
+@font-face {
+  font-family: 'DM Sans';
+  src: url('/fonts/dm-sans-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 1000;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DM Sans';
+  src: url('/fonts/dm-sans-latin-wght-italic.woff2') format('woff2');
+  font-weight: 100 1000;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DM Mono';
+  src: url('/fonts/dm-mono-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'DM Mono';
+  src: url('/fonts/dm-mono-latin-500-normal.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* primitives */
+  --lava-600: #ff3621;
+  --lava-500: #ff5f46;
+  --lava-700: #bd2b26;
+  --navy-950: #071a1f;
+  --navy-900: #0b2026;
+  --navy-850: #112a31;
+  --navy-800: #1b3139;
+  --navy-700: #143d4a;
+  --navy-600: #1b5162;
+  --navy-300: #c4ccd6;
+  --oat-l: #f9f7f4;
+  --oat-m: #eeede9;
+  --blue: #2272b4;
+  --green: #00a972;
+  --yellow: #ffab00;
+  --maroon: #98102a;
+
+  --font-sans: 'DM Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --r-1: 4px;
+  --r-2: 8px;
+  --r-3: 12px;
+  --rail-w: 264px;
+  --top-h: 56px;
+  --measure: 72ch;
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  /* ---------- dark (default) ---------- */
+  color-scheme: dark;
+  --bg: var(--navy-900);
+  --bg-rail: var(--navy-950);
+  --surface-1: var(--navy-850);
+  --surface-2: var(--navy-800);
+  --surface-3: #22404a;
+  --cell-bg: #0f262d;
+  --text-1: #f9f7f4;
+  --text-2: #c4ccd6;
+  --text-3: #93a7b2;
+  --border: #284652;
+  --border-strong: #3b5f6d;
+  --accent: var(--lava-600);
+  --accent-text: var(--lava-500);
+  --on-accent: var(--navy-900);
+  --link: #6fa8d6;
+  --primary: #2272b4;
+  --on-primary: #ffffff;
+  --focus: #ffab00;
+  --ok: #34c88f;
+  --ok-bg: rgba(52, 200, 143, 0.12);
+  --bad: #ff7b8a;
+  --bad-bg: rgba(255, 123, 138, 0.12);
+  --warn: #ffbf3f;
+  --warn-bg: rgba(255, 191, 63, 0.12);
+  --scrim: rgba(3, 12, 15, 0.62);
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px -18px rgba(0, 0, 0, 0.7);
+
+  --grid-line: rgba(111, 168, 214, 0.12);
+  --grid-node: rgba(160, 196, 216, 0.42);
+  --grid-packet: #ff3621;
+  --grid-alpha: 1;
+
+  /* domains: base colour for marks, -text variant for text on surfaces */
+  --d1: #8e92be;
+  --d2: #509fc3;
+  --d3: #66a550;
+  --d4: #db7883;
+  --d5: #45a59f;
+  --d6: #a688ce;
+  --d7: #bd8c4b;
+  --d8: #c87eae;
+  --d1-text: #a3a7cf;
+  --d2-text: #6cb1d1;
+  --d3-text: #7fb96a;
+  --d4-text: #e48f99;
+  --d5-text: #5cb8b1;
+  --d6-text: #b59bd8;
+  --d7-text: #cc9e62;
+  --d8-text: #d493bd;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: var(--oat-l);
+  --bg-rail: #f2f0eb;
+  --surface-1: #ffffff;
+  --surface-2: var(--oat-m);
+  --surface-3: #e3e1db;
+  --cell-bg: #fbfaf8;
+  --text-1: var(--navy-800);
+  --text-2: #3d5560;
+  --text-3: #566b77;
+  --border: #dedad2;
+  --border-strong: #c5c0b6;
+  --accent: var(--lava-600);
+  --accent-text: #c42a17;
+  --on-accent: var(--navy-900);
+  --link: #1f68a6;
+  --primary: var(--blue);
+  --on-primary: #ffffff;
+  --focus: #b86e00;
+  --ok: #1d7a4c;
+  --ok-bg: rgba(0, 169, 114, 0.1);
+  --bad: #b0263a;
+  --bad-bg: rgba(176, 38, 58, 0.08);
+  --warn: #8f5600;
+  --warn-bg: rgba(255, 171, 0, 0.14);
+  --scrim: rgba(27, 49, 57, 0.4);
+  --shadow: 0 1px 2px rgba(27, 49, 57, 0.06), 0 8px 24px -16px rgba(27, 49, 57, 0.28);
+
+  --grid-line: rgba(27, 49, 57, 0.08);
+  --grid-node: rgba(27, 49, 57, 0.26);
+  --grid-packet: #ff3621;
+  --grid-alpha: 0.75;
+
+  --d1: #434a93;
+  --d2: #137dae;
+  --d3: #308613;
+  --d4: #c83243;
+  --d5: #04867d;
+  --d6: #8a63bf;
+  --d7: #a6630c;
+  --d8: #b45091;
+  --d1-text: #434a93;
+  --d2-text: #11709d;
+  --d3-text: #2c7b11;
+  --d4-text: #c43142;
+  --d5-text: #047970;
+  --d6-text: #7c59ac;
+  --d7-text: #995b0b;
+  --d8-text: #a64a85;
+}

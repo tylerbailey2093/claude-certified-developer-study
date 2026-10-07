@@ -1,0 +1,702 @@
+[
+  {
+    "id": "legacy-047",
+    "objective": "cost-and-token-management",
+    "domain": 5,
+    "subskills": [
+      "cost.prompt-caching",
+      "cost.modeling"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An internal HR assistant answers employee questions all day, and every request starts with the same 30,000-token benefits handbook that is updated only once a quarter. Finance asks for a lower bill, and the evaluation suite was signed off against the current model last month. Which change should the team make first?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Add a cache breakpoint after the handbook so repeated requests read it at about a tenth of the input price on most models",
+        "why": "Correct. The prefix is identical on every request and traffic is steady, so after one write each request reads the handbook at about 0.1x while outputs stay identical."
+      },
+      {
+        "id": "b",
+        "text": "Move the assistant to a smaller model tier so that every input and output token on every request costs less",
+        "why": "Model downgrade is the last lever: it changes behaviour and voids the evaluation suite that was just signed off, while caching saves more on this prefix."
+      },
+      {
+        "id": "c",
+        "text": "Move the handbook after each employee's question so the newest and most specific content leads the prompt",
+        "why": "Putting the varying question first means no two requests share a prefix, so nothing can be cached and the token count is unchanged."
+      },
+      {
+        "id": "d",
+        "text": "Run count_tokens before each call and reject any request whose input exceeds a fixed per-request budget",
+        "why": "A pre-check refuses oversize requests but every request here carries the same handbook, so it rejects nothing and saves nothing."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding detail is an identical 30,000-token prefix sent all day, which is the textbook case for a cache checkpoint: one write at 1.25x, then reads at 0.1x. The cost order is fewer tokens, caching, batch, effort, then model last. A smaller tier is tempting because it cuts every price, but it is the only lever that changes behaviour and forces the signed-off evals to be re-run.",
+    "cue": "same 30,000-token benefits handbook",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      },
+      {
+        "label": "Pricing",
+        "url": "https://platform.claude.com/docs/en/about-claude/pricing"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "legacy-048",
+    "objective": "cost-and-token-management",
+    "domain": 5,
+    "subskills": [
+      "cost.checkpointing"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A contract-review assistant sends fixed tool definitions, then a 15,000-token clause library in the system prompt that every user's conversation shares, then the conversation itself. Its only cache_control marker sits on the latest user message. Logs show later turns within one conversation read from cache, but the first turn of every new conversation writes the whole clause library again. Which change fixes this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Add a second breakpoint at the end of the system prompt so every new conversation reads the shared tools and clause library",
+        "why": "Correct. Writes happen only at breakpoints, so a marker at the stability boundary creates an entry that any conversation with the same tools and system prompt can read."
+      },
+      {
+        "id": "b",
+        "text": "Switch the existing marker to the 1-hour TTL so a cached conversation stays alive long enough for the next user to reuse it",
+        "why": "The entry written at one conversation's tail includes that user's messages, so no other conversation ever matches it, however long it lives."
+      },
+      {
+        "id": "c",
+        "text": "Move the clause library out of the system prompt into the first user message so it sits closer to the existing cache marker",
+        "why": "Moving the library does not add a write point at the shared boundary; the only entry is still keyed to each conversation's own messages."
+      },
+      {
+        "id": "d",
+        "text": "Move the only breakpoint onto the tool definitions instead, because tools are rendered first and change least often of all",
+        "why": "That caches just the tools; the clause library and the whole conversation become uncached input on every request, which costs more."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is content that every conversation shares sitting behind a marker that only exists at each conversation's tail. A cache read needs an entry written at a matching prefix, and the lookback finds only entries earlier requests wrote at their own breakpoints, so place a checkpoint where stability changes (after tools and system) and keep one at the moving conversation end. A longer TTL is the tempting fix, but expiry is not the problem when the prefix never matches.",
+    "cue": "every user's conversation shares",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "new-cost-and-token-management-02",
+    "objective": "cost-and-token-management",
+    "domain": 5,
+    "subskills": [
+      "cost.tracking"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A research agent runs with a high effort setting, and its thinking display is set to return summaries. Finance reports that billed output tokens are several times the token count of everything visible in the transcripts. An engineer suspects a metering bug and wants to open a support ticket. What explains the gap?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Thinking is billed as output at its full generated length, while the transcript shows only a summary of that reasoning",
+        "why": "Correct. Billing counts the full thinking Claude generated, not the summary returned, so billed output_tokens will not match the visible text."
+      },
+      {
+        "id": "b",
+        "text": "Cache writes for the agent's long system prompt are being recorded under output_tokens rather than as cache creation",
+        "why": "Cache writes are reported in cache_creation_input_tokens and priced from the input rate; they never appear in output_tokens."
+      },
+      {
+        "id": "c",
+        "text": "Each request is billed for its full max_tokens allowance rather than for the tokens the model actually generated",
+        "why": "Billing counts generated tokens only; max_tokens is a cap, and unused allowance is never charged."
+      },
+      {
+        "id": "d",
+        "text": "Tool results returned to the agent are billed as output tokens because Claude requested them through its own tool calls",
+        "why": "Tool results come back as input on the next request; only the tool_use block Claude writes is output."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding detail is a summarized thinking display combined with high effort: the docs state that you are charged for the full thinking tokens, not the summary, so billed output exceeds visible text. That is documented behaviour, not a metering fault. The tempting alternative blames max_tokens, but nothing is billed for unused allowance.",
+    "cue": "thinking display is set to return summaries",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Building with extended thinking",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking"
+      },
+      {
+        "label": "Pricing",
+        "url": "https://platform.claude.com/docs/en/about-claude/pricing"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "cost-and-token-management-001",
+    "objective": "cost-and-token-management",
+    "domain": 5,
+    "subskills": [
+      "cost.budgeting"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A legal research tool lets users attach case files to a question, and some attachments are enormous. Product rules say a request over a 150,000-token input budget must be refused before any tokens are billed, with a message telling the user to trim. Which control meets that rule?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Count the assembled request with the token counting endpoint and refuse or trim when the count exceeds the budget",
+        "why": "Correct. Token counting accepts the same system, messages and documents as a real request, is free, and answers before anything is billed (send attachments as base64; url and file sources are not countable)."
+      },
+      {
+        "id": "b",
+        "text": "Set max_tokens to 150,000 so the API stops processing a request once it reaches the input budget",
+        "why": "max_tokens caps generated output; it places no limit on the input you send and does nothing to refuse a large prompt."
+      },
+      {
+        "id": "c",
+        "text": "Read usage.input_tokens on each response and block the user after a response shows the request exceeded the budget",
+        "why": "Reading usage afterwards is too late: the oversize request has already been processed and billed."
+      },
+      {
+        "id": "d",
+        "text": "Set a monthly workspace spend limit sized to the expected volume of requests at 150,000 tokens each",
+        "why": "A spend limit caps aggregate monthly cost for the workspace; it cannot judge whether one request is over a per-request budget."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is refusing before any tokens are billed, which puts the check ahead of the call. The token counting endpoint is free, rate-limited separately from message creation, and returns an estimate of input_tokens for the exact request you plan to send. Reading usage is the tempting alternative, but it reports what has already been charged.",
+    "cue": "before any tokens are billed",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Token counting",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/token-counting"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "cost-and-token-management-002",
+    "objective": "cost-and-token-management",
+    "domain": 5,
+    "subskills": [
+      "cost.budgeting"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A migration agent runs a long tool loop that spans many requests. The team wants it to pace itself and wind down gracefully as the whole loop approaches about 400,000 tokens, while every individual request still has an enforced output ceiling. Which two settings achieve this? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Set an output_config.task_budget for the loop so the model sees a running countdown and plans its remaining work",
+        "why": "Correct. A task budget covers the whole agentic loop, including thinking, tool calls and results, and lets the model prioritise and finish gracefully."
+      },
+      {
+        "id": "b",
+        "text": "Keep a sensible max_tokens on every request as the enforced ceiling, because the task budget is only advisory",
+        "why": "Correct. The task budget is a soft hint the model may overrun to finish an action; max_tokens remains the hard per-request cap."
+      },
+      {
+        "id": "c",
+        "text": "Set max_tokens to 400,000 on the first request so every later request in the loop draws from one shared output allowance",
+        "why": "max_tokens applies to one request and never carries across the loop; it is also far above the per-request output maximum."
+      },
+      {
+        "id": "d",
+        "text": "Decrement task_budget.remaining on each request by the size of the full history the client resends",
+        "why": "Resent history is not counted again by the server, so subtracting it under-reports the budget and makes the agent stop early."
+      },
+      {
+        "id": "e",
+        "text": "Read the remaining-budget field in each response's usage object and stop the agent loop once that field reaches zero",
+        "why": "The countdown is visible only to the model; responses carry no remaining-budget field, so client tracking must sum usage itself."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "Two requirements, two mechanisms: graceful pacing across the loop is a task budget, and an enforced per-request ceiling is max_tokens. The docs call task budgets a soft hint, not a hard cap, and recommend pairing them with a reasonable max_tokens. Manually decrementing remaining while resending full history is the tempting trap, because the server already avoids double counting.",
+    "cue": "wind down gracefully",
+    "pattern": "must-means-deterministic",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Task budgets",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/task-budgets"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "cost-and-token-management-003",
+    "objective": "cost-and-token-management",
+    "domain": 5,
+    "subskills": [
+      "cost.budgeting",
+      "cost.modeling"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "To cut spend, a team lowered max_tokens on its report generator from 4,000 to 600, although the median report is about 450 tokens. A month later the invoice barely moved, and users began filing tickets about reports that stop mid-sentence. What should the team do?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Restore max_tokens to cover the longest legitimate report and look for savings in cached prefixes or tighter output formats",
+        "why": "Correct. Billing follows generated tokens, so the cap saved almost nothing; the real levers reduce what is sent or generated."
+      },
+      {
+        "id": "b",
+        "text": "Lower max_tokens again to 450 so the median report fits exactly and no unused output allowance is paid for",
+        "why": "Unused allowance is never billed, so a tighter cap saves nothing more and truncates even more reports."
+      },
+      {
+        "id": "c",
+        "text": "Keep the 600 cap and raise the effort level so the model plans a shorter report before it starts writing",
+        "why": "Higher effort adds thinking tokens, which are billed as output and count inside max_tokens, so truncation and cost both rise."
+      },
+      {
+        "id": "d",
+        "text": "Keep the 600 cap and automatically resend every truncated report with a request to continue where it stopped",
+        "why": "Each continuation pays the input again plus more output, so the workaround costs more than a correctly sized cap."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is an invoice that barely moved after the cap fell: you pay for tokens generated, not for max_tokens, so the change only added truncations with stop_reason max_tokens. Size max_tokens to the longest legitimate answer plus thinking headroom and cut cost with fewer input tokens or a tighter format. Raising effort is the tempting distractor, but thinking counts inside the same cap.",
+    "cue": "invoice barely moved",
+    "pattern": "wrong-place-mechanism",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Pricing",
+        "url": "https://platform.claude.com/docs/en/about-claude/pricing"
+      },
+      {
+        "label": "Building with extended thinking",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/thinking"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "cost-and-token-management-004",
+    "objective": "cost-and-token-management",
+    "domain": 5,
+    "subskills": [
+      "cost.tracking"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "After enabling prompt caching, a cost dashboard that computes input spend from usage.input_tokens alone shows input cost down by about 90 percent. The monthly invoice fell by much less than that. Which explanation is correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "input_tokens counts only tokens after the last cache breakpoint, so cache reads and writes must be added at their own prices",
+        "why": "Correct. Total input is input_tokens plus cache_creation_input_tokens plus cache_read_input_tokens, each billed at a different multiplier."
+      },
+      {
+        "id": "b",
+        "text": "Cached prompt tokens are billed at the output rate, so the dashboard must move them into its output cost column instead",
+        "why": "Cache reads and writes are priced as multiples of the input rate, 0.1x and 1.25x or 2x, not at the output rate."
+      },
+      {
+        "id": "c",
+        "text": "count_tokens reports the true billable input, so the dashboard should call it for every request instead of reading usage",
+        "why": "count_tokens returns an estimate and applies no caching logic, so it cannot show what a cached request actually cost."
+      },
+      {
+        "id": "d",
+        "text": "Cached tokens still fill the context window, so the invoice charges by window size rather than by tokens processed",
+        "why": "Caching changes price, not size, and billing is per token processed; window occupancy is not a billing unit."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is a dashboard built on input_tokens alone. With caching, that field covers only the uncached tail after the last breakpoint, so the dashboard silently dropped every cache write (1.25x or 2x) and cache read (0.1x). The count_tokens option is tempting because it sounds authoritative, but it is a pre-flight estimate with no caching logic.",
+    "cue": "computes input spend from usage.input_tokens alone",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      },
+      {
+        "label": "Token counting",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/token-counting"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "cost-and-token-management-005",
+    "objective": "cost-and-token-management",
+    "domain": 5,
+    "subskills": [
+      "cost.tracking",
+      "cost.prompt-caching"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A platform team logs every usage field per request, tagged by feature and tenant. They want an alert that fires within minutes when a deploy silently breaks prompt caching, long before the monthly invoice shows it. Which two signals detect this? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "cache_read_input_tokens falling toward zero on routes that normally read a cached prefix",
+        "why": "Correct. A broken prefix means no request finds an entry, so reads drop to zero immediately after the deploy."
+      },
+      {
+        "id": "b",
+        "text": "Cache hit ratio, cache reads over total input tokens, dropping well below its usual baseline",
+        "why": "Correct. The ratio normalises for traffic volume, so a regression shows even when request counts change."
+      },
+      {
+        "id": "c",
+        "text": "output_tokens rising on the affected routes, because uncached prompts make the model write longer answers",
+        "why": "Caching changes how input is priced, not what the model generates, so output length does not move."
+      },
+      {
+        "id": "d",
+        "text": "The share of responses ending with stop_reason max_tokens rising on the affected routes",
+        "why": "Truncation depends on the output cap and answer length, neither of which changes when caching breaks."
+      },
+      {
+        "id": "e",
+        "text": "Token counts from count_tokens pre-checks increasing on the affected routes after the deploy",
+        "why": "count_tokens applies no caching logic, so it reports the same input size whether or not caching works."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is a silent caching break, which appears first in the cache fields of usage, not in output or truncation. Watch cache_read_input_tokens and the hit ratio per route; a regression also raises uncached input, which can surface as rate-limit pressure. count_tokens is tempting as a monitor, but it never applies caching.",
+    "cue": "silently breaks prompt caching",
+    "pattern": "buried-constraint",
+    "difficulty": 1,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      },
+      {
+        "label": "Rate limits",
+        "url": "https://platform.claude.com/docs/en/api/rate-limits"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "cost-and-token-management-006",
+    "objective": "cost-and-token-management",
+    "domain": 5,
+    "subskills": [
+      "cost.modeling"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A team compares two model tiers for drafting replies that must pass an automated acceptance check, and failed drafts are regenerated until one passes. The smaller tier costs $0.006 per attempt but passes on half of its attempts, while the larger tier costs $0.010 per attempt and passes on 95 percent. Which statement about cost per accepted reply is correct?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The larger tier is cheaper per accepted reply, about $0.0105 against $0.012 for the smaller tier",
+        "why": "Correct. Cost per completed task is price per attempt divided by pass rate: 0.010 / 0.95 against 0.006 / 0.5."
+      },
+      {
+        "id": "b",
+        "text": "The smaller tier is cheaper per accepted reply, because its price per attempt is 40 percent lower",
+        "why": "Per-attempt price ignores how many attempts each accepted reply needs, which is the whole point of the comparison."
+      },
+      {
+        "id": "c",
+        "text": "The two tiers cost the same per accepted reply, because regenerated drafts are billed for output only",
+        "why": "A regenerated draft is a full new request, so it pays its input again as well as its output."
+      },
+      {
+        "id": "d",
+        "text": "The smaller tier becomes cheaper once its shared prefix is cached, so the comparison must wait for caching",
+        "why": "Caching would cut input for both tiers alike, so it does not close a gap caused by attempts per success."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding detail is the pass rate: half of the smaller tier's attempts are thrown away, so it needs two attempts per accepted reply. Cost modeling divides all spend, retries included, by tasks that succeeded. The per-attempt price comparison is the tempting answer and the classic modeling error.",
+    "cue": "passes on half of its attempts",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Pricing",
+        "url": "https://platform.claude.com/docs/en/about-claude/pricing"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "cost-and-token-management-007",
+    "objective": "cost-and-token-management",
+    "domain": 5,
+    "subskills": [
+      "cost.checkpointing"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An agent sends 30,000 tokens of tool definitions and system prompt with a breakpoint after each, plus a third breakpoint at the end of the conversation. On some turns the orchestrator changes only tool_choice, from auto to forcing one tool, and never touches the tool definitions. An engineer predicts that every switch will rewrite the full 30,000-token prefix. What should the team expect instead?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Only the messages segment is invalidated, so the tools and system checkpoints keep reading from cache",
+        "why": "Correct. The prompt caching docs list tool_choice changes as affecting only message blocks; tools and system stay cached."
+      },
+      {
+        "id": "b",
+        "text": "The entire cache is invalidated, because tool_choice is part of the tool configuration rendered first",
+        "why": "Full invalidation comes from changing tool definitions (names, descriptions, parameters), which this agent never does."
+      },
+      {
+        "id": "c",
+        "text": "The system and messages segments are invalidated, as happens when web search or citations are toggled",
+        "why": "Those toggles modify the system prompt; tool_choice is not one of them and leaves the system cache valid."
+      },
+      {
+        "id": "d",
+        "text": "Nothing is invalidated, because tool_choice is a request option that is never rendered into the prompt",
+        "why": "A tool_choice change does invalidate the messages segment, so the conversation tail is written again."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is that only tool_choice changes while tool definitions stay fixed. The cache hierarchy is tools, then system, then messages, and the docs place tool_choice and image changes at the messages level only. Full invalidation is the tempting answer, but that belongs to edits of the tool definitions themselves.",
+    "cue": "changes only tool_choice",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "cost-and-token-management-008",
+    "objective": "cost-and-token-management",
+    "domain": 5,
+    "subskills": [
+      "cost.prompt-caching"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A tutoring app puts a 20,000-token textbook chapter in a cached system block, and students ask a follow-up question roughly every 15 minutes while they read. Usage shows a full cache write on nearly every turn and almost no cache reads. Which change cuts the cost of these sessions?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Set the chapter block to the 1-hour TTL so it survives the gaps between student questions",
+        "why": "Correct. The default 5-minute entry expires between turns; a 1-hour write costs 2x once, then each later turn reads at 0.1x."
+      },
+      {
+        "id": "b",
+        "text": "Switch to automatic caching so the breakpoint moves forward as the conversation grows",
+        "why": "Automatic caching uses the same 5-minute default, so the entry still expires during each 15-minute gap."
+      },
+      {
+        "id": "c",
+        "text": "Split the chapter into four cached blocks with separate breakpoints so each part expires on its own",
+        "why": "More breakpoints over the same content do not extend its lifetime; every block still expires before the next turn."
+      },
+      {
+        "id": "d",
+        "text": "Move the cache_control marker onto the latest student message so each turn caches more content",
+        "why": "A later marker writes more tokens per turn, but the entry still expires before the student asks again."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding detail is a gap of about 15 minutes between turns, longer than the default 5-minute TTL. The prefix is stable (the write size is constant), so the cache is expiring, not being invalidated, and the docs recommend the 1-hour TTL for prompts used less often than every 5 minutes but more often than hourly. Over four turns, one 2x write plus three 0.1x reads beats four 1.25x writes.",
+    "cue": "roughly every 15 minutes",
+    "pattern": "buried-constraint",
+    "difficulty": 2,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      },
+      {
+        "label": "Pricing",
+        "url": "https://platform.claude.com/docs/en/about-claude/pricing"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "cost-and-token-management-009",
+    "objective": "cost-and-token-management",
+    "domain": 5,
+    "subskills": [
+      "cost.prompt-caching",
+      "cost.modeling"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "An invoice extraction service sends a 1,500-token instruction block followed by the invoice itself, about 8,000 tokens, and each invoice is unique and processed exactly once. An engineer adds cache_control after every invoice to save money. Input cost per request goes up instead. What explains the increase?",
+    "options": [
+      {
+        "id": "a",
+        "text": "No later request shares the cached prefix, so every request pays the write premium and none collects a read",
+        "why": "Correct. A 5-minute write costs 1.25x base input; with no later request sharing that prefix, the premium is pure overhead."
+      },
+      {
+        "id": "b",
+        "text": "The instruction block is below the model's minimum cacheable length, so every request is charged a penalty",
+        "why": "A prefix below the minimum is processed uncached with no error and no penalty; it costs the same as not caching."
+      },
+      {
+        "id": "c",
+        "text": "Cache reads of the invoices count toward the input rate limit, which forces throttled retries that are billed",
+        "why": "There are no reads here, and on most models cache reads do not count toward ITPM in any case."
+      },
+      {
+        "id": "d",
+        "text": "Cached invoices keep occupying the context window, so later requests are billed for them again at full price",
+        "why": "Each request carries its own invoice; caching changes price, not size, and nothing re-bills earlier requests."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The deciding detail is that each invoice is unique and processed exactly once. A 5-minute cache write breaks even only after one later read, so content read once pays 1.25x for nothing; at most, cache the shared instruction block if it clears the minimum length. The minimum-length option is tempting because it is a real rule, but below the minimum the prompt is simply processed uncached.",
+    "cue": "each invoice is unique and processed exactly once",
+    "pattern": "buried-constraint",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      },
+      {
+        "label": "Rate limits",
+        "url": "https://platform.claude.com/docs/en/api/rate-limits"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  },
+  {
+    "id": "cost-and-token-management-010",
+    "objective": "cost-and-token-management",
+    "domain": 5,
+    "subskills": [
+      "cost.checkpointing"
+    ],
+    "type": "multi",
+    "select": 2,
+    "stem": "A support bot's system prompt begins with the current date and time to the second, followed by 25,000 tokens of product documentation and a single breakpoint at the end of the system prompt. Requests sent seconds apart show cache_creation_input_tokens near 25,000 and cache_read_input_tokens at 0. Which two changes restore cache reads? Select two.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Move the timestamp out of the cached prefix and into the user message after the breakpoint",
+        "why": "Correct. With the volatile value after the breakpoint, every request shares an identical prefix and reads it from cache."
+      },
+      {
+        "id": "b",
+        "text": "Reduce the timestamp to the date alone, so the cached prefix changes once a day instead of on every request",
+        "why": "Correct. The prefix is then byte-identical within a day, so one write per day serves every later request as a read."
+      },
+      {
+        "id": "c",
+        "text": "Switch the breakpoint to the 1-hour TTL so the cached documentation lives longer between requests",
+        "why": "Requests seconds apart are well inside any TTL; the entry is never matched because the prefix differs every time."
+      },
+      {
+        "id": "d",
+        "text": "Add a breakpoint on the tool definitions so the tools stay cached while the system prompt changes",
+        "why": "That caches only the tools; the documentation still follows the changing timestamp and is rewritten on every request."
+      },
+      {
+        "id": "e",
+        "text": "Serialize the documentation's JSON with sorted keys so its bytes are identical on every request",
+        "why": "Unsorted keys are a real cause of misses, but here the documentation is already stable and the timestamp is the volatile byte."
+      }
+    ],
+    "answer": [
+      "a",
+      "b"
+    ],
+    "explanation": "The cue is a timestamp to the second at the very start of the prefix: any byte change invalidates everything after it, so every request writes and none reads. Move volatile values after the last breakpoint or make them change rarely. A longer TTL is the tempting fix, but it cannot help when the prefix differs on every request.",
+    "cue": "current date and time to the second",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [],
+    "sources": [
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "active"
+  }
+]

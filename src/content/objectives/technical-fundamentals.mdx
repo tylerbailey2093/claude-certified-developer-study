@@ -6,200 +6,549 @@ name: "Technical Fundamentals"
 weight: 6.1
 tier: 1
 hot: false
+summary: "The engineering layer between your code and the Claude API: what the official SDKs do over raw REST (headers, retries, timeouts, typed errors, streaming, pagination, request IDs), which transport carries what (SSE, WebSockets, polling), and the baseline practices every AI integration needs."
+subskills: ["tf.sdk-rest", "tf.websockets", "tf.engineering"]
+related: ["claude-api-mechanics", "software-engineering-foundations", "debugging-and-error-handling", "identity-secrets-and-key-management", "configuration-management"]
 scope:
   - "integrating with SDKs that wrap REST APIs"
   - "websockets"
 traps:
-  - "NARROW objective - not context theory, not rate limits"
-  - "Claude streaming is SSE, not WebSocket"
+  - name: "The guide's list is a floor, not a fence"
+    looksRight: "The guide names only SDKs over REST and websockets, so anything else (timeouts, idempotency, logging, config) must be out of scope."
+    failsBecause: "The guide introduces the list with 'including basic engineering practices', so the two named items are examples. Timeouts, cancellation, configuration and structured logging around an SDK integration are the same competency."
+    cue: "An option is dismissed as 'not about SDKs or websockets' while the stem is plainly about how an integration behaves in production."
+  - name: "Claude streams over SSE, not WebSockets"
+    looksRight: "Streaming tokens sounds like a persistent, bidirectional socket, so the Claude API must offer a WebSocket endpoint."
+    failsBecause: "The Messages API streams with stream: true over server-sent events on an ordinary HTTPS response. Any WebSocket in a Claude architecture is one the team built between its own client and its own backend."
+    cue: "An option says 'open a WebSocket to the Claude API' or 'switch the Messages API to WebSocket mode'."
+  - name: "A retry loop around the SDK adds safety"
+    looksRight: "Production code should retry transient failures, and the snippet in front of you has no retry loop."
+    failsBecause: "The SDK already retries connection errors, 408, 409, 429 and 5xx twice with exponential backoff and honours retry-after. Wrapping it multiplies attempts (3 outer x 3 inner = 9 calls) exactly when the API is overloaded. Tune max_retries instead."
+    cue: "Stem mentions an official SDK and asks how to make transient failures recover 'without custom code' or why load spiked during an incident."
+  - name: "Every error deserves a retry"
+    looksRight: "Retries with backoff are the standard fix for flaky network calls, so applying them to all failures is the conservative choice."
+    failsBecause: "400, 401, 403, 404, 413 and 422 describe the request or the credential. Resending the identical request fails identically. The SDK deliberately does not retry them, and the spend-cap 429 carries no retry-after and keeps failing until access resumes."
+    cue: "Stem gives a 4xx other than 408, 409 or 429, or a 429 whose body says the usage limit was reached."
+  - name: "Calling the API straight from the browser"
+    looksRight: "The TypeScript SDK runs in browsers and removing the backend hop cuts latency."
+    failsBecause: "Browser use is disabled by default because the API key would ship to every user. A key in client code is compromised the moment it ships. Relay through a backend that holds the key."
+    cue: "Stem mentions a single-page app, mobile client or dangerouslyAllowBrowser, plus a requirement that credentials stay private."
+  - name: "A longer timeout fixes a long generation"
+    looksRight: "The request times out, so give it more time."
+    failsBecause: "Idle connections on long non-streaming requests get dropped by networks, and the SDKs refuse non-streaming requests expected to exceed about 10 minutes. Streaming (with the SDK accumulating the final message) is the documented fix."
+    cue: "Large max_tokens, non-streaming call, and either a timeout or an SDK error raised before the request is sent."
 sources:
-  - label: "Python SDK"
-    url: "https://platform.claude.com/docs/en/api/sdks/python"
-  - label: "TypeScript SDK"
-    url: "https://platform.claude.com/docs/en/api/sdks/typescript"
-  - label: "Streaming Messages"
-    url: "https://platform.claude.com/docs/en/build-with-claude/streaming"
+  - { label: "Client SDKs overview", url: "https://platform.claude.com/docs/en/cli-sdks-libraries/overview", kind: "docs", verified: "2026-10-06" }
+  - { label: "Python SDK", url: "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/python", kind: "docs", verified: "2026-10-06" }
+  - { label: "TypeScript SDK", url: "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript", kind: "docs", verified: "2026-10-06" }
+  - { label: "API overview (headers, pagination, SDK benefits)", url: "https://platform.claude.com/docs/en/api/overview", kind: "docs", verified: "2026-10-06" }
+  - { label: "Errors (status codes, request IDs, long requests)", url: "https://platform.claude.com/docs/en/api/errors", kind: "docs", verified: "2026-10-06" }
+  - { label: "Streaming Messages", url: "https://platform.claude.com/docs/en/build-with-claude/streaming", kind: "docs", verified: "2026-10-06" }
+  - { label: "API versions", url: "https://platform.claude.com/docs/en/api/versioning", kind: "docs", verified: "2026-10-06" }
+  - { label: "Beta headers", url: "https://platform.claude.com/docs/en/api/beta-headers", kind: "docs", verified: "2026-10-06" }
+  - { label: "Rate limits", url: "https://platform.claude.com/docs/en/api/rate-limits", kind: "docs", verified: "2026-10-06" }
+lastReviewed: "2026-10-06"
 authored: true
 ---
 
-## What this objective actually tests
+## Concept
 
-This objective is basic engineering practice for talking to the Claude API: what an
-official SDK buys you over calling REST directly, and when a websocket belongs in
-your architecture at all. It stops there. The moment a question turns to context
-windows, token accounting, sampling parameters, or rate-limit math, you have
-wandered into **LLM Fundamentals** — a sibling Domain 5 objective, not this one.
-If a stem's *setup* mentions tokens or a context limit but the *decision* it's
-testing is "SDK vs raw HTTP" or "websocket vs SSE," it still belongs here — read
-for which mechanism the question is actually deciding between.
+This objective tests the engineering layer between your code and the Claude API. The guide phrases it as "basic engineering practices (integrating with SDKs that wrap REST APIs, websockets)". Read that parenthesis as two examples of a wider competency: can you wire a Claude integration so that it authenticates correctly, survives transient failures without amplifying them, streams to a user through the right transport, and can be operated and debugged once it is live.
+
+At 6.1% it is worth roughly three items, more than Claude Code and Eval/Debugging combined, and it sits in Domain 5 even though nothing about it is model selection. The items are practical: a stem describes an integration, one buried detail (no SDK for the language, a client that must interrupt, a credential that must not ship, a retry storm) decides which mechanism fits.
+
+Three ideas carry most of the points. First, the official SDK is a REST client with defaults already chosen for you: headers, retries with backoff, a 10 minute timeout, typed errors, SSE parsing, pagination and request IDs. Wrong answers usually rebuild one of those by hand or stack a second copy on top. Second, Claude streams over server-sent events; WebSockets belong to your own application layer. Third, ordinary production hygiene (configuration from the environment, bounded timeouts, cancellation, idempotent side effects, structured logs) applies to AI calls with extra force because each call is slow, billed and non-deterministic.
+
+**Scope boundary.** Neighbouring objectives own the adjacent decisions:
+
+- Messages API parameters, content blocks, the exact stream event sequence, batch semantics: <ObjLink id="claude-api-mechanics" />.
+- REST, JSON and async programming as general software skills: <ObjLink id="software-engineering-foundations" />.
+- Choosing a recovery for a specific failure, reading traces, isolating integration from model faults: <ObjLink id="debugging-and-error-handling" />.
+- Where the API key lives, rotation, least privilege: <ObjLink id="identity-secrets-and-key-management" />.
+- Model version pinning and prompt versioning: <ObjLink id="configuration-management" />.
+
+Not this: tokens and context windows (LLM Fundamentals), prompt caching economics (Cost and Token Management), MCP transports (MCP Server Development).
+
+<Callout type="key">
+The SDK already sends the auth, `anthropic-version` and `content-type` headers, retries connection errors, 408, 409, 429 and 5xx twice with exponential backoff that honours `retry-after`, times out at 10 minutes, raises typed exceptions and parses SSE. When a stem offers to hand-build any of that next to an official SDK, it is a distractor. And Claude's own streaming is SSE: any WebSocket in the picture is one your team built.
+</Callout>
 
 ## Mechanism
 
-### What the SDK adds over raw REST
+### SDKs that wrap REST APIs
 
-The Python and TypeScript SDKs (`anthropic`, `@anthropic-ai/sdk`) are thin
-wrappers around the same REST API you could call with `curl`. Nothing they do is
-unavailable over raw HTTP — you just have to build it yourself. Concretely, the
-SDK gives you:
+<SubskillAnchor id="tf.sdk-rest" />
 
-- **Typed request/response models.** Pydantic models in Python, TypeScript types
-  in the JS SDK — editor autocomplete and compile-time shape-checking on
-  `messages.create()` params and the returned `Message` object.
-- **Automatic retries.** 2 retries by default, short exponential backoff, applied
-  to connection errors, `408`, `409`, `429`, and any `5xx`. Configurable per
-  client or per request via `max_retries` (Python) / `maxRetries` (TS).
-- **Streaming helpers.** `client.messages.stream()` gives you an async
-  context-manager-style iterator with a `text_stream` and a `get_final_message()`
-  / `finalMessage()` accumulator, so you don't parse SSE frames by hand. The bare
-  `stream=True` iterator is also available if you want the raw events with less
-  memory overhead.
-- **Timeout handling.** 10-minute default (Python; TS scales this up to 60
-  minutes for very large `max_tokens` when not streaming), raised as a typed
-  `APITimeoutError` / `APIConnectionTimeoutError`.
-- **Auto-pagination** on list endpoints (e.g. `messages.batches.list()`) via a
-  plain `for` / `for await` loop instead of manual cursor handling.
-- **Request IDs.** Every response exposes `_request_id`, read from the
-  `request-id` response header, for support/debugging.
+**The wire contract.** The Claude API is a RESTful API at `https://api.anthropic.com`. A Messages call is `POST /v1/messages` with a JSON body. Without an SDK you send the headers yourself:
 
-None of this changes pricing or authentication — same API key, same per-token
-billing either way. Reach for raw HTTP only when there's no SDK for your
-language, or you need transport-level control the SDK doesn't expose (a custom
-proxy, a non-`httpx`/non-`fetch` client). If you do, you inherit the job of
-re-implementing retries, backoff, and SSE parsing yourself.
-
-### Websockets vs SSE — where each one actually sits
-
-> **The trap**
-> 
-> The Claude Messages API streams over <strong>Server-Sent Events (SSE)</strong>, never a websocket. A websocket is something <em>you</em> add in your own architecture — it is never how your code talks to <code>api.anthropic.com</code>.
-
-<div class="tw">
-
-| Transport | Direction | Where it fits |
+| Header | Value | Notes |
 |---|---|---|
-| Request/response | One-shot | Non-streaming `messages.create()` calls |
-| SSE | Server → client only | **What Claude API streaming uses** — `stream: true`, one-way token/event deltas |
-| WebSocket | Full duplex | Your own client ↔ your own server, when the client also needs to send *during* a response: cancel, interrupt, voice input |
+| `x-api-key` or `Authorization: Bearer` | API key (or a short-lived token from workload identity federation) | [Likely] post-guide: the API overview now lists `Authorization` first and calls `x-api-key` a legacy fallback that is still supported. Most study material and older docs show `x-api-key`. |
+| `anthropic-version` | `2023-06-01` | Required on every request. [Certain] |
+| `content-type` | `application/json` | Required. |
+| `anthropic-beta` | e.g. `context-management-2025-06-27` | Optional. Several betas go comma separated in one header, or the header can repeat. An unknown beta name returns a 400. |
+| `anthropic-workspace-id` | `wrkspc_...` | Required only with a multi-workspace key. |
 
-</div>
+Responses carry `request-id` (also echoed as `request_id` in error bodies), `anthropic-organization-id`, `anthropic-workspace-id`, the `anthropic-ratelimit-*` family and, on 429s, `retry-after` in seconds. The version header deserves one sentence of understanding: within a version, Anthropic may add optional inputs, add output values and add new enum variants such as new stream event types, but will not remove existing input or output parameters. That is why robust clients ignore unknown fields and unknown event types instead of failing on them.
 
-The common production shape is two hops: **WebSocket between browser and your
-backend**, then **SSE between your backend and the Claude API**. Your backend
-relays SSE deltas onto the websocket (or downgrades them to whatever transport
-the browser side uses) and can push interrupts back up the websocket that never
-touch Anthropic's API at all — cancellation is a local disconnect, not a
-message sent to Claude. If a stem describes voice, telephony, or "the client
-needs to interrupt mid-response," that's a websocket layer *you* built, not a
-Claude API feature.
+**What the SDK adds.** Anthropic ships client SDKs for Python, TypeScript, C#, Go, Java, PHP and Ruby, plus the `ant` CLI. The API overview lists the benefits plainly: automatic header management, type-safe requests and responses, built-in retry logic and error handling, streaming support, request timeouts and connection management. In detail:
+
+| Concern | SDK behaviour | What you own over raw REST |
+|---|---|---|
+| Auth | Reads `ANTHROPIC_API_KEY`; sends auth, version and content-type headers | Building headers on every call |
+| Retries | 2 retries by default, short exponential backoff, on connection errors, 408, 409, 429 and 5xx, honouring `retry-after` | Classifying statuses, backoff with jitter, a cap |
+| Timeouts | 10 minutes by default; Python takes seconds or a timeout object, TypeScript takes milliseconds | Setting connect and read timeouts |
+| Long-request guard | Raises before sending a non-streaming request expected to exceed about 10 minutes; sets TCP keep-alive | Discovering idle-connection drops in production |
+| Errors | Typed exceptions per status (`RateLimitError`, `NotFoundError`, ...) | Parsing `error.type` from JSON |
+| Streaming | `messages.stream()` helpers with text iterators and a final accumulated `Message` | An SSE parser and an accumulator |
+| Pagination | `for` / `for await` over list calls follows cursors | Two different cursor schemes |
+| Request IDs | `_request_id` on every response object | Reading the `request-id` header |
+| Betas | `client.beta.messages.create(..., betas=[...])` sends `anthropic-beta` | Header formatting |
+
+**Retries, precisely.** This is the most testable SDK detail. The defaults [Certain] are two retries (three attempts in total) with short exponential backoff. Retried: connection errors, 408 Request Timeout, 409 Conflict, 429 Rate Limit and any status of 500 or above, which includes 529 `overloaded_error`. Timeouts are retried too. Not retried: 400, 401, 403, 404, 413 and 422, because the request or the credential is the problem and resending it changes nothing. Configure with `max_retries` (Python) or `maxRetries` (TypeScript), on the client or per request, and set it to 0 to disable. Two consequences follow. A hand-rolled retry loop around the SDK multiplies attempts: three outer tries around three inner tries is nine requests per logical call, fired at an API that is already shedding load. And the worst-case wall time of one call is roughly the timeout times three plus backoff, so a 10 minute default timeout on a synchronous web request is almost always too long [Guessing: reasoned from the defaults, not a documented figure].
+
+One 429 behaves differently. When an organization reaches its tier's monthly spend cap, the API returns 429 `rate_limit_error` with **no** `retry-after` header and `error.details.error_code` set to `enforced_spend_limit_reached`. The SDK's automatic retries simply fail until access resumes. A spend limit you set yourself returns a 400 `invalid_request_error` instead. [Certain] on the rate limits page; the exact codes are the kind of detail that drifts, so treat them as engineering knowledge.
+
+**Typed errors.** Both SDKs raise a subclass of `APIError` for non-success statuses and for connection failures. The mapping is identical across Python and TypeScript: 400 `BadRequestError`, 401 `AuthenticationError`, 403 `PermissionDeniedError`, 404 `NotFoundError`, 409 `ConflictError`, 422 `UnprocessableEntityError`, 429 `RateLimitError`, 500 and above `InternalServerError`, and `APIConnectionError` when nothing came back. A timeout is `APITimeoutError` in Python and `APIConnectionTimeoutError` in TypeScript. Catch the most specific class first and never string-match error messages, since the error `type` values are allowed to grow under the versioning policy.
+
+**Streaming helpers and memory.** `client.messages.stream(...)` gives you text deltas as they arrive plus `get_final_message()` (Python) or `finalMessage()` (TypeScript), the same `Message` a non-streaming call would return, with final `stop_reason` and usage. `client.messages.create(..., stream=True)` returns only the raw event iterator and uses less memory because it does not accumulate. Choose the helper when you need the final object, the raw iterator when you are relaying deltas and discarding them.
+
+**Pagination.** List endpoints are paginated with two cursor schemes: newer endpoints use `page` and `next_page`; Message Batches, Models and several Admin endpoints use `after_id`, `before_id`, `has_more` and `last_id`. The SDK's auto-pagination hides the difference and is forward-only.
+
+**Sync, async and platform clients.** Python ships `Anthropic` and `AsyncAnthropic` with an identical interface (the async client optionally runs on `aiohttp` for higher concurrency); TypeScript is async throughout. Use the async client when one process serves many concurrent conversations, and bound the concurrency yourself, since the SDK does not know your rate limits. The same package also provides clients for Amazon Bedrock, Google Cloud, Microsoft Foundry and Claude Platform on AWS. They keep the Messages interface but authenticate through the cloud provider's IAM, so the header table above does not apply to them. The OpenAI SDK compatibility layer is listed as a library, not a general-purpose client: useful for trying Claude behind existing code, not where Claude-specific features live.
+
+**When raw REST is the right call.** No SDK exists for the runtime, a shell script or a quick `curl` diagnosis, an HTTP stack your platform mandates, or a gateway that must see raw requests. Raw REST costs nothing in pricing or capability: the SDK only wraps the same endpoints. What it costs is the work in the right-hand column of the table, and the classic failure is shipping without it: no `anthropic-version`, no retry on 529, or a retry on every 400. If you only need an undocumented endpoint or a response header, stay in the SDK: `client.post(...)` still applies retries, and `with_raw_response` (Python) or `.withResponse()` (TypeScript) expose headers.
+
+<PostGuide since="2026-08">
+The Python SDK page now describes its HTTP layer as `httpx2`, an API-compatible fork of `httpx`. Passing a client built from the separate `httpx` package raises a `TypeError`; use `DefaultHttpxClient` for proxies, and call `httpx2.alias_httpx()` before tracing tools that patch `httpx` can see SDK traffic. The date of this change is not confirmed against the guide; treat it as engineering knowledge.
+</PostGuide>
+
+**Exam angle:** cues are "no custom code", "official SDK", "transient", "without reimplementing", "no SDK for our language". The usual confusion is between configuring the SDK (`max_retries`, `timeout`) and wrapping it in another retry layer, and between retryable statuses and request errors.
+
+### Websockets and streaming transports
+
+<SubskillAnchor id="tf.websockets" />
+
+Four transport shapes show up in Claude applications. The decision is about who needs to talk while a response is in flight, and where the connection terminates.
+
+| Shape | Direction | Connection | Where it fits in a Claude app |
+|---|---|---|---|
+| Request/response | One shot | HTTPS request, full body at the end | Short calls, background jobs, anything that does not render progressively |
+| Server-sent events | Server to client only | One long HTTPS response, `text/event-stream`, named events | **Claude's own streaming.** Also a simple way to relay text from your backend to a browser |
+| WebSocket | Full duplex | HTTP Upgrade to a persistent framed socket | Your client to your backend when the client must send while a reply streams: stop, steer, audio, multiplexed sessions |
+| Polling | Client asks repeatedly | Short requests on a schedule | Message Batches (`processing_status` until `ended`), long jobs with no one waiting |
+
+**How Claude streaming works on the wire.** Set `stream: true` and the response is SSE. Each event has an SSE event name and a JSON `data` payload with a matching `type`. The flow is `message_start`, then for each content block a `content_block_start`, one or more `content_block_delta` and a `content_block_stop`, then one or more `message_delta` (top-level changes, including `stop_reason` and usage, whose token counts are cumulative), then `message_stop`. Any number of `ping` events may appear. Two transport consequences matter here. The HTTP status is already 200 when the stream starts, so a failure mid-stream arrives as an `error` event (for example `overloaded_error`, the streaming twin of a 529), not as a status code. And new event types can be added, so a hand-written parser must skip unknown events instead of crashing. The full event grammar belongs to <ObjLink id="claude-api-mechanics" />.
+
+**Why SSE for the API.** Generation is one-directional: once the request is sent, only the server has anything to say. SSE gives incremental delivery over plain HTTPS, passes through ordinary proxies and load balancers, and needs no protocol upgrade. Cancellation does not need a message to the server; you close the connection. In the TypeScript SDK you `break` out of the loop or call `stream.controller.abort()`; in Python, leaving the `with` block or cancelling the task closes it [Likely]. Output already generated before the abort is billed [Likely], so cancellation saves the tokens that were never produced.
+
+**Where WebSockets belong.** The common production shape has two hops. The browser holds a WebSocket (or an SSE connection, or a streaming `fetch`) to your backend. Your backend holds the API key and calls Claude with SSE. The backend relays deltas outward and listens for client frames such as "stop", which it turns into an abort of the upstream request. A WebSocket is justified when the client has something to say mid-response. If the browser only displays tokens, SSE or a streaming `fetch` from your backend is simpler: fewer moving parts, standard HTTP authentication, and the browser's `EventSource` reconnects on its own (it can only issue GET requests without custom headers, which is another reason it never talks to the Claude API directly).
+
+**Relaying SSE through your own infrastructure.** If you forward SSE from your backend to a browser, make sure nothing in between buffers the response. Reverse proxies and compression middleware that wait for a full body turn a stream into one late blob; the symptom is "streaming works locally but arrives all at once in staging". Disable response buffering and compression on that route, flush after each event, and send a comment line or heartbeat periodically so idle-timeout rules do not close quiet streams [Likely]. The same idle-timeout rule applies to the upstream leg, which is why the SDK sets TCP keep-alive.
+
+<Sequence title="Two-hop streaming with a client-side stop" actors={["Browser", "Your backend", "Claude API"]}
+  messages={[["Browser", "Your backend", "WS frame: prompt + session token"],
+             ["Your backend", "Claude API", "POST /v1/messages stream:true (API key here)"],
+             ["Claude API", "Your backend", "SSE content_block_delta ...", "reply"],
+             ["Your backend", "Browser", "WS frame: text chunk", "reply"],
+             ["Browser", "Your backend", "WS frame: stop"],
+             ["Your backend", "Claude API", "abort: close HTTPS connection"],
+             ["Your backend", "Browser", "WS frame: stopped + partial usage", "reply"]]} />
+
+**Connection lifecycle for the socket you own.** A WebSocket starts as an HTTP request that upgrades (status 101), then carries framed messages in both directions until either side sends a close frame with a status code. Things you must build, because neither the protocol nor the browser API does them for you:
+
+- **Authentication at connect.** Validate a short-lived session token when the socket opens. Never forward or embed the Anthropic key.
+- **Heartbeats.** Idle sockets get cut by proxies and load balancers. Use protocol ping/pong or an application heartbeat, and treat a missed heartbeat as a dead connection.
+- **Reconnect with backoff and jitter.** The browser `WebSocket` does not reconnect by itself. On reconnect, resume by application-level message ID rather than replaying the last prompt, or you will pay for a second generation.
+- **Backpressure.** Claude produces tokens at model speed; a slow mobile client drains slower. If the backend writes every delta immediately, buffers grow. Watch the socket's buffered amount, coalesce deltas into small time-based chunks, and if the client falls too far behind, stop relaying deltas and send the final message, or abort upstream. [Likely] that the browser WebSocket API offers no built-in backpressure signal beyond `bufferedAmount`.
+- **Ordering and completion.** Send an explicit end frame carrying `stop_reason` and usage from the final `message_delta`, so the client can tell "finished" from "connection dropped".
+
+**Interrupted upstream streams.** If the SSE connection to Claude drops mid-response, the API does not resume by event ID. The documented recovery is to capture what arrived and send a continuation request. On Claude 4.6 and later models that means a new user message containing the partial response and an instruction to continue, because prefill is no longer accepted. Tool use and thinking blocks cannot be partially recovered; resume from the last text block. [Certain] on the streaming page, but this behaviour is post-guide for current models.
+
+**Polling and the Batch API.** When nobody is waiting on the result, holding any connection open is waste. The errors page recommends streaming or the Message Batches API for requests over 10 minutes, noting that batches let you poll for results instead of depending on an uninterrupted connection. Batch selection itself is scored under API mechanics.
+
+**Exam angle:** cues are "interrupt", "stop button", "voice", "client sends while", "bidirectional" (WebSocket on your side) versus "display tokens as they arrive", "one-way" (SSE). The distractor is always a WebSocket to the Claude API, or a non-streaming call where the stem needs progressive output.
+
+### Basic engineering practices for AI applications
+
+<SubskillAnchor id="tf.engineering" />
+
+The guide calls these "basic engineering practices", and the practices are familiar. What changes with Claude is the cost of getting them wrong: every call is slow (seconds to minutes), billed per token, rate limited on three axes and non-deterministic, so a missing timeout or a duplicated side effect hurts more than it would on a CRUD endpoint.
+
+| Practice | What it looks like with Claude | Failure it prevents |
+|---|---|---|
+| Configuration from the environment | `ANTHROPIC_API_KEY` (read by default), base URL, model ID and `max_tokens` from config, not literals | Keys in source control; a model swap needing a code change |
+| One long-lived client | Create the SDK client once per process and reuse its connection pool; close it on shutdown | Socket exhaustion, lost keep-alive, per-request TLS cost |
+| Layered timeouts | SDK timeout shorter than your server's request timeout, which is shorter than the load balancer's idle timeout; stream long outputs | Requests that hang until an outer layer kills them without a log line |
+| Cancellation | User disconnect or stop propagates to an upstream abort | Paying for answers nobody will read |
+| Idempotent side effects | Your own idempotency key on any write a model output or tool call triggers; Batch `custom_id` for joins | Double charges or duplicate rows after a retry |
+| Bounded concurrency | Semaphore or queue sized from your RPM, ITPM and OTPM limits; ramp traffic gradually | 429 storms and acceleration-limit 429s |
+| Structured logging | One record per call: `request_id`, model, `stop_reason`, usage including cache fields, latency, error type | Untraceable incidents and invisible cost drift |
+| Graceful degradation | Fallback model, cached answer, or queue-for-later path when retries are exhausted | A user-facing 500 for a transient 529 |
+
+**Configuration and secrets.** The SDK reads `ANTHROPIC_API_KEY` from the environment by default, and the Python docs suggest a `.env` file kept out of source control for local work. Production keys come from a secret manager, which is <ObjLink id="identity-secrets-and-key-management" /> territory. The TypeScript SDK refuses to run in a browser unless you set `dangerouslyAllowBrowser: true`, precisely because the key would ship to every user. Treat the model ID as configuration too: pinning a dated snapshot versus an alias is a configuration-management decision, but reading it from config is basic hygiene.
+
+**Timeouts and cancellation.** Pick timeouts deliberately at every layer. A chat endpoint should not wait ten minutes for a non-streaming call when its own load balancer gives up at sixty seconds; the request will be killed outside your code and you will see neither an exception nor a `request_id`. For long outputs, stream. For work nobody is watching, use the Batch API and poll. Propagate cancellation inward: when the user leaves, abort the upstream stream.
+
+**Idempotency.** The Messages API is not idempotent in effect: each call generates and bills a new response, possibly a different one. The SDK's retries are safe for the API call itself because a failed attempt produced nothing you used. The danger is your side effects. If a tool handler charges a card or writes a row, and the surrounding request is retried by the SDK, your queue or your user, the side effect can run twice. Give every side-effecting operation an idempotency key derived from your own request ID, and check it before acting.
+
+**Structured logging and request IDs.** Every response object exposes `_request_id`, and every error body includes `request_id`. Log it with the model, `stop_reason`, the four usage numbers (`input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`) and latency. That single record is what support needs, what cost reporting needs, and what <ObjLink id="debugging-and-error-handling" /> uses to separate integration faults from model faults. Do not turn on SDK debug logging (`ANTHROPIC_LOG=debug`) in production: it logs full request and response bodies, and the TypeScript docs warn that sensitive data in bodies may be visible.
+
+**Concurrency and rate limits.** Limits are per model on requests, input tokens and output tokens per minute, enforced with a token bucket that refills continuously, so a short burst can trip a limit even when the minute average is fine. For most current models only uncached input tokens count toward the input-token limit, so caching raises effective throughput. Read the `anthropic-ratelimit-*-remaining` headers to pace work, and ramp new traffic gradually: a sharp increase can trigger acceleration-limit 429s.
+
+**Testing the integration.** Test the plumbing deterministically and the model statistically. Mock at the HTTP boundary (or inject a fake client) to prove that your code sends the headers you expect, retries what it should, stops on a 400, parses multiple content blocks and handles `stop_reason` values other than `end_turn`. Never assert exact model wording in a unit test; that belongs in an eval with a grader. Record `request_id` in test logs for the few live smoke tests you do run, so a failure in CI can be traced the same way as a failure in production.
+
+**Exam angle:** cues are "in production", "duplicate", "hangs", "support ticket", "only in the browser", "across environments". Distractors propose a prompt change for a plumbing problem, or a bigger timeout where streaming or cancellation is the fix.
 
 ## Decision table
 
-| The stem says... | The answer is... |
-|---|---|
-| "No official SDK exists for our language" / "need raw transport control" | Call REST directly — and take on retries, backoff, and SSE parsing yourself |
-| "Every request must retry transient failures with backoff, with no custom code" | The SDK's default retry behavior (2 retries, exponential backoff) — not a raw HTTP wrapper you'd have to write |
-| "Which transport does Claude's own API streaming use" | SSE, one-way server → client — never a websocket |
-| "The client must send data (cancel, interrupt, audio) while a response is still streaming" | A websocket *you* implement between client and your server — the Claude API leg stays SSE |
-| Stem is really about context length, token budgets, or 429 rate-limit backoff strategy | Out of scope for this objective — that's LLM Fundamentals or Applications & Integration, not SDK/websocket mechanics |
-| "List endpoint returns more results than fit one page" | The SDK's built-in auto-pagination (`for`/`for await` over the list call) |
+| If the stem says... | Choose | Why the runner-up loses |
+|---|---|---|
+| "Our runtime has no official SDK" or "from a shell script" | Raw HTTPS with auth, `anthropic-version` and `content-type` headers, plus your own retry on 408/409/429/5xx with backoff | "Install the Python SDK" ignores the constraint; raw calls without the version header fail every time |
+| "Recover from transient failures without writing retry code" with an official SDK | The SDK's default retries, tuned with `max_retries` | A custom retry wrapper stacks on the built-in one and multiplies load during incidents |
+| "Users tap stop while the answer is streaming" | WebSocket (or a cancel endpoint) to your backend; backend aborts the upstream SSE request | A WebSocket to the Claude API does not exist; hiding text client-side still pays for every token |
+| "Show the answer as it is generated; the client never sends mid-reply" | SSE (or streaming `fetch`) relay from your backend | A WebSocket adds duplex and reconnect logic nothing uses |
+| "The SDK raises before sending; max_tokens is very large, not streaming" | `messages.stream()` and take the final accumulated message | Raising the timeout silences the guard but keeps the idle-connection drop risk |
+| "Support asks which call failed" | The `request-id` header, exposed as `_request_id` | A local stack trace describes your process, not Anthropic's request |
+| "429 with no retry-after, message says usage limits reached" | Spend cap: raise the tier or limit; retries will not help | Raising `max_retries` just repeats a request that is guaranteed to fail |
+| "A retried request created two refunds" | Idempotency key on the side-effecting operation | Setting `max_retries=0` trades duplicates for dropped work |
+| "Enable a beta feature over raw HTTP" | `anthropic-beta` header, comma separated for several | Putting the beta name in the JSON body is not how betas are selected |
+| "List every batch in the workspace" | SDK auto-pagination with `for` / `for await` | Hand-rolled cursor loops must know two cursor schemes |
 
-## Code examples
+## Worked walkthrough
 
-SDK call — retries, timeout, and typed response all come for free:
+<Walkthrough title="Scenario: a stop button on a field-technician tablet app">
+
+<Step title="Read the scenario">
+A utilities company gives field technicians a tablet app that answers repair questions with Claude. Answers can run to several paragraphs, and technicians want to see text as it is written and tap **Stop** once they have what they need. The security review forbids any Anthropic credential on the tablets. Which design fits? (A) The tablet opens a WebSocket directly to the Claude API so the stop signal travels on the same connection. (B) The tablet holds a WebSocket to the company's backend; the backend calls the Messages API with streaming through the SDK, relays text deltas, and aborts the upstream request when a stop frame arrives. (C) The tablet uses a browser `EventSource` pointed at the Claude API with the key in the query string. (D) The backend makes a non-streaming call with a large `max_tokens` and pushes the full answer when done; Stop hides the text.
+</Step>
+
+<Step title="Find the constraints">
+Three details decide it. "See text as it is written" requires streaming. "Tap Stop" means the client must send something while the reply is in flight, which is a duplex need on the client side. "No credential on the tablets" means the Claude call must originate from a server.
+</Step>
+
+<Step title="Eliminate the distractors">
+(A) fails twice: the Claude API streams over SSE and offers no WebSocket endpoint, and connecting directly would put the key on the device. (C) fails on the credential rule (a key in a query string also lands in proxy and server logs), and `EventSource` cannot send the stop signal anyway. (D) is not streaming at all, and hiding text does not stop generation, so every token is still produced and billed.
+</Step>
+
+<Step title="Choose">
+(B). The WebSocket lives where the duplex need lives, between tablet and backend. The backend holds the key, speaks SSE to Claude through the SDK, and turns a stop frame into an abort of the upstream connection, which ends generation and the billing for tokens not yet produced.
+</Step>
+
+<Step title="The deciding cue">
+"Tap Stop" (client speaks mid-response) plus "no credential on the tablets" (the call must be server-side). Together they place a WebSocket between client and backend and SSE between backend and Claude. Any option that puts a WebSocket on the Claude API leg is wrong on sight.
+</Step>
+
+</Walkthrough>
+
+## Code
+
+**Raw REST: everything the SDK would do, done by hand.** This proves what the headers are and which statuses deserve a retry. Note what it still lacks: typed errors, SSE parsing, pagination.
 
 ```python
+import os, random, time
+import requests
+
+API_URL = "https://api.anthropic.com/v1/messages"
+RETRYABLE = {408, 409, 429}  # plus every status >= 500, including 529
+
+def create_message(payload: dict, max_retries: int = 2) -> dict:
+    headers = {
+        "x-api-key": os.environ["ANTHROPIC_API_KEY"],   # never a literal
+        "anthropic-version": "2023-06-01",               # required on every call
+        "content-type": "application/json",
+    }
+    for attempt in range(max_retries + 1):
+        try:
+            r = requests.post(API_URL, headers=headers, json=payload, timeout=(5, 120))
+        except (requests.ConnectionError, requests.Timeout):
+            if attempt == max_retries:
+                raise
+            time.sleep(min(8, 0.5 * 2 ** attempt) + random.random() / 4)
+            continue
+        if r.ok:
+            return r.json()
+        retryable = r.status_code in RETRYABLE or r.status_code >= 500
+        if not retryable or attempt == max_retries:
+            body = r.json()
+            raise RuntimeError(f"{r.status_code} {body['error']['type']} request_id={body.get('request_id')}")
+        wait = r.headers.get("retry-after")              # seconds, when present
+        time.sleep(float(wait) if wait else min(8, 0.5 * 2 ** attempt) + random.random() / 4)
+    raise AssertionError("unreachable")
+
+resp = create_message({
+    "model": "claude-sonnet-5-5",
+    "max_tokens": 512,
+    "messages": [{"role": "user", "content": "One sentence on SSE."}],
+})
+print([b["text"] for b in resp["content"] if b["type"] == "text"])
+```
+
+```typescript
+const API_URL = "https://api.anthropic.com/v1/messages";
+const RETRYABLE = new Set([408, 409, 429]); // plus every status >= 500, including 529
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const backoff = (attempt: number) => Math.min(8000, 500 * 2 ** attempt) + Math.random() * 250;
+
+async function createMessage(payload: object, maxRetries = 2): Promise<any> {
+  const headers = {
+    "x-api-key": process.env.ANTHROPIC_API_KEY ?? "", // never a literal
+    "anthropic-version": "2023-06-01",                 // required on every call
+    "content-type": "application/json",
+  };
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(API_URL, {
+        method: "POST", headers, body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(120_000),
+      });
+    } catch (err) {
+      if (attempt === maxRetries) throw err; // connection error or timeout
+      await sleep(backoff(attempt));
+      continue;
+    }
+    if (res.ok) return res.json();
+    const retryable = RETRYABLE.has(res.status) || res.status >= 500;
+    if (!retryable || attempt === maxRetries) {
+      const body = await res.json();
+      throw new Error(`${res.status} ${body.error.type} request_id=${body.request_id}`);
+    }
+    const wait = res.headers.get("retry-after"); // seconds, when present
+    await sleep(wait ? Number(wait) * 1000 : backoff(attempt));
+  }
+  throw new Error("unreachable");
+}
+
+const resp = await createMessage({
+  model: "claude-sonnet-5-5",
+  max_tokens: 512,
+  messages: [{ role: "user", content: "One sentence on SSE." }],
+});
+console.log(resp.content.filter((b: any) => b.type === "text").map((b: any) => b.text));
+```
+
+**The same call through the SDK, configured instead of rebuilt.** Retries, timeout, typed errors and the request ID in a few lines, plus the structured log record every call should leave behind.
+
+```python
+import json, logging, os, time
 import anthropic
 
-client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY, 2 retries by default
-
-message = client.messages.create(
-    model="claude-sonnet-4-6",
-    max_tokens=1024,
-    messages=[{"role": "user", "content": "Hello, Claude"}],
+log = logging.getLogger("claude")
+client = anthropic.Anthropic(        # one client per process; reads ANTHROPIC_API_KEY
+    max_retries=3,                   # default 2; 0 disables
+    timeout=60.0,                    # seconds; default is 10 minutes
 )
-print(message.content[0].text)
-print(message._request_id)  # for support tickets
+MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-5-5")
+
+def text_of(msg) -> str:
+    return "".join(b.text for b in msg.content if b.type == "text")
+
+def ask(prompt: str) -> str:
+    t0 = time.monotonic()
+    try:
+        msg = client.messages.create(
+            model=MODEL, max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+        )
+    except anthropic.RateLimitError as e:          # 429 after the SDK's own retries
+        log.warning(json.dumps({"event": "rate_limited", "retry_after": e.response.headers.get("retry-after")}))
+        raise
+    except anthropic.APIStatusError as e:          # any other non-2xx
+        log.error(json.dumps({"event": "api_error", "status": e.status_code, "request_id": e.response.headers.get("request-id")}))
+        raise
+    except anthropic.APIConnectionError:           # includes APITimeoutError
+        log.error(json.dumps({"event": "unreachable"}))
+        raise
+    u = msg.usage
+    log.info(json.dumps({
+        "request_id": msg._request_id, "model": msg.model, "stop_reason": msg.stop_reason,
+        "input": u.input_tokens, "output": u.output_tokens,
+        "cache_write": u.cache_creation_input_tokens, "cache_read": u.cache_read_input_tokens,
+        "ms": round((time.monotonic() - t0) * 1000),
+    }))
+    return text_of(msg)
+
+# Per-request override without a second client:
+quick = client.with_options(timeout=15.0, max_retries=0)
 ```
 
 ```typescript
 import Anthropic from "@anthropic-ai/sdk";
 
-const client = new Anthropic(); // reads ANTHROPIC_API_KEY, 2 retries by default
-
-const message = await client.messages.create({
-  model: "claude-sonnet-4-6",
-  max_tokens: 1024,
-  messages: [{ role: "user", content: "Hello, Claude" }],
+const client = new Anthropic({ // one client per process; reads ANTHROPIC_API_KEY
+  maxRetries: 3,               // default 2; 0 disables
+  timeout: 60_000,             // milliseconds; default is 10 minutes
 });
-console.log(message.content[0].text);
-console.log(message._request_id);
+const MODEL = process.env.CLAUDE_MODEL ?? "claude-sonnet-5-5";
+
+const textOf = (msg: Anthropic.Message) =>
+  msg.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
+
+async function ask(prompt: string): Promise<string> {
+  const t0 = performance.now();
+  try {
+    const msg = await client.messages.create({
+      model: MODEL,
+      max_tokens: 1024,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const u = msg.usage;
+    console.log(JSON.stringify({
+      request_id: msg._request_id, model: msg.model, stop_reason: msg.stop_reason,
+      input: u.input_tokens, output: u.output_tokens,
+      cache_write: u.cache_creation_input_tokens, cache_read: u.cache_read_input_tokens,
+      ms: Math.round(performance.now() - t0),
+    }));
+    return textOf(msg);
+  } catch (err) {
+    if (err instanceof Anthropic.RateLimitError) {
+      console.warn(JSON.stringify({ event: "rate_limited", status: err.status }));
+    } else if (err instanceof Anthropic.APIConnectionError) {
+      console.error(JSON.stringify({ event: "unreachable" })); // includes timeouts
+    } else if (err instanceof Anthropic.APIError) {
+      console.error(JSON.stringify({ event: "api_error", status: err.status }));
+    }
+    throw err;
+  }
+}
+
+// Per-request override without a second client:
+await client.messages.create(
+  { model: MODEL, max_tokens: 256, messages: [{ role: "user", content: "ping" }] },
+  { timeout: 15_000, maxRetries: 0 },
+);
 ```
 
-The equivalent raw REST call — same request, but retries and backoff are now
-your responsibility (TypeScript is a straight `fetch` port of the same loop):
+<Output kind="illustrative">
+```text
+{"request_id": "req_011CZ...", "model": "claude-sonnet-5-5", "stop_reason": "end_turn", "input": 14, "output": 96, "cache_write": 0, "cache_read": 0, "ms": 2210}
+```
+</Output>
+
+**A two-hop relay: WebSocket to the client, SSE to Claude, stop propagates upstream.** The `ws` object is whatever your web framework hands you (Starlette-style `receive_text` / `send_text` in Python, the `ws` package in Node). The point is the shape: one task streams, one listens for stop, and stop cancels the upstream request.
 
 ```python
-import requests, time
+import asyncio, json
+import anthropic
 
-def create_message(payload, retries=2):
-    for attempt in range(retries + 1):
-        r = requests.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={"x-api-key": API_KEY, "anthropic-version": "2023-06-01"},
-            json=payload,
-        )
-        if r.status_code < 500 and r.status_code not in (408, 409, 429):
-            return r.json()
-        time.sleep(2 ** attempt)  # you own the backoff curve
-    r.raise_for_status()
+client = anthropic.AsyncAnthropic()
+
+async def relay(ws, prompt: str) -> None:
+    async def pump() -> None:
+        async with client.messages.stream(
+            model="claude-sonnet-5-5", max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}],
+        ) as stream:
+            async for text in stream.text_stream:
+                await ws.send_text(json.dumps({"type": "delta", "text": text}))
+            final = await stream.get_final_message()
+        await ws.send_text(json.dumps({
+            "type": "done", "stop_reason": final.stop_reason,
+            "output_tokens": final.usage.output_tokens,
+        }))
+
+    task = asyncio.create_task(pump())
+    while not task.done():
+        recv = asyncio.create_task(ws.receive_text())
+        finished, _ = await asyncio.wait({task, recv}, return_when=asyncio.FIRST_COMPLETED)
+        if recv in finished and json.loads(recv.result()).get("type") == "stop":
+            task.cancel()                 # leaving the stream context closes the HTTPS connection
+            await ws.send_text(json.dumps({"type": "stopped"}))
+            break
+        if recv not in finished:
+            recv.cancel()
 ```
 
-Websocket relay — this sits in front of your own backend, not in front of
-Anthropic's API. The client speaks websocket to *you*; you speak SSE to Claude:
-
 ```typescript
-// Browser <-> your server: websocket. Your server <-> Claude: SSE.
-wss.on("connection", async (clientSocket) => {
-  const stream = client.messages.stream({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1024,
-    messages: [{ role: "user", content: await nextClientMessage(clientSocket) }],
+import Anthropic from "@anthropic-ai/sdk";
+import { WebSocketServer, type WebSocket } from "ws";
+
+const client = new Anthropic();
+const wss = new WebSocketServer({ port: 8080 });
+const HIGH_WATER = 64 * 1024; // bytes queued on the socket before we coalesce
+
+wss.on("connection", (socket: WebSocket) => {
+  socket.on("message", async (raw) => {
+    const frame = JSON.parse(String(raw));
+    if (frame.type !== "prompt") return;
+
+    const stream = await client.messages.create({
+      model: "claude-sonnet-5-5",
+      max_tokens: 2048,
+      messages: [{ role: "user", content: frame.text }],
+      stream: true,
+    });
+    const onStop = (data: unknown) => {
+      if (JSON.parse(String(data)).type === "stop") stream.controller.abort();
+    };
+    socket.on("message", onStop);
+
+    let pending = "";
+    try {
+      for await (const event of stream) {
+        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+          pending += event.delta.text;
+          if (socket.bufferedAmount < HIGH_WATER) { // crude backpressure
+            socket.send(JSON.stringify({ type: "delta", text: pending }));
+            pending = "";
+          }
+        } else if (event.type === "message_delta") {
+          socket.send(JSON.stringify({ type: "done", stop_reason: event.delta.stop_reason }));
+        }
+      }
+    } catch (err) {
+      if (!stream.controller.signal.aborted) throw err; // a real failure, not our stop
+      socket.send(JSON.stringify({ type: "stopped" }));
+    } finally {
+      if (pending) socket.send(JSON.stringify({ type: "delta", text: pending }));
+      socket.off("message", onStop);
+    }
   });
-  stream.on("text", (text) => clientSocket.send(text)); // relay SSE deltas
 });
 ```
 
-## Named traps, expanded
+**Seeing the wire.** The request-id header and rate-limit headers are visible with plain `curl`, which is the quickest way to confirm whether a problem is in your stack or upstream.
 
-**NARROW objective — not context theory, not rate limits.** This objective
-covers SDK mechanics and websocket-vs-SSE placement, full stop. Token counting,
-context-window sizing, and rate-limit backoff strategy for 429s are tested under
-LLM Fundamentals and Applications & Integration respectively. A question that
-opens with "your context window is nearly full" but is actually asking whether
-you'd use the SDK's streaming helper or raw HTTP is still fair game here — the
-context-window detail is scenery, not the decision. If the decision itself is
-about token budgets or backoff tuning, it isn't this objective's question.
-
-**Claude streaming is SSE, not WebSocket.** This is the single most-tested fact
-in this objective and the most common wrong-answer bait: "streaming" primes
-people to reach for websockets. The Messages API only ever streams one
-direction, server to client, over SSE — there is no Anthropic-hosted websocket
-endpoint. Any websocket in a Claude-based architecture is a transport layer the
-application team built themselves, almost always between a browser client and
-their own backend, with the backend keeping a separate SSE connection to
-Anthropic underneath.
+```bash
+curl -sS -D - -o /dev/null https://api.anthropic.com/v1/messages \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "content-type: application/json" \
+  -d '{"model":"claude-haiku-4-5","max_tokens":64,"messages":[{"role":"user","content":"ping"}]}' \
+  | grep -iE '^(request-id|retry-after|anthropic-ratelimit)'
+```
 
 ## Recall checks
 
-1. Name three things the SDK's default configuration gives you that a raw
-   `curl`/`fetch` call to the same endpoint does not.
-2. A teammate says "streaming means we need a websocket to Anthropic." Correct
-   the claim in one sentence and name the transport it actually uses.
-3. You're building voice input where the user can interrupt Claude mid-answer.
-   Sketch the two-hop transport: what connects browser to your server, and what
-   connects your server to the Claude API?
-4. A stem opens by describing a shrinking context window, then asks whether to
-   use `client.messages.stream()` or raw HTTP with manual SSE parsing. Which
-   objective does this question actually belong to, and why?
-5. What does `max_retries=0` change about a request to a `503` response, and
-   what stays exactly the same?
+<Recall q="Which failures does the official SDK retry by default, how many times, and which does it deliberately leave alone?">
+Connection errors, 408, 409, 429 and every 5xx (including 529), twice, with short exponential backoff that honours `retry-after`. It leaves 400, 401, 403, 404, 413 and 422 alone because the request or credential is at fault and resending changes nothing.
+</Recall>
+
+<Recall q="A teammate wraps client.messages.create in a three-attempt retry loop. What is the effect during an overload incident?">
+The SDK already makes up to three attempts, so each logical call now makes up to nine requests, all aimed at an API that is shedding load. Tune `max_retries` on the client or per request instead of stacking layers.
+</Recall>
+
+<Recall q="Which three headers must a raw REST call to the Messages API send, and which one does the SDK set to 2023-06-01 for you?">
+Authentication (`x-api-key`, or `Authorization: Bearer` per current docs), `anthropic-version` and `content-type: application/json`. The SDK sets `anthropic-version: 2023-06-01` automatically; forgetting it is the classic raw-REST failure.
+</Recall>
+
+<Recall q="Why does Claude stream over SSE, and where does a WebSocket legitimately appear in a Claude application?">
+Generation is one-way once the request is sent, so SSE over ordinary HTTPS fits and cancellation is just closing the connection. A WebSocket appears between your own client and backend when the client must send mid-response, such as a stop button or audio.
+</Recall>
+
+<Recall q="A streamed response returned HTTP 200 and then failed. Where does the failure appear, and what must a hand-written parser tolerate?">
+As an `error` event inside the stream, for example `overloaded_error`, because the status was already sent. The parser must also skip unknown event types, since the versioning policy allows new ones.
+</Recall>
+
+<Recall q="The SDK refuses a non-streaming request with a very large max_tokens before sending it. What is the intended fix?">
+Stream the request and take the accumulated final message (`get_final_message()` or `finalMessage()`). Raising the timeout silences the guard but keeps the risk that networks drop the idle connection.
+</Recall>
+
+<Recall q="Why do SDK retries create a correctness risk even though the Messages API call itself is safe to retry?">
+Your side effects may not be. If a tool handler or downstream write runs and the surrounding request is retried, the effect can happen twice. Give side-effecting operations their own idempotency key.
+</Recall>
+
+<Recall q="What should one structured log record per Claude call contain, and why the request ID in particular?">
+`request_id`, model, `stop_reason`, the four usage fields, latency and error type. The request ID is the only identifier Anthropic support can trace; a local stack trace only describes your process.
+</Recall>

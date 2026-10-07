@@ -6,96 +6,520 @@ name: "Agentic Customization"
 weight: 4.1
 tier: 2
 hot: false
+summary: "Choosing the extension point: built-in tools before rebuilding them, custom tools for an app-specific capability, Skills for procedural know-how loaded on demand, MCP servers for capabilities shared and maintained independently, plus where CLAUDE.md, hooks, subagents and plugins fit around them."
+subskills: ["cust.built-in", "cust.custom-tools", "cust.skills", "cust.mcp", "cust.selection"]
+related: ["tool-implementation", "mcp-server-development", "claude-application-design", "claude-hooks", "agent-patterns-and-frameworks", "context-engineering", "claude-code-operation"]
 scope:
   - "tradeoffs among built-in Tools, custom Tools, Skills, and MCPs"
 traps:
-  - "a Skill changes HOW Claude does something it can already do; a tool ADDS a capability"
-  - "reusable across applications AND independently maintained = MCP server"
+  - name: "A Skill cannot manufacture a missing capability"
+    looksRight: "Skills are the flexible, modern extension point, so a Skill that describes how to call the billing system seems like a complete answer."
+    failsBecause: "A Skill is instructions, reference files and scripts that run with whatever tools and network the environment already has. It changes HOW Claude does something it can already do. If nothing in the environment can reach the system, the gap is a tool (custom or MCP). On the API, Skills run in a container with no network access at all."
+    cue: "Stem says Claude 'has no way to' reach a system or perform an action, and one option is 'write a Skill that explains the API'."
+  - name: "Reuse alone does not make it an MCP server"
+    looksRight: "Two apps need the same lookup, and MCP is the standard for sharing tools, so MCP is the answer the moment a second consumer appears."
+    failsBecause: "The MCP server earns its operational cost when the capability is used by several hosts or applications AND is owned and versioned apart from any one of them. A function edited in lockstep with one codebase and imported by a sibling service is a shared library; a capability with one caller does not need a separate server."
+    cue: "Options differ on 'shared library' versus 'MCP server' and the stem says whether a separate team owns and releases the capability."
+  - name: "Instructions where a guarantee is required"
+    looksRight: "Putting 'always run the formatter after editing' in CLAUDE.md or a Skill is simple, visible and usually works."
+    failsBecause: "CLAUDE.md, Skills and output styles are context the model reads and usually follows. Something that must happen on every matching event is a hook (or a permission rule): the harness runs it at the lifecycle event whether or not Claude remembers."
+    cue: "'Every time', 'must always', 'without exception', 'regardless of what the model decides' next to an option that edits a Markdown file."
+  - name: "Rebuilding a built-in tool"
+    looksRight: "A custom sandboxed Python runner or search wrapper gives the team full control and avoids depending on a provider feature."
+    failsBecause: "Anthropic already ships server tools (code execution, web search, web fetch) that run on its infrastructure with no handler code, and Claude is trained on the Anthropic-schema client tools (bash, text editor, memory). A custom rebuild adds a schema Claude was not trained on, an execution surface to secure, and maintenance, with no new capability."
+    cue: "The required capability is generic (run Python, search the web, edit files) and no stem constraint rules out the built-in."
+  - name: "Subagent for knowledge, Skill for isolation"
+    looksRight: "Both a subagent and a Skill package 'how to do a task', so they look interchangeable."
+    failsBecause: "A subagent exists mainly for context isolation: a fresh window that returns only a summary, with its own tools and model. A Skill's body loads into the current context. Use a Skill for know-how the current conversation should apply; use a subagent when the work would flood the main context or needs different tool access."
+    cue: "'Floods the conversation', 'reads hundreds of files', 'only the findings should come back' point to a subagent; 'follow our procedure when doing X' points to a Skill."
+  - name: "A plugin is packaging, not a capability"
+    looksRight: "The team needs Claude to reach a new system in every repo, and plugins are how Claude Code is extended, so install a plugin."
+    failsBecause: "A plugin bundles skills, agents, hooks and MCP servers for distribution. It solves 'the same setup in many repositories with versioned updates'. It adds a capability only if one of its components (usually an MCP server) does, and every enabled plugin puts its descriptions in every session."
+    cue: "Stem asks how to distribute an existing setup to teams versus how to give Claude a capability it lacks."
 sources:
-  - label: "Agent Skills"
-    url: "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices"
-  - label: "Tool use"
-    url: "https://platform.claude.com/docs/en/agents-and-tools/tool-use"
+  - { label: "Agent Skills overview", url: "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview", kind: "docs", verified: "2026-10-07" }
+  - { label: "Skill authoring best practices", url: "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices", kind: "docs", verified: "2026-10-07" }
+  - { label: "Using Agent Skills with the API", url: "https://platform.claude.com/docs/en/build-with-claude/skills-guide", kind: "docs", verified: "2026-10-07" }
+  - { label: "Tool use overview (client vs server tools)", url: "https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview", kind: "docs", verified: "2026-10-07" }
+  - { label: "Claude Code: Extend Claude Code (feature comparison)", url: "https://code.claude.com/docs/en/features-overview", kind: "docs", verified: "2026-10-07" }
+  - { label: "Claude Code: Skills", url: "https://code.claude.com/docs/en/skills", kind: "docs", verified: "2026-10-07" }
+  - { label: "Claude Code: Subagents", url: "https://code.claude.com/docs/en/sub-agents", kind: "docs", verified: "2026-10-07" }
+  - { label: "Claude Code: Plugins overview", url: "https://code.claude.com/docs/en/plugins", kind: "docs", verified: "2026-10-07" }
+  - { label: "Claude Code: Output styles (choose between features)", url: "https://code.claude.com/docs/en/output-styles", kind: "docs", verified: "2026-10-07" }
+lastReviewed: "2026-10-07"
 authored: true
 ---
 
-## What this objective actually tests
+## Concept
 
-This objective has a narrow scope on paper — four options, one tradeoff — but it's a bigger share of Domain 8 than MCP server development itself, and it's tested as a judgment call, not a definitions quiz. The exam gives you a scenario with two or three deciding facts buried in it (does this already exist, is it reused, who maintains it) and expects you to pick the option those facts actually point to, not the most sophisticated-sounding one.
+The guide asks for "tradeoffs among built-in Tools, custom Tools, Skills, and MCPs for selecting and applying the appropriate approach for a given use case". In practice that is one question asked in many costumes: **what kind of gap is this, and which extension point closes exactly that gap at the lowest cost?** Four gaps cover nearly every stem. Claude lacks a *capability* (it cannot reach a system or perform an action). Claude has the capability but lacks *know-how* (your procedure, your conventions, your reference data). Something must happen *deterministically* (every time, without the model choosing). Or a piece of work would *pollute the context* the main conversation needs.
 
-## Mechanism: the decision framework
+At 4.1% this is about two items, and it is the second-largest objective in Domain 8. Items are judgment calls with one or two buried facts: "Claude can already do this", "several applications", "owned by another team", "every time", "only relevant when reviewing", "reads hundreds of files". The distractors are usually *real* extension points applied to the wrong gap, which is why this objective rewards a crisp mental model over feature trivia.
 
-Ask these questions, roughly in this order:
+**Scope boundary.**
 
-1. **Does the capability already exist as an Anthropic-provided tool?** Web search, code execution, the Bash tool, computer use. If yes, use it — don't rebuild it as a custom tool.
-2. **Is the gap a missing capability, or is it purely about how Claude does something it can already do?** A capability gap (call this API, read this data source) needs a **tool**. A purely instructional gap (follow our checklist, use our tone, cite sources our way) needs a **Skill** — Claude can already perform the underlying action; it just needs to be told the house rules.
-3. **If it's a capability: is it reused across more than one application, and does it need its own maintenance lifecycle independent of any single app's release schedule?** Both true → **MCP server**. Neither, or tightly coupled to one app → **custom tool** defined directly in that app.
-4. **Does the task need its own context window or different tool permissions than the current conversation?** If yes, that's a **subagent**, not a Skill — a Skill loads into the current conversation and inherits its permissions; a subagent gets an isolated context and its own scoped access.
+- Building the tool itself (schemas, descriptions, dispatch, `is_error`, approval gates): <ObjLink id="tool-implementation" />.
+- Writing, transporting and deploying an MCP server: <ObjLink id="mcp-server-development" />.
+- Where instructions live per surface, and plugin installation scopes and trust: <ObjLink id="claude-application-design" />.
+- Hook events, matchers and exit codes in depth: <ObjLink id="claude-hooks" />.
 
-| Approach | What it is | Choose when |
-|---|---|---|
-| Built-in tool | Anthropic-provided: web search, code execution, text editor, Bash | The capability already exists — don't rebuild it |
-| Custom tool | A function schema you define, executed by your own code | A specific action inside one app, tightly coupled to it |
-| Skill | Instructions and resources, loaded on demand into the conversation | Teaching *procedure and knowledge*, not adding a new capability |
-| MCP server | A standalone server exposing tools, resources, prompts | Reused across applications, maintained independently |
-| Subagent | A separate agent with its own context window and permissions | The task needs isolation the current conversation can't provide |
+Not this:
+
+- Choosing a workflow pattern (chaining, routing, orchestrator-workers) and how to brief a subagent: <ObjLink id="agent-patterns-and-frameworks" />.
+- Trimming and compacting what is already in context: <ObjLink id="context-engineering" />.
+- Day-to-day Claude Code commands and settings: <ObjLink id="claude-code-operation" />.
+
+<Callout type="key" title="The one idea">
+A **tool adds a capability**; a **Skill changes how Claude uses capabilities it already has**; an **MCP server is a tool you share and version apart from any one app**; a **hook is a guarantee**; a **subagent is a separate context**. Name the gap first. When an option closes a different gap than the one the stem describes, it is the distractor, however modern it sounds.
+</Callout>
+
+## Mechanism
+
+### Built-in tools
+
+<SubskillAnchor id="cust.built-in" />
+
+"Built-in" means Anthropic designed the tool and Claude was trained on it. There are two kinds, split by where the code runs [Certain]:
+
+| Kind | Examples | Who executes | What you write |
+|---|---|---|---|
+| Server tools | `code_execution`, `web_search`, `web_fetch`, `tool_search`, advisor | Anthropic's infrastructure | One entry in `tools`; no handler |
+| Anthropic-schema client tools | `bash`, `text_editor`, `memory`, computer use, browser use | Your application | The executor, plus `tool_result` |
+| Claude Code built-ins | Read, Edit, Write, Bash, Grep, Glob, WebFetch and others | The Claude Code harness on your machine | Nothing; govern them with permissions |
+
+The tool-use overview states the split directly: client tools, "including user-defined tools and tools with Anthropic-defined schemas, such as `bash` and `text_editor`", run in your application, while server tools "run on Anthropic's infrastructure" [Certain]. Server tools also cost usage-based fees on top of tokens (for example, per search), and a long server-tool loop can stop with `pause_turn`, which you resume by sending the assistant content back [Certain].
+
+Why prefer a built-in: Claude already knows the schema and the idioms, there is no execution surface for you to secure (server tools) or only a thin one (client tools), and the provider maintains it. Reasons not to: a data-residency or zero-retention constraint the hosted tool cannot meet, a partner platform where the server tool is not offered, or a need for network access the sandbox does not allow. Those are exactly the buried constraints that flip an item, so read for them.
+
+**Exam angle:** cues are generic capabilities: "run Python on an uploaded CSV", "look up current information", "edit files in the repo". The distractor is a custom tool or an MCP server that rebuilds the same thing "for control".
+
+### Custom tools
+
+<SubskillAnchor id="cust.custom-tools" />
+
+A custom tool is a definition in your request (`name`, `description`, `input_schema`, optionally `strict`) and a handler in your code. Claude decides when to call it from the description, emits `tool_use`, and your harness executes and returns `tool_result`. Everything about authoring and operating one is <ObjLink id="tool-implementation" />; here the question is only **when a custom tool is the right shape**.
+
+Choose a custom tool when the capability is specific to one application, its lifecycle is the application's lifecycle (deployed, tested and versioned together), and nothing built in does it. Typical stems: "look up the order in *our* database", "create a ticket in *this* service's queue", "call the internal pricing function the backend already exposes". A custom tool keeps the code next to the only caller, avoids a network hop and a second deployment, and lets the harness inject credentials and enforce approval in one place.
+
+Two properties are worth naming because distractors exploit them. First, every loaded tool definition is input tokens on every request, so adding tools is not free; large catalogs belong behind tool search. Second, a custom tool can be wrapped later: if a second application turns up and a separate team takes ownership, the same function becomes an MCP server without changing what the model sees much, because MCP tools also arrive as name, description and schema.
+
+**Exam angle:** cues are "one application", "the backend already has a function", "tightly coupled", "same release". Distractors are an MCP server (operational overhead with one caller) and a Skill (no capability added).
+
+### Skills
+
+<SubskillAnchor id="cust.skills" />
+
+An Agent Skill is a directory with a `SKILL.md` file: YAML frontmatter, a Markdown body, and optional bundled files (more Markdown, scripts, templates, data) [Certain]. On the API and claude.ai, the frontmatter requires `name` (at most 64 characters, lowercase letters, digits and hyphens, no XML tags, not containing "anthropic" or "claude") and `description` (non-empty, at most 1024 characters, no XML tags) [Certain]. The description must say **what the Skill does and when to use it**, written in third person, because it is the only text Claude matches against when deciding to trigger it [Certain].
+
+**Progressive disclosure** is the mechanism that makes Skills cheap [Certain]:
+
+| Level | When it loads | Cost | Content |
+|---|---|---|---|
+| 1. Metadata | Always, at startup, in the system prompt | About 100 tokens per Skill | `name` and `description` |
+| 2. Instructions | When the Skill triggers | Under 5k tokens recommended | The SKILL.md body |
+| 3. Resources | Only when read or run | Nothing until accessed | Reference files enter context when read; scripts run and only their output enters context |
+
+<Sequence title="Progressive disclosure of a Skill" actors={["Harness", "Claude", "Skill directory"]}
+  messages={[["Harness", "Claude", "system prompt lists name + description of every Skill"],
+             ["Harness", "Claude", "user: review this pipeline change"],
+             ["Claude", "Skill directory", "read SKILL.md (description matched)"],
+             ["Skill directory", "Claude", "body enters context", "reply"],
+             ["Claude", "Skill directory", "read reference/expectations.md only"],
+             ["Claude", "Skill directory", "run scripts/check_names.py"],
+             ["Skill directory", "Claude", "script output only, not its code", "reply"]]} />
+
+Because bundled files cost nothing until touched, a Skill can carry far more reference material than you would ever put in a system prompt or CLAUDE.md. Scripts are the deterministic part: the best-practices page recommends a pre-written `validate.py` over asking Claude to generate equivalent code, since a script is more reliable and its source never enters context [Certain]. Keep the SKILL.md body under 500 lines and keep references one level deep from it [Certain].
+
+**Where Skills run, and how they differ by surface** [Certain]:
+
+- **Claude API**: pass Skills in the `container` parameter (`type` `anthropic` or `custom`, a `skill_id`, a `version`) together with the code execution tool, up to 20 per request. Pre-built Skills are `pptx`, `xlsx`, `docx` and `pdf`; custom Skills are uploaded through `/v1/skills` and shared workspace-wide. The container has **no network access and no runtime package installation**. Generated files come back as file IDs you download through the Files API.
+- **Claude Code**: filesystem-based, in `~/.claude/skills/` (personal) or `.claude/skills/` (project), or shipped in a plugin. No upload. Full network access, like any program on your machine.
+- **claude.ai**: upload as a zip in settings; custom Skills are individual to each user.
+- **No sync**: a Skill uploaded on one surface is not available on another.
+
+In Claude Code a Skill is also the slash command: custom commands were merged into Skills, so `.claude/commands/deploy.md` and `.claude/skills/deploy/SKILL.md` both create `/deploy`, and old command files keep working [Certain]. Frontmatter adds controls the API does not have: `disable-model-invocation: true` (only you can invoke it, and its description leaves Claude's context), `user-invocable: false` (only Claude can), `allowed-tools` (a pre-approval that clears on your next message), `context: fork` with `agent` (run the Skill in a subagent) and `paths` (activate only for matching files) [Certain].
+
+Skills are code and instructions you execute, so treat them like dependencies. The overview warns that a malicious Skill "can direct Claude to invoke tools or execute code in ways that don't match the Skill's stated purpose"; use Skills from trusted sources and audit every bundled file [Certain].
+
+<PostGuide since="2026-08">
+The current skills guide shows `container.skills` and the `code_execution_20250825` tool on the standard `client.messages.create` with no beta header [Certain for today]. Material written earlier showed beta headers. Treat the exact request shape as engineering knowledge; exam items should test the concept (Skills ride on code execution, load progressively, and have no network on the API), not header names.
+</PostGuide>
+
+**Exam angle:** cues are "Claude already can", "our procedure", "house conventions", "long reference material only needed for one kind of task", "same guidance pasted into every conversation". Distractors are CLAUDE.md (always loaded), a tool (adds nothing Claude lacked) and fine-tuning.
+
+### MCP servers
+
+<SubskillAnchor id="cust.mcp" />
+
+An MCP server exposes tools (model-controlled), resources (application-controlled) and prompts (user-controlled) over a standard protocol, so any MCP host can use it: Claude Code, Claude Desktop, the Agent SDK, the Messages API's MCP connector, and non-Anthropic hosts. To the model an MCP tool is still a name, a description and a schema. What changes is **ownership and reach**: the capability lives in its own process, with its own repository, release cadence, credentials and access control, and every host that connects gets the same behaviour.
+
+That is the tradeoff in one line. You gain one implementation for many hosts, independent versioning, and a clean boundary where the owning team enforces authentication and least privilege. You pay for a service to run, a transport to secure (remote Streamable HTTP servers should authenticate callers), a protocol hop, and per-host configuration. The MCP answer therefore needs **both** halves of the blueprint trap: reused across applications **and** maintained independently. One half alone usually points elsewhere.
+
+Surface details that change answers, all covered in depth on <ObjLink id="mcp-server-development" />:
+
+- **Claude Code** attaches local stdio servers or remote HTTP servers (`claude mcp add`), with project scope in a committed `.mcp.json`. Tool names load at startup and full schemas are deferred, so idle MCP tools cost little context [Certain].
+- **The Messages API connector** reaches only remote HTTPS servers and only their tools, and needs both an `mcp_servers` entry and an `mcp_toolset` entry in `tools` (beta). A local stdio server cannot be attached to it.
+- **MCP plus a Skill** is a common, correct combination: the server provides the connection, and a Skill teaches Claude the schema, query patterns and team conventions for using it well [Certain].
+
+<PostGuide since="2026-08">
+The connector beta header `mcp-client-2025-11-20` and the `mcp_toolset` allowlist shape are drifting parameter details (`facts.json` marks them asOfGuide unknown). Learn the concept: both halves are required and only remote tools are reachable.
+</PostGuide>
+
+**Exam angle:** cues are "several applications", "different hosts", "owned by the platform team", "versioned on its own schedule", "connect Claude Code to an external system". Distractors are a custom tool duplicated per app (drift) and a Skill (cannot add the connection).
+
+### Choosing the right extension for a use case
+
+<SubskillAnchor id="cust.selection" />
+
+The guide names four options, but real stems include the Claude Code neighbours, and the official comparison pages draw the lines cleanly [Certain]:
+
+| Extension | What it is | Loads | Enforced? | Best for |
+|---|---|---|---|---|
+| CLAUDE.md | Persistent project context | Every session, full content | No | Conventions every session needs, "always do X" rules |
+| Output style | Session-wide role, tone, format | Every request while active | No | How Claude responds, not what it knows |
+| Skill | Instructions, references, scripts | Description always; body on use | No | Procedures and reference material needed sometimes |
+| Subagent | Isolated worker with own prompt, tools, model | When spawned, fresh context | Tool scope is enforced | Noisy or parallel work; only a summary returns |
+| Hook | Script, HTTP call, prompt or agent at a lifecycle event | Nothing unless it returns output | Yes | Must happen every time; blocking unsafe actions |
+| MCP server | External tools and data | Tool names at start, schemas on demand | Server-side controls | External systems, shared across hosts |
+| Plugin | Packaging of the above | Its components' costs, every session | N/A | Same setup in many repos, versioned via a marketplace |
+
+<Flow title="Name the gap, then pick the extension" steps={[{label: "Claude lacks a capability?", kind: "decision", note: "built-in exists: use it; else tool"}, {label: "Shared and separately owned?", kind: "decision", note: "yes: MCP server; no: custom tool"}, {label: "Lacks know-how only?", kind: "decision", note: "always needed: CLAUDE.md; sometimes: Skill"}, {label: "Must happen every time?", kind: "guard", note: "hook or permission rule"}, {label: "Would flood the context?", kind: "decision", note: "subagent, returns a summary"}, {label: "Many repos need it?", kind: "store", note: "package as a plugin"}]} />
+
+**Subagents.** A Claude Code subagent is a Markdown file in `.claude/agents/` (project) or `~/.claude/agents/` (user), or shipped in a plugin. Only `name` and `description` are required; `tools`, `disallowedTools`, `model`, `permissionMode`, `skills`, `hooks` and `maxTurns` are optional [Certain]. Claude delegates automatically by matching the task to each subagent's **description**, the same trigger mechanism Skills use. The subagent receives its own system prompt, the task message, CLAUDE.md and preloaded Skills, but **not** the conversation history, and returns only a summary [Certain]. Skills are not inherited: list them in `skills` to preload them, or the subagent discovers them through the Skill tool [Certain]. The two compose in both directions: a subagent can preload Skills, and a Skill with `context: fork` runs inside a subagent.
+
+**Hooks.** The features page puts it plainly: an instruction like "never edit `.env`" in CLAUDE.md or a Skill "is a request, not a guarantee", while a `PreToolUse` hook that blocks the edit is enforcement [Certain]. Hooks cost zero context unless they return output.
+
+**Plugins.** A plugin is "a directory of skills, agents, hooks, MCP servers, or other components that Claude Code installs and loads as one unit", distributed through a marketplace catalog [Certain]. Plugin Skills are namespaced as `/plugin-name:skill-name`. Choose a plugin for distribution, not for capability; the install, scope and trust mechanics are on <ObjLink id="claude-application-design" hash="ss-cad-plugins" />.
+
+**Output styles** appear in the Claude Code comparison table, not in the guide's list of four. They change the voice and format of every response and are not enforced; for knowledge use CLAUDE.md, for one task use a Skill [Certain].
+
+**Exam angle:** read for the gap word. "Can't" means tool; "how we do it" means Skill or CLAUDE.md (split by "always" versus "sometimes"); "every time" means hook; "floods", "hundreds of files" or "only the result" means subagent; "several apps, owned elsewhere" means MCP; "every repo, versioned" means plugin.
 
 ## Decision table
 
-| Stem says... | The answer is... |
-|---|---|
-| Claude can already do the task, just needs to follow a house convention | Skill |
-| A capability doesn't exist yet at all — no way to call the thing | Tool (custom or MCP, per the reuse question) |
-| One app, one owning team, no separate release cycle | Custom tool |
-| Several apps call it, and it's versioned/patched on its own schedule | MCP server |
-| "Reusable" but never actually maintained apart from the one app | Custom tool shared as a library, not necessarily MCP — reuse alone isn't the trigger, *independent maintenance* is the other half |
-| The capability Anthropic already ships (search, code exec, bash) | Built-in tool — building a custom version is wasted effort |
-| Task needs a separate context window or narrower permissions than the main conversation | Subagent, not a Skill |
-| Team proposes an MCP server for a purely stylistic/procedural need | Wrong layer — that's a Skill; MCP adds infrastructure a Skill doesn't need |
-| Team proposes a Skill to grant an action Claude currently cannot perform at all | Wrong layer — a Skill can't manufacture a missing capability |
-| Two needs in one scenario: a formatting convention *and* a new external capability | Split them — Skill for the convention, tool/MCP for the capability, evaluated independently |
+| If the stem says... | Choose | Why the runner-up loses |
+|---|---|---|
+| Claude already writes the SQL; the team wants it to follow their 30-rule review procedure only when reviewing pipeline changes | Skill with the checklist in reference files | CLAUDE.md loads the whole procedure into every session, paying for it on every request and adding noise to unrelated work |
+| Agents need to run pandas over an uploaded CSV and return a chart | Built-in code execution server tool | A custom sandbox rebuilds a capability Claude is trained on and adds an execution surface you must secure |
+| One support app needs to look up an order in its own database, released with the app | Custom tool in that app | An MCP server adds a service, a transport and a deployment for a single caller |
+| A capability is used from Claude Code, an internal agent and a partner integration, and the payments team releases it on its own schedule | MCP server owned by the payments team | Per-app custom tools drift apart and duplicate credentials and access control |
+| Formatting must run after every file edit, without exception | `PostToolUse` hook | A CLAUDE.md or Skill line is advisory; Claude usually complies, which is not "every time" |
+| A dependency audit reads hundreds of files and the main session should see only the findings | Subagent with read-only tools | A Skill's body loads into the main context, so the file reads still flood it |
+| The same skills, agents and hooks must reach 40 repositories with versioned updates | Plugin in a team marketplace | Copying `.claude/` folders drifts and has no versioning; a plugin is packaging, not a new capability |
+| A Skill on the Claude API must call a third-party REST endpoint | A tool (custom or MCP) for the call; the Skill only for the procedure | API Skills run in a container with no network access, so instructions cannot reach the endpoint |
+| A team built a Skill in claude.ai and expects their API integration to pick it up | Upload it separately through the Skills API | Custom Skills do not sync across surfaces |
 
-## Code example: custom tool call vs. MCP tool call
+## Worked walkthrough
 
-Structurally near-identical to the model — the difference is who defines and maintains the server behind it.
+<Walkthrough title="Scenario: a review checklist that keeps getting pasted">
+
+<Step title="Read the scenario">
+A data platform team uses Claude Code to review changes to their declarative pipeline definitions. Each reviewer pastes the same material at the start of a review: a 40-item checklist (naming, data quality expectations, CDC rules) plus three reference tables, about 8,000 tokens in all. Claude reviews well once it has the material. Most sessions in the repository have nothing to do with pipeline reviews. Which change fits best?
+
+- A. Add the checklist and tables to the project `CLAUDE.md`.
+- B. Build an MCP server with a `get_review_checklist` tool and register it in `.mcp.json`.
+- C. Create a project Skill whose SKILL.md summarises the review procedure and links to the tables as separate files.
+- D. Add a `PostToolUse` hook that runs a review after every edit to a pipeline file.
+</Step>
+
+<Step title="Find the constraint">
+Two facts decide it. "Claude reviews well once it has the material" means no capability is missing; the gap is know-how. "Most sessions have nothing to do with pipeline reviews" means the know-how is needed sometimes, not always. Know-how needed sometimes is the definition of a Skill's on-demand loading.
+</Step>
+
+<Step title="Eliminate the distractors">
+- **A (CLAUDE.md)** would work functionally, but CLAUDE.md loads in full every session. Eight thousand tokens become a cost on every request in every unrelated session and compete with the conventions that do belong there.
+- **B (MCP server)** treats static text as a capability. It adds a process, a transport and an owner for something Claude could read from a file. Nothing in the stem says the checklist is shared across hosts or separately maintained.
+- **D (hook)** is deterministic, which the stem never asked for. A review needs reasoning, and firing on every edit reviews half-finished work and spends tokens the team did not intend.
+</Step>
+
+<Step title="Choose">
+**C.** Commit `.claude/skills/reviewing-pipelines/SKILL.md` with a third-person description naming the trigger ("Use when reviewing changes to pipeline definitions..."), the procedure in the body, and the three tables as one-level-deep reference files. Only about 100 tokens of metadata sit in context until a review starts. A naming check can ship as a script whose output, not code, enters context. Reviewers can also run it explicitly as `/reviewing-pipelines`.
+</Step>
+
+<Step title="The deciding cue">
+"Claude reviews well once it has the material" (no capability gap, so not a tool or MCP server) plus "most sessions have nothing to do with" reviews (needed sometimes, so not CLAUDE.md). The deciding cue was **know-how that is needed only on demand**, which is exactly what progressive disclosure is for.
+</Step>
+
+</Walkthrough>
+
+## Code
+
+**A Skill file that triggers well.** The description is the trigger, so it names what and when in third person; the body points at files instead of inlining them.
+
+```markdown
+---
+name: reviewing-pipelines
+description: Reviews changes to declarative pipeline definitions against the team checklist for naming, data quality expectations and CDC handling. Use when the user asks for a review of a pipeline file, a pipeline PR, or expectation rules.
+---
+
+# Reviewing pipeline changes
+
+1. Run `python scripts/check_names.py <changed files>` and include its findings verbatim.
+2. Check expectations against [reference/expectations.md](reference/expectations.md).
+3. For any CDC flow, apply [reference/cdc_rules.md](reference/cdc_rules.md).
+4. Report findings as a table: file, line, rule id, severity, suggested fix.
+```
+
+**A built-in server tool: no handler code.** Code execution runs on Anthropic's infrastructure; the loop only has to resume on `pause_turn`. The helper finds the text block instead of trusting position.
 
 ```python
-# Custom tool: defined and executed inside this one application
-tools = [{
-    "name": "get_internal_metric",
-    "description": "Look up a single metric from this app's own reporting table.",
-    "input_schema": {"type": "object", "properties": {"metric": {"type": "string"}}},
-}]
+import anthropic
 
-# MCP tool: declared via a connection to an independently maintained server;
-# the tool set itself is owned and versioned outside this application.
-mcp_servers = [{"type": "url", "url": "https://metrics.example.com/mcp", "name": "metrics-mcp"}]
-mcp_tools = [{"type": "mcp_toolset", "mcp_server_name": "metrics-mcp"}]
+client = anthropic.Anthropic()
+MODEL = "claude-sonnet-5-5"
+
+def text_of(resp) -> str:
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+messages = [{"role": "user", "content": "Simulate 10,000 rolls of two dice and report the most common sum."}]
+tools = [{"type": "code_execution_20250825", "name": "code_execution"}]
+
+resp = client.messages.create(model=MODEL, max_tokens=2048, tools=tools, messages=messages)
+for _ in range(5):  # server-tool loop may pause; send the content back to resume
+    if resp.stop_reason != "pause_turn":
+        break
+    messages.append({"role": "assistant", "content": resp.content})
+    resp = client.messages.create(model=MODEL, max_tokens=2048, tools=tools, messages=messages)
+
+print(resp.stop_reason, text_of(resp))
 ```
 
 ```typescript
-// Custom tool: defined and executed inside this one application
-const tools = [{
-  name: "get_internal_metric",
-  description: "Look up a single metric from this app's own reporting table.",
-  input_schema: { type: "object", properties: { metric: { type: "string" } } },
-}];
+import Anthropic from "@anthropic-ai/sdk";
 
-// MCP tool: the server is owned and versioned outside this application
-const mcpServers = [{ type: "url", url: "https://metrics.example.com/mcp", name: "metrics-mcp" }];
-const mcpTools = [{ type: "mcp_toolset", mcp_server_name: "metrics-mcp" }];
+const client = new Anthropic();
+const MODEL = "claude-sonnet-5-5";
+
+const textOf = (resp: Anthropic.Message): string =>
+  resp.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
+
+const messages: Anthropic.MessageParam[] = [
+  { role: "user", content: "Simulate 10,000 rolls of two dice and report the most common sum." },
+];
+const tools: Anthropic.ToolUnion[] = [{ type: "code_execution_20250825", name: "code_execution" }];
+
+let resp = await client.messages.create({ model: MODEL, max_tokens: 2048, tools, messages });
+for (let i = 0; i < 5 && resp.stop_reason === "pause_turn"; i++) {
+  messages.push({ role: "assistant", content: resp.content }); // resume the server-tool loop
+  resp = await client.messages.create({ model: MODEL, max_tokens: 2048, tools, messages });
+}
+console.log(resp.stop_reason, textOf(resp));
 ```
 
-## Named traps, expanded
+<Output kind="illustrative">
+end_turn The most common sum was 7, appearing 1,671 times (16.7%), close to the theoretical 1/6.
+</Output>
 
-**A Skill changes HOW Claude does something it can already do; a tool ADDS a capability.** This is the single most common wrong turn on this objective: seeing "consistency" or "follow our process" in a stem and reaching for a tool or an MCP server anyway. If Claude could already perform the underlying action before the request — read code, write a summary, format a report — and the ask is about *how* to do it, that's a Skill. Building a tool around a purely procedural need adds an execution surface, an approval question, and integration overhead for something that was never a missing capability in the first place.
+**A custom tool for an app-specific capability.** One definition, one handler, executed by your code. The full harness (errors as results, approval tiers) is on Tool Implementation.
 
-**Reusable across applications AND independently maintained = MCP server.** Both conditions have to hold, not just one. Something reused by several apps but still edited in lockstep with a single app's codebase isn't really independent yet — it's a shared library dressed up as infrastructure. Something with its own release cycle but only one caller doesn't need the operational overhead of a standalone server. The MCP answer is correct only when a stem hands you both facts, not one.
+```python
+import json
+import anthropic
+
+client = anthropic.Anthropic()
+MODEL = "claude-sonnet-5-5"
+
+ORDERS = {"A-1001": {"status": "shipped", "carrier": "DHL"}}  # stands in for this app's database
+
+TOOLS = [{
+    "name": "orders_get",
+    "description": "Return status and carrier for ONE order in this shop. Use when the user gives an order ID like A-1001.",
+    "strict": True,
+    "input_schema": {"type": "object", "properties": {"order_id": {"type": "string"}},
+                     "required": ["order_id"], "additionalProperties": False},
+}]
+
+def text_of(resp) -> str:
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+messages = [{"role": "user", "content": "Where is order A-1001?"}]
+resp = client.messages.create(model=MODEL, max_tokens=1024, tools=TOOLS, messages=messages)
+if resp.stop_reason == "tool_use":
+    messages.append({"role": "assistant", "content": resp.content})
+    results = []
+    for b in resp.content:
+        if b.type == "tool_use":
+            found = ORDERS.get(b.input["order_id"])
+            results.append({"type": "tool_result", "tool_use_id": b.id, "is_error": found is None,
+                            "content": json.dumps(found) if found else "No such order in this shop."})
+    messages.append({"role": "user", "content": results})
+    resp = client.messages.create(model=MODEL, max_tokens=1024, tools=TOOLS, messages=messages)
+print(text_of(resp))
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+const MODEL = "claude-sonnet-5-5";
+
+const ORDERS: Record<string, { status: string; carrier: string }> = {
+  "A-1001": { status: "shipped", carrier: "DHL" }, // stands in for this app's database
+};
+
+const TOOLS: Anthropic.Tool[] = [{
+  name: "orders_get",
+  description: "Return status and carrier for ONE order in this shop. Use when the user gives an order ID like A-1001.",
+  strict: true,
+  input_schema: { type: "object", properties: { order_id: { type: "string" } },
+                  required: ["order_id"], additionalProperties: false },
+}];
+
+const textOf = (resp: Anthropic.Message): string =>
+  resp.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
+
+const messages: Anthropic.MessageParam[] = [{ role: "user", content: "Where is order A-1001?" }];
+let resp = await client.messages.create({ model: MODEL, max_tokens: 1024, tools: TOOLS, messages });
+if (resp.stop_reason === "tool_use") {
+  messages.push({ role: "assistant", content: resp.content });
+  const results: Anthropic.ToolResultBlockParam[] = [];
+  for (const b of resp.content) {
+    if (b.type !== "tool_use") continue;
+    const found = ORDERS[(b.input as { order_id: string }).order_id];
+    results.push({ type: "tool_result", tool_use_id: b.id, is_error: !found,
+                   content: found ? JSON.stringify(found) : "No such order in this shop." });
+  }
+  messages.push({ role: "user", content: results });
+  resp = await client.messages.create({ model: MODEL, max_tokens: 1024, tools: TOOLS, messages });
+}
+console.log(textOf(resp));
+```
+
+**A pre-built Skill on the API.** Skills ride on the code execution tool and run in its container (no network). Generated files come back as file IDs for the Files API; reuse `container.id` on follow-up turns.
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+def text_of(resp) -> str:
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+resp = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=4096,
+    container={"skills": [{"type": "anthropic", "skill_id": "xlsx", "version": "latest"}]},
+    tools=[{"type": "code_execution_20250825", "name": "code_execution"}],
+    messages=[{"role": "user", "content": "Build a workbook of monthly table row counts with a trend chart."}],
+)
+file_ids = [f.file_id
+            for b in resp.content if b.type == "bash_code_execution_tool_result"
+            and b.content.type == "bash_code_execution_result"
+            for f in b.content.content]
+print(resp.stop_reason, file_ids, text_of(resp)[:200])
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+const textOf = (resp: Anthropic.Message): string =>
+  resp.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
+
+const resp = await client.messages.create({
+  model: "claude-sonnet-5-5",
+  max_tokens: 4096,
+  container: { skills: [{ type: "anthropic", skill_id: "xlsx", version: "latest" }] },
+  tools: [{ type: "code_execution_20250825", name: "code_execution" }],
+  messages: [{ role: "user", content: "Build a workbook of monthly table row counts with a trend chart." }],
+});
+console.log(resp.stop_reason, textOf(resp).slice(0, 200));
+```
+
+**An MCP server reached from the Messages API (beta).** Same shape as on MCP Server Development: both `mcp_servers` and a matching `mcp_toolset` are required, and the server must be remote HTTPS.
+
+```python
+import os
+import anthropic
+
+client = anthropic.Anthropic()
+
+def text_of(resp) -> str:
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+resp = client.beta.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=2048,
+    betas=["mcp-client-2025-11-20"],
+    mcp_servers=[{"type": "url", "url": "https://mcp.example.internal/mcp", "name": "pipeline-ops",
+                  "authorization_token": os.environ["PIPELINE_OPS_TOKEN"]}],
+    tools=[{"type": "mcp_toolset", "mcp_server_name": "pipeline-ops"}],
+    messages=[{"role": "user", "content": "Which jobs failed overnight?"}],
+)
+print(text_of(resp))  # mcp_tool_use / mcp_tool_result blocks precede the text
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+const resp = await client.beta.messages.create({
+  model: "claude-sonnet-5-5",
+  max_tokens: 2048,
+  betas: ["mcp-client-2025-11-20"],
+  mcp_servers: [{ type: "url", url: "https://mcp.example.internal/mcp", name: "pipeline-ops",
+                  authorization_token: process.env.PIPELINE_OPS_TOKEN }],
+  tools: [{ type: "mcp_toolset", mcp_server_name: "pipeline-ops" }],
+  messages: [{ role: "user", content: "Which jobs failed overnight?" }],
+});
+console.log(resp.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join(""));
+```
+
+**The Claude Code neighbours: a subagent and a hook.** The subagent's description triggers delegation and its `tools` list is enforced. The hook in `.claude/settings.json` runs on every matching edit whether or not Claude remembers to.
+
+```markdown
+---
+name: dependency-auditor
+description: Audits third-party dependencies across the repository for licence and version problems. Use when the user asks for a dependency, licence or upgrade audit.
+tools: Read, Grep, Glob
+model: haiku
+---
+
+Read every manifest and lockfile. Return only a table of package, version, licence and issue.
+```
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "Edit|Write", "hooks": [{ "type": "command", "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/format.sh" }] }
+    ]
+  }
+}
+```
 
 ## Recall checks
 
-1. A team wants Claude to follow their brand voice guidelines when writing customer emails — Claude can already write emails. Which approach fits, and why is a custom tool the wrong layer?
-2. State the two conditions that both have to be true before "MCP server" is the right answer, and give a scenario where only one holds.
-3. Why is "build a custom sandbox to execute Python" usually the wrong first move, before you even get to tool-vs-Skill reasoning?
-4. When does a task need a subagent instead of a Skill, even though both can encode "how to do the task"?
-5. A stem describes both a formatting convention and a missing external capability in the same scenario. What's the trap in picking just one approach for both?
+<Recall q="A stem says Claude can already read and summarise contracts, but the legal team wants it to follow their 12-step clause review whenever contracts come up. Which extension, and why not a custom tool?">
+A Skill. No capability is missing; the gap is procedure, and a Skill's body loads only when its description matches. A tool adds a capability Claude already has, plus a handler and schema to maintain.
+</Recall>
+
+<Recall q="What loads at each level of a Skill's progressive disclosure?">
+Metadata (name and description, about 100 tokens) is always in the system prompt. The SKILL.md body loads when the Skill triggers. Bundled reference files load only when read, and scripts run with only their output entering context.
+</Recall>
+
+<Recall q="Name the two conditions that together point to an MCP server, and what each one alone usually points to.">
+Reused across several applications or hosts, and owned and versioned independently of any one of them. Reuse without independent ownership is often a shared library; independent ownership with one caller rarely justifies a separate server over a custom tool.
+</Recall>
+
+<Recall q="Why is a custom Python sandbox usually the wrong answer when agents need to analyse an uploaded CSV?">
+The code execution server tool already does it on Anthropic's infrastructure with no handler code, and Claude is trained on it. A rebuild adds an execution surface to secure and maintain without adding capability, unless a stem constraint (residency, platform, network) rules the built-in out.
+</Recall>
+
+<Recall q="A Skill on the Claude API needs to call an external REST endpoint. What goes wrong and what is the fix?">
+API Skills run in the code execution container, which has no network access and no runtime package installation. Provide the call as a tool (custom or MCP) and keep the Skill for the procedure of using it.
+</Recall>
+
+<Recall q="When does a task call for a subagent instead of a Skill, given both can encode how to do it?">
+When the work would flood the main context or needs different tools or a different model. The subagent runs in a fresh window without the conversation history and returns only a summary; a Skill's content loads into the current context.
+</Recall>
+
+<Recall q="The team wants formatting to happen after every edit. Why is a CLAUDE.md line or a Skill the wrong layer?">
+Both are instructions Claude reads and usually follows, so neither is a guarantee. A PostToolUse hook runs in the harness at the lifecycle event every time, independent of the model.
+</Recall>
+
+<Recall q="What is a plugin, and what question does it answer?">
+A directory of skills, agents, hooks, MCP servers and other components installed as one unit, usually from a marketplace. It answers how to distribute and version a setup across many repositories or people, not how to give Claude a missing capability.
+</Recall>

@@ -1,0 +1,67 @@
+{
+  "cells": {
+    "c01": {
+      "output": ".../exec4/hooklab",
+      "kind": "executed",
+      "executedAt": "2026-10-06",
+      "notice": [
+        "Everything lives under `.claude/` in the project: `settings.json` for configuration, `hooks/` for scripts. Checked into the repo, the hook applies to everyone who works there."
+      ],
+      "explain": "Executed for real on 2026-10-06 with nbclient 0.11.0 and ipykernel 7.4.0 on Python 3.11.15, GNU bash 5.2.21 (Linux). The scripts were run directly, the same way Claude Code runs a command hook; Claude Code itself was not involved. Absolute path shortened to its scratch-directory suffix."
+    },
+    "c03": {
+      "output": "{\n  \"hooks\": {\n    \"PreToolUse\": [\n      {\n        \"matcher\": \"Bash\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard.sh\"\n          }\n        ]\n      }\n    ]\n  }\n}\n",
+      "kind": "executed",
+      "executedAt": "2026-10-06",
+      "notice": [
+        "`PreToolUse` runs before the tool, so it can stop it. The matcher `Bash` matches the tool name exactly; it does not look at the command. Inspecting the command is the script's job.",
+        "`${CLAUDE_PROJECT_DIR}` resolves to the project root where the session started, so the hook path works from any working directory."
+      ],
+      "explain": "Executed for real on 2026-10-06 with nbclient 0.11.0 and ipykernel 7.4.0 on Python 3.11.15, GNU bash 5.2.21 (Linux). The scripts were run directly, the same way Claude Code runs a command hook; Claude Code itself was not involved."
+    },
+    "c05": {
+      "output": "ls -la                     exit=0    ALLOW  \nrm -rf /tmp/x              exit=2    BLOCK  Recursive rm is blocked by project policy.\nrm --recursive build       exit=2    BLOCK  Recursive rm is blocked by project policy.\nrm file.txt                exit=0    ALLOW  \ngit status                 exit=0    ALLOW  \n/bin/rm -rf build          exit=0    ALLOW  \n",
+      "kind": "executed",
+      "executedAt": "2026-10-06",
+      "notice": [
+        "Exit 2 blocked both recursive forms and stderr became the reason Claude reads. Exit 0 let everything else through. That exit code is the whole contract.",
+        "The last row is a real bypass: `/bin/rm -rf build` was ALLOWED because the regex expects whitespace or start-of-line before rm. A denylist is a control, not a guarantee; layer it with permission deny rules and sandboxing."
+      ],
+      "explain": "Executed for real on 2026-10-06 with nbclient 0.11.0 and ipykernel 7.4.0 on Python 3.11.15, GNU bash 5.2.21 (Linux). The scripts were run directly, the same way Claude Code runs a command hook; Claude Code itself was not involved."
+    },
+    "c07": {
+      "output": "exit code: 127 -> ALLOWED\n\nExit 1 (or 127) is a non-blocking hook error. The tool call still runs.\nGuard scripts need their own error handling, or they protect nothing.\n",
+      "kind": "executed",
+      "executedAt": "2026-10-06",
+      "notice": [
+        "Command not found exits 127. Only 2 blocks, so Claude Code would treat this as a non-blocking hook error and run `rm -rf /`.",
+        "Exam pattern: a guard that \"sometimes fails to block\" is usually exiting 1 on an internal error. The fix is error handling in the guard, not a different event."
+      ],
+      "explain": "Executed for real on 2026-10-06 with nbclient 0.11.0 and ipykernel 7.4.0 on Python 3.11.15, GNU bash 5.2.21 (Linux). The scripts were run directly, the same way Claude Code runs a command hook; Claude Code itself was not involved."
+    },
+    "c09": {
+      "output": "ls -la                     exit=2    BLOCK  hooklab/.claude/hooks/hardened.sh: line 5: nosuchcommand_typo: command not found\nguard crashed; failing closed\n\nSame typo, opposite outcome. The cost: every Bash call is blocked until\nsomeone fixes the guard. For a security control that is the right trade.\n",
+      "kind": "executed",
+      "executedAt": "2026-10-06",
+      "notice": [
+        "Same typo as the broken guard, opposite outcome: the ERR trap turned the crash into exit 2, so the call is blocked and stderr explains why.",
+        "Failing closed blocks every Bash call until the guard is fixed. For a security control that is the right default; for a convenience hook (formatting, notifications) failing open is fine."
+      ],
+      "explain": "Executed for real on 2026-10-06 with nbclient 0.11.0 and ipykernel 7.4.0 on Python 3.11.15, GNU bash 5.2.21 (Linux). The scripts were run directly, the same way Claude Code runs a command hook; Claude Code itself was not involved."
+    }
+  },
+  "checkpoint": [
+    {
+      "q": "Which event can block, and which cannot undo?",
+      "a": "`PreToolUse` can block: it runs before the tool, and exit 2 (or a JSON deny) prevents the call. `PostToolUse` cannot undo anything because the tool already ran; exit 2 there only shows stderr to Claude as feedback. If a stem says an action must never happen, the answer is a PreToolUse hook or a permission rule, not a PostToolUse check."
+    },
+    {
+      "q": "What does exit 2 do that exit 1 does not?",
+      "a": "Exit 2 is a blocking error: on PreToolUse the tool call is prevented and stderr is fed back to Claude as the reason, and even JSON saying allow cannot override it. Exit 1, like any other non-zero code, is a non-blocking error and the action proceeds. A guard that crashes therefore fails open unless it traps its own errors and exits 2."
+    },
+    {
+      "q": "Matchers match against what, exactly?",
+      "a": "For tool events, the tool name (Bash, Edit, Write, mcp__server__tool), not the arguments. A plain name or a `|` list matches exactly; anything with other characters is treated as an unanchored regular expression, so `mcp__.*` matches every MCP tool. Filtering on the command itself happens inside the hook script."
+    }
+  ]
+}

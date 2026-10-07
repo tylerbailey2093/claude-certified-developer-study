@@ -1,88 +1,48 @@
 ---
 import Base from '../layouts/Base.astro';
-import { getCollection } from 'astro:content';
-import blueprint from '../../blueprint.json';
-import Search from '../islands/Search.tsx';
-import allQuestions from '../data/questions/all.json';
+import HomeDashboard from '../islands/HomeDashboard.tsx';
+import PipelineMap from '../components/PipelineMap.astro';
+import { DOMAINS } from '../lib/blueprint';
+import { allQuestions } from '../lib/bank/bank';
 
 const base = import.meta.env.BASE_URL;
-const objectives = await getCollection('objectives');
-
-const domains = blueprint.domains
-  .map((d) => ({ ...d, count: objectives.filter((o) => o.data.domain === d.n).length }))
-  .sort((a, b) => b.weight - a.weight);
-
+const bank = allQuestions().filter((q) => q.status !== 'retired');
+const poolSizes: Record<string, number> = {};
+for (const q of bank) poolSizes[q.objective] = (poolSizes[q.objective] ?? 0) + 1;
+const domains = [...DOMAINS].sort((a, b) => b.weight - a.weight);
 const maxW = Math.max(...domains.map((d) => d.weight));
-const searchIndex = objectives.map((o) => ({
-  id: o.data.id,
-  name: o.data.name,
-  domain: o.data.domain,
-  weight: o.data.weight,
-}));
 ---
-<Base title="Field Manual">
-  <header class="phead" style="padding-top:52px">
-    <p class="eyebrow">Exam Guide v1.0 · Effective July 2026</p>
-    <h1>A field manual for the Claude&nbsp;Certified Developer exam.</h1>
+<Base title="Home" grid="full">
+  <header class="page-head">
+    <p class="eyebrow">Claude Certified Developer · Foundations · Exam Guide v1.0</p>
+    <h1>Study for CCDV-F the way the exam is weighted.</h1>
     <p class="lede">
-      Eight domains, twenty-five scored objectives, {allQuestions.length} original practice items —
-      every page weighted to the published blueprint. The cut score is 720 of 1000 and there is no
-      per-domain minimum, so depth here follows exam weight rather than novelty.
+      53 items, 120 minutes, pass at 720 of 1000, and no per-domain minimum. Domain 2 alone is a third of the exam, so depth here
+      follows the blueprint rather than what is interesting.
     </p>
   </header>
 
-  <div class="stat-strip">
-    <div class="stat-cell"><b>53</b><span>Items</span></div>
-    <div class="stat-cell"><b>120</b><span>Minutes</span></div>
-    <div class="stat-cell"><b>720</b><span>Cut score</span></div>
-    <div class="stat-cell"><b>25</b><span>Objectives</span></div>
-    <div class="stat-cell"><b>{allQuestions.length}</b><span>Practice items</span></div>
-  </div>
+  <HomeDashboard client:load base={base} poolSizes={poolSizes} bankSize={bank.length} />
 
-  <Search client:load index={searchIndex} baseUrl={base} />
+  <h2 style="margin-top:36px">Study path</h2>
+  <PipelineMap />
 
-  <p class="index-head">Contents · ordered by exam weight</p>
-  <nav>
+  <h2>Domains by exam weight</h2>
+  <div class="cards">
     {domains.map((d) => (
-      <a class="dom-row" href={`${base}domain/${d.n}/`}>
-        <span class="dom-n">{d.n}</span>
-        <span>
-          <span class="dom-name">{d.name}</span>
-          <span class="dom-meta">{d.count} objective{d.count === 1 ? "" : "s"} · ~{d.approx_items} items</span>
-        </span>
-        <span>
-          <span class="dom-weight">{d.weight}%</span>
-          <span class="measure"><i style={`width:${(d.weight / maxW) * 100}%`}></i></span>
-        </span>
+      <a class="card" href={`${base}domain/${d.n}/`} data-d={d.n}>
+        <span class="tag tag-dom">D{d.n} · {d.weight}% · ~{d.approxItems} items</span>
+        <h3>{d.name}</h3>
+        <div class="meter" style="margin:10px 0 8px"><i style={`width:${(d.weight / maxW) * 100}%`}></i></div>
+        <p>{d.objectives.length} objective{d.objectives.length === 1 ? '' : 's'}: {d.objectives.map((o) => o.name).join(', ')}</p>
       </a>
     ))}
-  </nav>
+  </div>
 
-  <p class="index-head" style="margin-top:60px">Drill</p>
-  <nav>
-    <a class="dom-row" href={`${base}quiz/`}>
-      <span class="dom-n">§</span>
-      <span>
-        <span class="dom-name">Practice quiz</span>
-        <span class="dom-meta">Filter by domain · immediate feedback · misses feed spaced repetition</span>
-      </span>
-      <span class="dom-weight">{allQuestions.length} items</span>
-    </a>
-    <a class="dom-row" href={`${base}mock/`}>
-      <span class="dom-n">§</span>
-      <span>
-        <span class="dom-name">Timed mock exam</span>
-        <span class="dom-meta">53 items sampled to blueprint · 120-minute countdown · explanations withheld</span>
-      </span>
-      <span class="dom-weight">Full sim</span>
-    </a>
-    <a class="dom-row" href={`${base}progress/`}>
-      <span class="dom-n">§</span>
-      <span>
-        <span class="dom-name">Progress &amp; weakest objectives</span>
-        <span class="dom-meta">Miss rates from real answers, not self-assessment</span>
-      </span>
-      <span class="dom-weight">Your data</span>
-    </a>
-  </nav>
+  <div class="callout callout-key" style="margin-top:28px">
+    <p class="callout-title">The strategy in three numbers</p>
+    <p><strong>Domain 2 is 33.1%</strong> (about 17 items). Claude Application Design at 8.6% is the single heaviest objective and has no dedicated lesson in the official course.</p>
+    <p><strong>Domains 2 + 5 are 49.9%.</strong> Half the exam, and the half with the least carry-over from the Architect certification.</p>
+    <p><strong>Domains 3 + 4 are 5.7%</strong> (about 3 items). Learn the vocabulary and move on.</p>
+  </div>
 </Base>

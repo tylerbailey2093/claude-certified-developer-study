@@ -1,0 +1,70 @@
+{
+  "cells": {
+    "c01": {
+      "output": "Note: you may need to restart the kernel to use updated packages.\nmcp 2.3.0\n",
+      "kind": "executed",
+      "executedAt": "2026-10-06",
+      "notice": [
+        "The pin `>=2.3,<3` matters. In mcp 2.x `FastMCP` became `MCPServer`, and `from mcp.server.fastmcp import FastMCP` raises ModuleNotFoundError. Tutorials written for 1.x break on their first line.",
+        "No API key, no network service, no cost: an MCP server is just a program. That is why this lab runs anywhere."
+      ],
+      "explain": "Executed for real on 2026-10-06 with nbclient 0.11.0 and ipykernel 7.4.0 on Python 3.11.15 (Linux), mcp 2.3.0 with mcp-types 2.3.0, pydantic 2.13.5, anyio 4.15.1."
+    },
+    "c03": {
+      "output": "wrote warehouse_server.py\n",
+      "kind": "executed",
+      "executedAt": "2026-10-06",
+      "notice": [
+        "The docstring is the tool description the model reads, including the negative instruction \"Do NOT use to place orders\". Descriptions drive tool selection, so they are prompt engineering.",
+        "Unknown SKUs raise `ToolError`, which reaches the model as an `is_error` result with your message. Any other exception is treated as a crash and the model sees only a generic message.",
+        "Resources are addressed by URI (`catalog://all`) and are read-only; prompts take arguments and return messages. Same server, three primitives, three different controllers."
+      ],
+      "explain": "Executed for real on 2026-10-06 with nbclient 0.11.0 and ipykernel 7.4.0 on Python 3.11.15 (Linux), mcp 2.3.0 with mcp-types 2.3.0, pydantic 2.13.5, anyio 4.15.1."
+    },
+    "c05": {
+      "output": "still running (expected): True\nstderr: (clean)\n",
+      "kind": "executed",
+      "executedAt": "2026-10-06",
+      "notice": [
+        "A stdio server waits on stdin, so \"still running\" is the healthy result. It does not listen on a port, which is the security property that makes stdio the default for local servers.",
+        "stdout is reserved for protocol messages; logs belong on stderr. A stray print() in a stdio server corrupts the stream, a classic cause of a server that connects and then fails."
+      ],
+      "explain": "Executed for real on 2026-10-06 with nbclient 0.11.0 and ipykernel 7.4.0 on Python 3.11.15 (Linux), mcp 2.3.0 with mcp-types 2.3.0, pydantic 2.13.5, anyio 4.15.1."
+    },
+    "c07": {
+      "output": "protocol : 2026-07-28\ntools    : ['check_stock']\nresources: ['catalog://all']\nprompts  : ['restock_review']\n\ntool schema the model sees: {'type': 'object', 'properties': {'sku': {'title': 'Sku', 'type': 'string'}}, 'required': ['sku'], 'title': 'check_stockArguments'}\ncall_tool(WID-3) -> 118 | is_error: False\ncall_tool(WID-9) -> Error executing tool check_stock: Unknown SKU 'WID-9'. Known SKUs: ['WID-1', 'WID-2', 'WID-3'] | is_error: True\nread_resource    -> 'WID-1: 42 units\\nWID-2: 0 units\\nWID-3: 118 units'\nget_prompt       -> user | Review stock for WID-2 and recommend whether to reorder.\n\n",
+      "kind": "executed",
+      "executedAt": "2026-10-06",
+      "notice": [
+        "The client spawned the server and discovered all three primitives over stdio: exactly what Claude Code does after `claude mcp add`. The tool schema was generated from the type hint `sku: str`.",
+        "WID-9 came back as `is_error: True` with an actionable message listing valid SKUs. That is what lets the model self-correct instead of retrying blindly.",
+        "The negotiated protocol revision is 2026-07-28, newer than Exam Guide v1.0. The primitives and their controllers are unchanged; treat newer protocol details as engineering knowledge."
+      ],
+      "explain": "Executed for real on 2026-10-06 with nbclient 0.11.0 and ipykernel 7.4.0 on Python 3.11.15 (Linux), mcp 2.3.0 with mcp-types 2.3.0, pydantic 2.13.5, anyio 4.15.1. The client ran as a subprocess launched from the notebook."
+    },
+    "c09": {
+      "output": "{\n  \"mcpServers\": {\n    \"warehouse\": {\n      \"command\": \".../venv/bin/python\",\n      \"args\": [\n        \".../exec4/warehouse_server.py\"\n      ]\n    }\n  }\n}\n",
+      "kind": "executed",
+      "executedAt": "2026-10-06",
+      "notice": [
+        "`command` plus `args` means the host spawns a local process: stdio. A config that holds a `url` instead is a remote Streamable HTTP server. That one field answers most transport questions.",
+        "Use absolute paths. The host launches the server from its own working directory, so a relative path that works in your terminal fails silently in the host."
+      ],
+      "explain": "Executed for real on 2026-10-06 with nbclient 0.11.0 and ipykernel 7.4.0 on Python 3.11.15 (Linux), mcp 2.3.0 with mcp-types 2.3.0, pydantic 2.13.5, anyio 4.15.1. Absolute paths shortened to their scratch-directory suffix."
+    }
+  },
+  "checkpoint": [
+    {
+      "q": "Name the three primitives and who controls each",
+      "a": "Tools are model-controlled: the model decides when to invoke them. Resources are application-controlled: the client decides what data to attach as context. Prompts are user-controlled: templates the user picks, often surfaced as slash commands. An exam stem about who triggers the capability is asking you to map it to one of these."
+    },
+    {
+      "q": "Which transport for a local process? Which for remote?",
+      "a": "stdio for a local process: the client launches the server as a subprocess and talks over stdin and stdout, with no network exposure. Streamable HTTP for a remote server reached by URL, which should be authenticated. The older HTTP+SSE transport is deprecated, so it is the wrong answer for a new remote server."
+    },
+    {
+      "q": "When is an MCP server the right answer instead of a custom tool?",
+      "a": "When the capability must be reusable across applications or hosts (Claude Code, Claude Desktop, other MCP clients) or maintained by a different team. A custom tool defined in one app's API call serves only that app. The buried constraint to look for is \"reusable\" or \"shared across\"."
+    }
+  ]
+}

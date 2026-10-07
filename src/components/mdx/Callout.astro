@@ -1,0 +1,13 @@
+---
+// <Callout type="key|trap|tip|note" title="...">markdown</Callout>
+interface Props {
+  type?: 'key' | 'trap' | 'tip' | 'note';
+  title?: string;
+}
+const { type = 'note', title } = Astro.props;
+const defaults = { key: 'Key point', trap: 'Trap', tip: 'Tip', note: 'Note' };
+---
+<aside class={`callout callout-${type}`}>
+  <p class="callout-title">{title ?? defaults[type]}</p>
+  <slot />
+</aside>

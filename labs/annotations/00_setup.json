@@ -1,0 +1,30 @@
+{
+  "cells": {
+    "c01": {
+      "output": "python 3.12.4\nanthropic sdk 0.xx.x",
+      "kind": "illustrative",
+      "notice": [
+        "Your Python and SDK versions will differ; any recent SDK works. The point is that the import and client construction succeed.",
+        "A missing key surfaces later as AuthenticationError. A blocked network surfaces as APIConnectionError. Knowing which is which saves an hour of debugging."
+      ]
+    },
+    "c03": {
+      "output": "claude-sonnet-5-5      Claude Sonnet 5.5    in=1000000   out=128000\nclaude-opus-5-5        Claude Opus 5.5      in=1000000   out=128000\nclaude-fable-5-1       Claude Fable 5.1     in=1000000   out=128000\nclaude-opus-5          Claude Opus 5        in=1000000   out=128000\nclaude-sonnet-5        Claude Sonnet 5      in=1000000   out=128000\n...\nclaude-haiku-4-5       Claude Haiku 4.5     in=200000    out=64000",
+      "kind": "illustrative",
+      "notice": [
+        "max_input_tokens is the context window; max_tokens is the output ceiling. They differ by roughly an order of magnitude, and a model-selection question that hinges on one is easy to misread as the other.",
+        "The list and its order are illustrative; your account may see more or fewer models. Trust your own output over this page.",
+        "Haiku 4.5 has a 200K window while the current Sonnet and Opus models have 1M. Window size is a selection constraint, not just a price difference."
+      ]
+    },
+    "c05": {
+      "output": "ok | end_turn | 14 in / 38 out\nblock types: ['thinking', 'text']",
+      "kind": "illustrative",
+      "notice": [
+        "output_tokens is larger than the two visible characters because adaptive thinking ran first and is billed as output.",
+        "The response starts with a thinking block. Reading content[0].text here would raise AttributeError, which is why text_of exists.",
+        "stop_reason end_turn means the model finished on its own. Any other value needs a branch in your code."
+      ]
+    }
+  }
+}

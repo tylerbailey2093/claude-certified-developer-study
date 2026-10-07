@@ -1,0 +1,65 @@
+---
+// <Sequence actors={["App", "Claude API", "Tool"]}
+//   messages={[["App", "Claude API", "messages.create + tools"],
+//              ["Claude API", "App", "stop_reason: tool_use", "reply"]]} />
+// Build-time SVG sequence diagram. A 4th element "reply" draws a dashed arrow;
+// "note" draws a note box over the sender's lifeline.
+interface Props {
+  actors: string[];
+  messages: [string, string, string, ('reply' | 'note')?][];
+  title?: string;
+  caption?: string;
+}
+const { actors, messages, title, caption } = Astro.props;
+const COL = Math.max(150, Math.min(200, Math.floor(720 / actors.length)));
+const W = actors.length * COL;
+const ROW = 40;
+const TOP = 44;
+const H = TOP + messages.length * ROW + 20;
+const xOf = (a: string) => {
+  const i = actors.indexOf(a);
+  if (i < 0) throw new Error(`<Sequence>: unknown actor "${a}"`);
+  return i * COL + COL / 2;
+};
+const aria = title ?? `Sequence between ${actors.join(', ')}`;
+---
+<figure class="diagram">
+  {title && <figcaption class="diagram-title">{title}</figcaption>}
+  <div class="diagram-scroll">
+    <svg viewBox={`0 0 ${W} ${H}`} width={W} role="img" aria-label={aria} class="sequence">
+      <defs>
+        <marker id="seq-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="arrowhead" />
+        </marker>
+      </defs>
+      {actors.map((a, i) => (
+        <g>
+          <rect class="actor" x={i * COL + 8} y={4} width={COL - 16} height={26} rx="6" />
+          <text class="node-label" x={i * COL + COL / 2} y={22} text-anchor="middle">{a}</text>
+          <line class="lifeline" x1={i * COL + COL / 2} y1={30} x2={i * COL + COL / 2} y2={H - 6} />
+        </g>
+      ))}
+      {messages.map(([from, to, label, kind], i) => {
+        const y = TOP + i * ROW + 18;
+        const x1 = xOf(from);
+        const x2 = xOf(to);
+        if (kind === 'note' || from === to) {
+          return (
+            <g>
+              <rect class="note" x={x1 - COL / 2 + 12} y={y - 14} width={COL - 24} height={22} rx="4" />
+              <text class="node-note" x={x1} y={y + 1} text-anchor="middle">{label}</text>
+            </g>
+          );
+        }
+        const dir = x2 > x1 ? 1 : -1;
+        return (
+          <g>
+            <line class={`msg${kind === 'reply' ? ' reply' : ''}`} x1={x1} y1={y} x2={x2 - dir * 3} y2={y} marker-end="url(#seq-arrow)" />
+            <text class="msg-label" x={(x1 + x2) / 2} y={y - 7} text-anchor="middle">{label}</text>
+          </g>
+        );
+      })}
+    </svg>
+  </div>
+  {caption && <figcaption class="diagram-caption">{caption}</figcaption>}
+</figure>

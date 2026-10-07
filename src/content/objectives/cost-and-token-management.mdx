@@ -6,148 +6,279 @@ name: "Cost and Token Management"
 weight: 2.8
 tier: 2
 hot: false
+summary: "Budget tokens before you spend them, read every usage field after, model cost per completed task, and pull levers in order: fewer tokens, prompt caching with deliberate checkpoints, batch, effort, and model choice last."
+subskills: ["cost.budgeting", "cost.tracking", "cost.modeling", "cost.prompt-caching", "cost.checkpointing"]
+related: ["model-selection-and-tradeoffs", "claude-api-mechanics", "context-engineering", "llm-fundamentals"]
 scope:
+  - "token budgeting"
   - "token usage tracking"
   - "cost modeling"
   - "prompt caching"
   - "cache check-pointing"
 traps:
-  - "thinking tokens bill at OUTPUT rates"
-  - "optimization order: fewer tokens, cache, batch, effort step-down, model downgrade LAST"
+  - name: "Thinking tokens bill at output rates"
+    looksRight: "Thinking is internal scratch work, often hidden or summarized, so it feels free or cheap."
+    failsBecause: "Thinking tokens are billed as output tokens at full length even when display is omitted or summarized, and they count against max_tokens. Output is the most expensive token class at every tier."
+    cue: "An option raises effort or thinking 'to be safe' and claims cost is unaffected, or a team cannot reconcile billed output with the visible text."
+  - name: "Model downgrade first"
+    looksRight: "A cheaper tier cuts every per-token price at once, so it looks like the biggest lever."
+    failsBecause: "It is the only lever that changes behaviour, so it invalidates every eval. Fewer tokens, caching, batch and effort step-down come first and leave validated behaviour intact."
+    cue: "A cost complaint where the stem also mentions a large stable prefix, latency-tolerant work, or high effort, and one option is 'switch to a smaller model'."
+  - name: "Lowering max_tokens to save money"
+    looksRight: "max_tokens is a cost cap, so a smaller number should mean a smaller bill."
+    failsBecause: "You are billed for tokens actually generated, not for max_tokens. A cap below what the task needs truncates with stop_reason max_tokens, and the retry costs more than the original call. max_tokens does not affect OTPM rate limits either."
+    cue: "Responses are already short and an option proposes cutting max_tokens as the cost fix, or truncated outputs appear after a 'cost optimization'."
+  - name: "Caching content that is read once"
+    looksRight: "Caching is always a discount, so mark everything cacheable."
+    failsBecause: "A cache write costs 1.25x (5 minute) or 2x (1 hour) the base input price. With no later read inside the TTL you pay the premium and never collect the 0.1x read."
+    cue: "Each document or prompt is unique per request, or requests arrive further apart than the TTL, and the option adds cache_control anyway."
+  - name: "input_tokens is the whole prompt"
+    looksRight: "The field is called input_tokens, so it must be the total input."
+    failsBecause: "With caching it counts only tokens after the last cache breakpoint. Total input is input_tokens plus cache_creation_input_tokens plus cache_read_input_tokens, each at its own price."
+    cue: "A dashboard built on input_tokens alone shows spend falling while the invoice does not, or a stem asks how to compute total input."
+  - name: "Reusing token counts across a model migration"
+    looksRight: "Text is text; the same prompt should cost the same number of tokens on any model."
+    failsBecause: "Claude 4.7 and later models use a newer tokenizer that produces roughly 30% more tokens for the same text. Budgets and cost models must be recounted against the target model."
+    cue: "A migration plan that reuses last quarter's token totals to forecast cost on the new model."
 sources:
-  - label: "Pricing"
-    url: "https://platform.claude.com/docs/en/about-claude/pricing"
-  - label: "Prompt caching"
-    url: "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
-  - label: "Token counting"
-    url: "https://platform.claude.com/docs/en/build-with-claude/token-counting"
+  - { label: "Pricing", url: "https://platform.claude.com/docs/en/about-claude/pricing", kind: "docs", verified: "2026-10-06" }
+  - { label: "Prompt caching", url: "https://platform.claude.com/docs/en/build-with-claude/prompt-caching", kind: "docs", verified: "2026-10-06" }
+  - { label: "Token counting", url: "https://platform.claude.com/docs/en/build-with-claude/token-counting", kind: "docs", verified: "2026-10-06" }
+  - { label: "Task budgets", url: "https://platform.claude.com/docs/en/build-with-claude/task-budgets", kind: "docs", verified: "2026-10-06" }
+  - { label: "Rate limits", url: "https://platform.claude.com/docs/en/api/rate-limits", kind: "docs", verified: "2026-10-06" }
+  - { label: "Thinking", url: "https://platform.claude.com/docs/en/build-with-claude/thinking", kind: "docs", verified: "2026-10-06" }
+  - { label: "Thinking: steering and cost", url: "https://platform.claude.com/docs/en/build-with-claude/thinking-steering-and-cost", kind: "docs", verified: "2026-10-06" }
+  - { label: "Context windows", url: "https://platform.claude.com/docs/en/build-with-claude/context-windows", kind: "docs", verified: "2026-10-06" }
+lastReviewed: "2026-10-06"
 authored: true
 ---
 
-## What this objective actually tests
+## Concept
 
-This objective is about picking the right lever, in the right order, to control what a Claude application costs — and about reading the `usage` object precisely enough to know whether a lever actually worked. The exam is not testing whether you know prompt caching exists; it's testing whether you'd reach for it *before* a model downgrade, whether you can place a `cache_control` breakpoint somewhere that will actually hit, and whether you know that a thinking-heavy response is billed as output, not as some separate free category.
+The guide opens this objective with **token budgeting**, then lists usage tracking, cost modeling, prompt caching and cache checkpointing. Read it as one loop: decide what a call or task may spend before you send it, read exactly what it did spend from `usage`, turn that into cost per completed task, then pull the cheapest lever that moves the number.
+
+Items test levers and ratios, not prices: output costs 5x input, a cache read is a tenth of input on most models, a 5 minute write costs 1.25x. Dollar figures drift; ratios do not.
+
+**Scope boundary.** Choosing a model tier on capability grounds is <ObjLink id="model-selection-and-tradeoffs" />. Batch request shape, `custom_id` joins and result polling are <ObjLink id="claude-api-mechanics" />; here batch is only a lever that halves price and stacks with caching. Keeping the window useful (pruning, compaction, isolation) is <ObjLink id="context-engineering" />; here those matter only because fewer tokens cost less. What a token is belongs to <ObjLink id="llm-fundamentals" />.
+
+Not this:
+- Picking Opus versus Sonnet for reasoning quality
+- Batch API polling, result ordering or request limits
+- Designing compaction summaries for recall
+
+<Callout type="key" title="The order that wins points">
+Measure first, then cut in this order: **send fewer tokens, cache the stable prefix, batch what can wait, step effort down, and change the model last.** Only the last lever changes behaviour, so only the last one forces you to re-run evals.
+</Callout>
 
 ## Mechanism
 
-### Optimization order — cheapest lever first
+<Flow title="Cost control loop" steps={[{label: "Budget", kind: "guard", note: "count_tokens, max_tokens, task budget"}, {label: "Call", kind: "api"}, {label: "usage", kind: "store", note: "per feature, tenant, model"}, {label: "Cost per completed task", kind: "decision"}, {label: "Lever", kind: "client", note: "fewer tokens, cache, batch, effort, model"}]} caption="Budgets act before the call; tracking and modeling decide which lever to pull next." />
 
-The blueprint states this order explicitly, and it is the single most tested idea in this objective:
+### Token budgeting
 
-1. **Send fewer tokens.** Trim the prompt, retrieve less, compact history. Free and the highest per-request return.
-2. **Prompt caching** on any stable prefix.
-3. **Batch** for anything latency-tolerant. *(Batch API mechanics are scored in Domain 2 — Applications and Integration, under `claude-api-mechanics` — not here. This objective only needs you to know batch exists as a cost lever and stacks with caching; do not expect API-shape questions about it in this section.)*
-4. **Effort step-down** on the same model.
-5. **Model downgrade — last.** It invalidates every eval you've run, same as in Model Selection and Tradeoffs.
+<SubskillAnchor id="cost.budgeting" />
 
-The classic wrong answer dramatized in stems: a team proposes a tier downgrade as the *first* response to a cost complaint, when a cache breakpoint or an effort step would have fixed it without touching validated behavior. If a stem's "obvious" answer is "switch to a cheaper model," check whether a cache or effort lever was available and unused first — that's usually the actual answer.
+Budgets exist at three scopes, and each has a different enforcement mechanism.
 
-### Prompt caching mechanics, precisely
+| Scope | Mechanism | Enforced? |
+|---|---|---|
+| One request, output side | `max_tokens` (thinking counts inside it) | Yes, hard cap; truncates with `stop_reason: "max_tokens"` |
+| One request, input side | `count_tokens` pre-check in your code | Yes, if your code refuses or trims |
+| One agentic loop | `output_config.task_budget` (beta) | No, advisory; `max_tokens` stays the hard cap |
+| Per user, per tenant, per month | Your ledger summing `usage`; Console workspace spend limits | Yes, in your code or at the workspace limit |
 
-[Certain — prompt caching docs, `platform.claude.com/docs/en/build-with-claude/prompt-caching`, checked 2026-08-25]
+**Sizing `max_tokens`.** Size it to the longest legitimate answer plus thinking headroom, not to the average. Billing counts tokens generated, not the cap, and the rate limits page states that `max_tokens` does not factor into OTPM [Certain]. A tight cap therefore saves nothing on a normal response and wastes a whole call on a long one. Thinking tokens are a subset of `max_tokens` [Certain], so a high-effort call needs more room than its visible answer suggests.
 
-- **Exact prefix match with a lookback window.** A cache write happens only at a `cache_control` breakpoint and stores a cumulative hash of everything up to and including that block. A cache read computes the hash at your breakpoint, checks for a matching entry, and — if there's no exact match — walks backward up to **20 blocks** looking for the most recent prior write. Any byte changed anywhere in the prefix (not just near the breakpoint) invalidates the match for everything after that point.
-- **Render order is `tools` → `system` → `messages`.** Put stable content first (deterministic tool list, frozen system prompt) and volatile content (timestamps, per-request IDs, the newest turn) after the last breakpoint. Changing tool definitions invalidates the tools cache *and* everything downstream of it; changing `tool_choice` or adding/removing images invalidates tools+system but not an already-cached messages prefix that sits after them; a thinking-configuration or effort change invalidates cache in a model-specific way; nothing before the changed level is affected.
-- **Minimum cacheable prefix is not uniform across tiers** — a prompt shorter than the minimum is silently processed *without* caching (no error):
-  | Model | Minimum tokens to cache |
-  |---|---|
-  | Opus 5, Fable 5, Mythos 5 | 512 |
-  | Sonnet 5, Opus 4.8, Sonnet 4.6, Sonnet 4.5, Opus 4.1, Opus 4 | 1,024 |
-  | Opus 4.5, Opus 4.6, **Haiku 4.5** | 4,096 |
-  | Mythos Preview, Opus 4.7, Haiku 3.5 | 2,048 |
-- **TTL is 5 minutes by default, with a 1-hour option.** 5-minute writes cost 1.25x the base input rate and refresh for free on every hit, measured from request start (not response end — a 4-minute stream leaves roughly 1 minute before the next request must land to keep the cache alive). The 1-hour option (`cache_control: {type: "ephemeral", ttl: "1h"}`) costs 2x the base input rate to write. A 5-minute cache pays for itself after one read; the 1-hour tier after two.
-- **Up to 4 breakpoints per request.** Automatic top-level `cache_control` caches the last cacheable block and moves forward as a conversation grows — the simplest option when fine-grained placement isn't needed. Explicit per-block `cache_control` gives control over exactly what's cached, which matters once a conversation exceeds the 20-block lookback window or has multiple stability tiers (e.g., a frozen system prompt at 1h TTL, a slower-changing document at 5m).
+**Pre-checking with `count_tokens`.** The endpoint takes the same system, tools, messages, images and PDFs as a real request and returns `input_tokens`. It is free, has its own rate limit separate from message creation, returns an estimate, and applies no caching logic [Certain]. It rejects server tools (other than the advisor tool), the MCP connector and URL or file sources [Certain]. Use it to refuse an oversize request, trim retrieval, or route before an expensive call.
 
-### Token usage tracking via `usage`
+**Per-task and per-user budgets.** Keep a ledger keyed by user or tenant, priced from `usage`, and check it before each call. A spend limit you set in the Console stops requests with a 400 `invalid_request_error`, distinct from the tier cap's 429 [Certain]. Workspaces can carry their own spend and rate limits [Certain]. Per-user limits remain your code's job.
 
-The response's `usage` object is the ground truth for cost, not an estimate:
+**Task budgets for agent loops.** `output_config.task_budget` with `{"type": "tokens", "total": N}` tells the model how many tokens the whole loop may spend, including thinking, tool calls, tool results and output. The model sees a countdown and paces itself; responses carry no remaining-budget field [Certain]. It is advisory: the model may overrun to finish an action, so `max_tokens` stays the per-request ceiling. The minimum total is 20,000, a budget far too small can cause refusal-like early stops, and changing `remaining` per request breaks the cache [Certain]. The beta header is `task-budgets-2026-03-13`, which suggests it predates the guide, but it is beta and unsupported on Haiku 4.5 and Sonnet 4.6 [Likely low exam weight].
 
-- `input_tokens` — tokens **after** the last cache breakpoint only, never the full prompt.
-- `cache_read_input_tokens` — tokens served from cache (≈0.1x base input cost).
-- `cache_creation_input_tokens` — tokens newly written to cache this request (1.25x for 5m writes, 2x for 1h; when mixing TTLs, the field splits into `cache_creation.ephemeral_5m_input_tokens` / `ephemeral_1h_input_tokens`).
-- `output_tokens` — generated tokens, billed at the output rate.
-- `output_tokens_details.thinking_tokens` — **a breakdown *within* `output_tokens`, not a separate field or a separate rate.** This is the trap: thinking/reasoning tokens are billed at the model's output rate, same as visible response text. A thinking-heavy request is not "free reasoning plus cheap output" — it's expensive output, twice.
-- If `cache_read_input_tokens` is **zero across repeated, supposedly-identical requests**, something is silently invalidating the cache — a `datetime.now()` or UUID rendered into the system prompt, unsorted JSON producing a different byte sequence per request, or a varying tool set. This is diagnostic, not cosmetic: silent cache misses look like normal traffic in a dashboard that only tracks total spend.
+**Exam angle:** "cap", "ceiling", "before sending", "estimate" point here. The usual distractor is lowering `max_tokens` as a cost fix, which saves nothing and truncates.
+
+### Token usage tracking
+
+<SubskillAnchor id="cost.tracking" />
+
+`usage` on every response is the billing truth. Read every field.
+
+| Field | Meaning | Price multiplier on base input |
+|---|---|---|
+| `input_tokens` | Tokens **after the last cache breakpoint** only | 1x |
+| `cache_creation_input_tokens` | Tokens written to cache this request | 1.25x (5m) or 2x (1h) |
+| `cache_creation.ephemeral_5m_input_tokens` / `ephemeral_1h_input_tokens` | Split of the write by TTL | as above |
+| `cache_read_input_tokens` | Tokens served from cache | 0.1x on most models |
+| `output_tokens` | Everything generated, **including thinking** | output rate |
+| `server_tool_use.web_search_requests` | Server tool calls billed per use | $10 per 1,000 searches [Certain] |
+| `iterations` (compaction) | Per-iteration usage when server compaction runs | sum them; top level excludes compaction |
+
+Total input is `input_tokens + cache_creation_input_tokens + cache_read_input_tokens` [Certain]. Thinking is billed as output at full length even when `display` is `"omitted"` or summarized, so billed `output_tokens` will not match the text you see [Certain]. The thinking cost page documents a breakdown, `usage.output_tokens_details.thinking_tokens`, which is always at most `output_tokens`; when streaming it appears only on the final `message_delta` [Certain, likely post-guide]. Use it for dashboards, but the exam-safe fact is that thinking is inside `output_tokens` at the output rate.
+
+Log every field per request, tagged with feature, tenant, model and effort, and alert on **cache hit ratio** (reads over total input) and **cost per completed task**. A silent cache regression shows up as `cache_read_input_tokens` dropping to zero. Cached reads also do not count toward ITPM on most models [Certain], so a cache regression can surface as 429s before it shows on the invoice.
+
+**Exam angle:** cues are "dashboard", "attribute", "reconcile with the invoice". The trap is treating `input_tokens` as total input or thinking as free.
 
 ### Cost modeling
 
-Total request cost sums five components, each at the model's own per-tier rate:
+<SubskillAnchor id="cost.modeling" />
 
 ```
-cost = input_tokens × input_rate
-     + cache_read_input_tokens × (0.1 × input_rate)
-     + cache_creation_5m_tokens × (1.25 × input_rate)
-     + cache_creation_1h_tokens × (2 × input_rate)
-     + output_tokens × output_rate            # includes thinking_tokens
+cost = input_tokens x in
+     + cache_write_5m x in x 1.25
+     + cache_write_1h x in x 2.0
+     + cache_read x in x 0.1        # 0.05 on Opus 5.5, 0.025 on Fable 5.1
+     + output_tokens x out          # thinking included
+     then x 0.5 if batched, x 1.1 if inference_geo "us" (4.6+ models)
 ```
 
-[Certain — pricing page, checked 2026-08-25] Current per-million-token rates, standard (non-batch) pricing:
+**Worked arithmetic, Sonnet 5.5** ($2 input, $10 output per million [Certain]; 5 minute write $2.50, read $0.20). An analytics assistant sends a 24,000-token stable prefix (tools, system, schema notes), a 400-token question, and gets 900 output tokens including thinking.
 
-| Tier | Input | Output | Cache read | Cache write (5m / 1h) |
-|---|---|---|---|---|
-| Fable 5 / Mythos 5 | $10 | $50 | $1 | $12.50 / $20 |
-| Opus 5 | $5 | $25 | $0.50 | $6.25 / $10 |
-| Sonnet 5 | $2 | $10 | $0.20 | $2.50 / $4 |
-| Haiku 4.5 | $1 | $5 | $0.10 | $1.25 / $2 |
+| Call | Calculation | Cost |
+|---|---|---|
+| Uncached | 24,400 x $2/M + 900 x $10/M | $0.0578 |
+| First call, cache write | 24,000 x $2.50/M + 400 x $2/M + 900 x $10/M | $0.0698 |
+| Later call, cache hit | 24,000 x $0.20/M + 400 x $2/M + 900 x $10/M | $0.0146 |
+| Five-question session, cached | $0.0698 + 4 x $0.0146 | $0.1282 vs $0.289 uncached |
 
-Output runs 5x input at every tier; cache read is a flat 0.1x of that tier's input rate; cache writes are 1.25x (5m) or 2x (1h) of input. These *ratios* are the stable, testable fact — the digits move with pricing changes.
+Caching cut the session by about 56%. After caching, output is $0.009 of the $0.0146 hit, so the **next** lever is output (effort step-down, tighter format), not a model change.
 
-### Tracking and governance
+**Cost per completed task, not per request.** Divide all spend (retries, failed tool calls, abandoned sessions, extra agent turns) by tasks that succeeded. Haiku 4.5 prices the same cached call at about $0.0073; if it needs two attempts per accepted answer, it costs $0.0146 per completed task, the same as Sonnet 5.5 at one attempt, before counting the user's time. Token counts also differ by tokenizer: models from Claude 4.7 on produce roughly 30% more tokens for the same text [Certain], so recount before comparing.
 
-Log `input_tokens`, `output_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`, and thinking tokens **separately**, attributed per feature and per tenant — a single blended "tokens used" number hides which lever to pull. Alert on cost-per-transaction drift, not monthly totals, so a caching regression or an effort creep shows up before the bill does. Don't ship a global max-effort flag "to be safe" — that's the same overprovisioning mistake as defaulting every task to Opus, just moved into the effort dimension instead of the model dimension.
+Modifiers stack multiplicatively: batch halves input and output, caching multipliers apply on top, and US-only inference adds 1.1x on 4.6 and later models [Certain]. 1M-token context on 4.6 and later models bills at standard rates with no long-context premium [Certain].
+
+**Exam angle:** cues are "forecast", "per ticket", "which costs more". The distractor compares per-request price and ignores attempts per success.
+
+### Prompt caching for cost
+
+<SubskillAnchor id="cost.prompt-caching" />
+
+Caching trades a write premium for a read discount on a repeated prefix.
+
+| | 5 minute TTL (default) | 1 hour TTL |
+|---|---|---|
+| Syntax | `{"type": "ephemeral"}` | `{"type": "ephemeral", "ttl": "1h"}` |
+| Write cost | 1.25x base input | 2x base input |
+| Break-even | after 1 read | after 2 reads |
+| Choose when | requests arrive within minutes | gaps of 5 to 60 minutes (human think time, long tool runs) |
+
+Each hit refreshes the TTL at no extra cost, and the lifetime is measured from the **start** of the request, so a long stream eats into it [Certain]. Prefixes below the model's minimum are processed uncached with no error: 512 tokens on Opus 5.5 and Sonnet 5.5, 1,024 on Opus 4.8, Sonnet 5 and Sonnet 4.6, 4,096 on Haiku 4.5 [Certain]. Caches are isolated per workspace on the Claude API [Certain]. Cached tokens still occupy the context window; caching changes the price, not the size [Certain].
+
+<PostGuide since="2026-08">
+Cache reads are no longer a flat 0.1x on every model: Opus 5.5 reads cost 0.05x and Fable 5.1 reads cost 0.025x of base input, per the current pricing page [Certain]. Use 0.1x as the general rule for exam reasoning.
+</PostGuide>
+
+**Exam angle:** cues are "same large prefix", "repeated", "steady traffic". The distractor caches unique per-request content or picks 5 minutes when the stem describes gaps longer than 5 minutes.
+
+### Cache checkpointing
+
+<SubskillAnchor id="cost.checkpointing" />
+
+A checkpoint is a `cache_control` marker. The prefix renders as **tools, then system, then messages**, and a write stores a hash of everything up to the marker. A read checks for an exact prefix match, looking back at most **20 blocks** per breakpoint for an earlier write [Certain]. You get **up to 4 breakpoints** per request [Certain]. Top-level automatic caching (one `cache_control` on the request) places the breakpoint on the last cacheable block and moves it forward as the conversation grows [Certain].
+
+**Placement.** Put a checkpoint where stability changes: after tools and system (changes on deploy), after a large reference document (changes daily), and at the end of the conversation (moves every turn). When mixing TTLs, longer TTLs must come before shorter ones [Certain].
+
+| Change | Tools cache | System cache | Messages cache |
+|---|---|---|---|
+| Tool definitions | invalidated | invalidated | invalidated |
+| Web search, citations or fast-mode toggle | kept | invalidated | invalidated |
+| `tool_choice`, adding or removing images | kept | kept | invalidated |
+| Thinking config or effort | model-specific | model-specific | invalidated |
+
+Source: prompt caching page [Certain]. Also invalidating: any byte change upstream (a timestamp or request ID in the system prompt, non-deterministic JSON key order), tool result clearing by context editing, and a changing task budget `remaining` value [Certain].
+
+**Exam angle:** cues are "cache_read is 0", "hits stopped after turn 20", "only the latest turn changes". The distractor is a bigger TTL when the real fault is a volatile byte upstream of the breakpoint.
 
 ## Decision table
 
-| When the stem says... | ...the answer is |
-|---|---|
-| A cost complaint's proposed fix is "downgrade the model tier" | Wrong order — try caching and effort step-down first; model downgrade is last because it invalidates evals |
-| Large static system prompt, steady repeated traffic, want the cheapest fix | A `cache_control` breakpoint after the stable content, ordered most-stable-first |
-| Agentic workflow runs longer than 5 minutes between calls but less than hourly | 1-hour TTL cache (`ttl: "1h"`) — pays for itself after two reads instead of one |
-| `cache_read_input_tokens` is 0 across requests that look identical | A silent invalidator — check for a timestamp/UUID in the prompt, unsorted JSON, or a varying tool set |
-| A team wants to report "how much did thinking cost us" separately from output | It can't be separated by rate — thinking tokens are billed at the output rate, inside `output_tokens_details.thinking_tokens`; track it as a labeled subset, not a different price |
-| "10,000 documents, not needed until tomorrow, cost is the primary concern" | That's a Batch API question — Domain 2 territory, not this objective; the Domain 5 cost levers here are caching/effort/token-trimming, and batch is only a one-line mention that it stacks with them |
-| A prompt below the model's cache minimum shows no cache fields and no error | Expected — caching silently no-ops below the per-tier minimum (512–4,096 tokens depending on model); it is not a bug |
-| Conversation has grown past 20 messages and cache hits stopped | Add or move an explicit breakpoint — the lookback window is 20 blocks; content further back than that needs its own checkpoint |
+| If the stem says... | Choose | Why the runner-up loses |
+|---|---|---|
+| Cost spiked; prompt has a large unchanging prefix; team proposes a cheaper model | Add a cache checkpoint after the stable prefix | Model downgrade changes behaviour and invalidates evals; caching keeps outputs identical |
+| `cache_read_input_tokens` is 0 on back-to-back identical requests | Find the volatile byte upstream (timestamp, ID, unsorted JSON, tool list) | Switching to the 1 hour TTL cannot help when the prefix differs each time |
+| Users reply every 10 to 30 minutes against the same long context | 1 hour TTL on the stable block | The 5 minute cache expires between turns, so every turn pays a fresh 1.25x write |
+| Each request carries a unique document read once | Do not cache that document; trim or retrieve less | A write premium with no later read costs more than no caching |
+| Must reject requests that would exceed a per-request input budget before spending anything | `count_tokens` pre-check, then refuse or trim | Reading `usage` afterward is too late; the tokens are already billed |
+| Agent loop should wind down gracefully near a token target | Task budget (advisory) plus a sane `max_tokens` (hard cap) | `max_tokens` alone truncates mid-action; a task budget alone is not enforced |
+| Team wants to know how much reasoning costs | Read `usage.output_tokens_details.thinking_tokens` (inside `output_tokens`, billed at the output rate) per feature and effort level | There is no cheaper thinking rate to report separately |
+| Cached answers are cheap now but output dominates each call | Step effort down or tighten the answer format | Model downgrade comes last; effort keeps the same model |
 
-## Code examples
+## Worked walkthrough
 
-Both examples cache a large stable system prompt with an explicit breakpoint, then read the cache fields back from `usage` to confirm the hit — the only reliable way to know caching is actually working.
+<Walkthrough title="Scenario: code review assistant that never hits its cache">
+
+<Step title="Read the scenario">
+A pull-request review assistant on Sonnet 5.5 sends 30,000 tokens of repository conventions as a cached system block, then the reviewer's comment. Reviewers usually reply 10 to 20 minutes after the previous answer. `usage` shows `cache_creation_input_tokens` near 30,000 on every call and `cache_read_input_tokens` at 0. Options: (A) move to Haiku 4.5, (B) set the conventions block to the 1 hour TTL, (C) route reviews through the Batch API, (D) cut `max_tokens` from 4,000 to 1,000.
+</Step>
+
+<Step title="Find the constraint">
+Two facts together: a write on every call, and a gap of 10 to 20 minutes between calls. The prefix is stable (the write size is constant), so the cache is not being invalidated; it is **expiring**. The default TTL is 5 minutes.
+</Step>
+
+<Step title="Eliminate the distractors">
+(A) Haiku is model change, the last lever; it changes review quality and does nothing about expiry. (C) Batch is asynchronous with up to 24 hours to complete, which breaks an interactive review thread. (D) Billing counts generated tokens, not the cap, so a lower cap only truncates longer reviews.
+</Step>
+
+<Step title="Choose and check the arithmetic">
+(B). Over four turns in an hour, 5 minute caching rewrites every turn: 4 x 30,000 x $2.50/M = $0.30. With the 1 hour TTL: one write at 30,000 x $4/M = $0.12, then three reads at 30,000 x $0.20/M = $0.018. About $0.14 instead of $0.30, with identical outputs.
+</Step>
+
+<Step title="The deciding cue">
+"Reply 10 to 20 minutes later" plus "cache write on every call". A constant write size means a stable prefix that expires, which points to TTL. A varying write size or a zero read on back-to-back calls would instead point to a volatile byte in the prefix.
+</Step>
+
+</Walkthrough>
+
+## Code
+
+**Budget before, cost after.** Pre-check input with `count_tokens`, enforce a per-user ledger, cap output with `max_tokens`, then price the real call from every `usage` field.
 
 ```python
-from anthropic import Anthropic
+import anthropic
 
-client = Anthropic()
+client = anthropic.Anthropic()
 
-LARGE_STABLE_SYSTEM_PROMPT = "...50KB of policy and reference docs..."
+MODEL = "claude-sonnet-5-5"
+PRICE = {"in": 2.00, "out": 10.00}  # USD per million tokens (src/data/facts.json)
+MULT = {"write_5m": 1.25, "write_1h": 2.0, "read": 0.1}
+ledger: dict[str, float] = {}  # user_id -> USD spent this month
 
-def ask(question: str):
-    response = client.messages.create(
-        model="claude-opus-5",
-        max_tokens=1024,
-        system=[
-            {
-                "type": "text",
-                "text": LARGE_STABLE_SYSTEM_PROMPT,
-                # Breakpoint at the end of the stable block. Volatile content
-                # (the user's question) stays out of the cached prefix.
-                "cache_control": {"type": "ephemeral", "ttl": "1h"},
-            },
-        ],
-        messages=[{"role": "user", "content": question}],
+
+def text_of(resp) -> str:
+    return "".join(b.text for b in resp.content if b.type == "text")
+
+
+def cost_usd(u) -> float:
+    cc = getattr(u, "cache_creation", None)
+    w1h = (getattr(cc, "ephemeral_1h_input_tokens", 0) or 0) if cc else 0
+    w5m = (u.cache_creation_input_tokens or 0) - w1h
+    read = u.cache_read_input_tokens or 0
+    per_million = (
+        u.input_tokens * PRICE["in"]
+        + w5m * PRICE["in"] * MULT["write_5m"]
+        + w1h * PRICE["in"] * MULT["write_1h"]
+        + read * PRICE["in"] * MULT["read"]
+        + u.output_tokens * PRICE["out"]  # thinking is already inside output_tokens
     )
+    return per_million / 1_000_000
 
-    u = response.usage
-    thinking = getattr(u, "output_tokens_details", None)
-    thinking_tokens = getattr(thinking, "thinking_tokens", 0) if thinking else 0
-    print(
-        f"input={u.input_tokens} "
-        f"cache_read={u.cache_read_input_tokens} "
-        f"cache_write={u.cache_creation_input_tokens} "
-        f"output={u.output_tokens} (thinking={thinking_tokens})"
-    )
-    # A cache_read of 0 on the *second* identical call means something in the
-    # prefix changed — check for a timestamp, unsorted JSON, or a tool diff.
-    return response
+
+def ask(user_id: str, system: str, messages: list, max_input=40_000, max_out=2_000, cap_usd=25.0):
+    if ledger.get(user_id, 0.0) >= cap_usd:
+        raise RuntimeError(f"{user_id} is over the monthly cap")
+    n = client.messages.count_tokens(model=MODEL, system=system, messages=messages).input_tokens
+    if n > max_input:
+        raise ValueError(f"{n} input tokens exceeds budget {max_input}: trim or retrieve less")
+    resp = client.messages.create(model=MODEL, max_tokens=max_out, system=system, messages=messages)
+    spent = cost_usd(resp.usage)
+    ledger[user_id] = ledger.get(user_id, 0.0) + spent
+    if resp.stop_reason == "max_tokens":
+        print("truncated: cap too tight, and those tokens were still billed")
+    return text_of(resp), spent
+
+
+answer, usd = ask("u-417", "You answer questions about our warehouse schema.",
+                  [{"role": "user", "content": "Which table holds late-arriving events?"}])
+print(f"${usd:.5f}", answer[:80])
 ```
 
 ```typescript
@@ -155,47 +286,174 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
 
-const LARGE_STABLE_SYSTEM_PROMPT = "...50KB of policy and reference docs...";
+const MODEL = "claude-sonnet-5-5";
+const PRICE = { in: 2.0, out: 10.0 }; // USD per million tokens (src/data/facts.json)
+const MULT = { write5m: 1.25, write1h: 2.0, read: 0.1 };
+const ledger = new Map<string, number>(); // userId -> USD spent this month
 
-async function ask(question: string) {
-  const response = await client.messages.create({
-    model: "claude-opus-5",
-    max_tokens: 1024,
-    system: [
-      {
-        type: "text",
-        text: LARGE_STABLE_SYSTEM_PROMPT,
-        // Breakpoint at the end of the stable block. Volatile content
-        // (the user's question) stays out of the cached prefix.
-        cache_control: { type: "ephemeral", ttl: "1h" },
-      },
-    ],
-    messages: [{ role: "user", content: question }],
-  });
-
-  const u = response.usage;
-  const thinkingTokens = u.output_tokens_details?.thinking_tokens ?? 0;
-  console.log(
-    `input=${u.input_tokens} cache_read=${u.cache_read_input_tokens} ` +
-      `cache_write=${u.cache_creation_input_tokens} ` +
-      `output=${u.output_tokens} (thinking=${thinkingTokens})`,
-  );
-  // A cache_read of 0 on the *second* identical call means something in the
-  // prefix changed — check for a timestamp, unsorted JSON, or a tool diff.
-  return response;
+function textOf(resp: Anthropic.Message): string {
+  return resp.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("");
 }
+
+function costUsd(u: Anthropic.Usage): number {
+  const w1h = u.cache_creation?.ephemeral_1h_input_tokens ?? 0;
+  const w5m = (u.cache_creation_input_tokens ?? 0) - w1h;
+  const read = u.cache_read_input_tokens ?? 0;
+  const perMillion =
+    u.input_tokens * PRICE.in +
+    w5m * PRICE.in * MULT.write5m +
+    w1h * PRICE.in * MULT.write1h +
+    read * PRICE.in * MULT.read +
+    u.output_tokens * PRICE.out; // thinking is already inside output_tokens
+  return perMillion / 1_000_000;
+}
+
+async function ask(userId: string, system: string, messages: Anthropic.MessageParam[],
+                   maxInput = 40_000, maxOut = 2_000, capUsd = 25) {
+  if ((ledger.get(userId) ?? 0) >= capUsd) throw new Error(`${userId} is over the monthly cap`);
+  const { input_tokens } = await client.messages.countTokens({ model: MODEL, system, messages });
+  if (input_tokens > maxInput) throw new Error(`${input_tokens} input tokens exceeds budget ${maxInput}`);
+  const resp = await client.messages.create({ model: MODEL, max_tokens: maxOut, system, messages });
+  const spent = costUsd(resp.usage);
+  ledger.set(userId, (ledger.get(userId) ?? 0) + spent);
+  if (resp.stop_reason === "max_tokens") console.warn("truncated: cap too tight, still billed");
+  return { answer: textOf(resp), spent };
+}
+
+const { answer, spent } = await ask("u-417", "You answer questions about our warehouse schema.",
+  [{ role: "user", content: "Which table holds late-arriving events?" }]);
+console.log(`$${spent.toFixed(5)}`, answer.slice(0, 80));
 ```
 
-## Named traps, expanded
+<Output kind="illustrative">
+$0.00262 Late-arriving events land in `events_late`, partitioned by ingest_date...
+</Output>
 
-**"Thinking tokens bill at OUTPUT rates."** This is attractive to miss because thinking feels like internal, behind-the-scenes computation — something closer to a free "let me think" pause than billed content, especially since the raw chain of thought is often not even shown to you. It's wrong because the API meters it as generated tokens: `output_tokens_details.thinking_tokens` is a labeled subset *of* `output_tokens`, not a separate free bucket, and it bills at the same per-tier output rate as visible response text — 5x the input rate on every current tier. Recognize this trap whenever a stem proposes a high-effort or thinking-heavy configuration as a "safe" way to improve quality without meaningfully affecting cost — it isn't safe on cost, it's the single most expensive token category in the request.
+**Two checkpoints with mixed TTLs.** The slow-changing reference block gets the 1 hour TTL and comes first; the moving conversation tail gets the default 5 minutes. Longer TTLs must precede shorter ones.
 
-**"Optimization order: fewer tokens, cache, batch, effort step-down, model downgrade LAST."** This is attractive to get backwards because a model downgrade *looks* like the biggest, most obviously effective lever — cut the per-token rate and everything gets cheaper at a glance. It's wrong as a first move because it's the only lever in the list that changes model behavior, which means it invalidates every eval already run against the current model — the same risk profile as a tier swap in Model Selection and Tradeoffs. Recognize this trap whenever a stem frames "switch to a cheaper model" as the obvious fix for a cost problem that also mentions a large stable prompt (caching was available), a thinking-heavy workload (effort step-down was available), or non-urgent timing (batch was available) — one of those should come first.
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+REFERENCE = open("conventions.md").read()  # large, changes weekly
+TOOLS = [{
+    "name": "get_file",
+    "description": "Return one file from the pull request by path.",
+    "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+}]
+history = [
+    {"role": "user", "content": "Review the retry logic in loader.py."},
+    {"role": "assistant", "content": "The backoff never caps; see line 42."},
+]
+question = "Would a jittered cap of 30 seconds fix it?"
+
+resp = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=2_000,
+    tools=TOOLS,  # rendered first; any change here invalidates everything
+    system=[{"type": "text", "text": REFERENCE,
+             "cache_control": {"type": "ephemeral", "ttl": "1h"}}],  # checkpoint 1
+    messages=history + [{"role": "user", "content": [
+        {"type": "text", "text": question,
+         "cache_control": {"type": "ephemeral"}}]}],  # checkpoint 2, moves each turn
+)
+u = resp.usage
+print("read", u.cache_read_input_tokens, "write", u.cache_creation_input_tokens, "uncached", u.input_tokens)
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+import { readFileSync } from "node:fs";
+
+const client = new Anthropic();
+
+const REFERENCE = readFileSync("conventions.md", "utf8"); // large, changes weekly
+const TOOLS: Anthropic.Tool[] = [{
+  name: "get_file",
+  description: "Return one file from the pull request by path.",
+  input_schema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
+}];
+const history: Anthropic.MessageParam[] = [
+  { role: "user", content: "Review the retry logic in loader.py." },
+  { role: "assistant", content: "The backoff never caps; see line 42." },
+];
+const question = "Would a jittered cap of 30 seconds fix it?";
+
+const resp = await client.messages.create({
+  model: "claude-sonnet-5-5",
+  max_tokens: 2_000,
+  tools: TOOLS, // rendered first; any change here invalidates everything
+  system: [{ type: "text", text: REFERENCE, cache_control: { type: "ephemeral", ttl: "1h" } }], // checkpoint 1
+  messages: [...history, { role: "user", content: [
+    { type: "text", text: question, cache_control: { type: "ephemeral" } }] }], // checkpoint 2
+});
+const u = resp.usage;
+console.log("read", u.cache_read_input_tokens, "write", u.cache_creation_input_tokens, "uncached", u.input_tokens);
+```
+
+<Output kind="illustrative">
+read 31840 write 212 uncached 9
+</Output>
+
+**Advisory loop budget plus hard cap (beta).** The task budget paces the whole agent loop; `max_tokens` still bounds each request.
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+resp = client.beta.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=16_000,  # enforced per request
+    betas=["task-budgets-2026-03-13"],
+    output_config={"effort": "medium", "task_budget": {"type": "tokens", "total": 60_000}},  # advisory, whole loop
+    messages=[{"role": "user", "content": "Audit the nightly DAG definitions for missing retries."}],
+)
+print(resp.stop_reason, resp.usage.output_tokens)
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+const resp = await client.beta.messages.create({
+  model: "claude-sonnet-5-5",
+  max_tokens: 16_000, // enforced per request
+  betas: ["task-budgets-2026-03-13"],
+  output_config: { effort: "medium", task_budget: { type: "tokens", total: 60_000 } }, // advisory
+  messages: [{ role: "user", content: "Audit the nightly DAG definitions for missing retries." }],
+});
+console.log(resp.stop_reason, resp.usage.output_tokens);
+```
 
 ## Recall checks
 
-- A chat feature has a large static system prompt and steady traffic. Rank the next three cost levers to try, in order, and say why model downgrade isn't first.
-- Two identical requests 30 seconds apart both show `cache_creation_input_tokens` nonzero and `cache_read_input_tokens` at 0. What's the likely cause?
-- Why can't a team report "thinking cost" as a separate line item from "output cost" on their bill — what field would they actually read to break it out?
-- A prompt caching test on Claude Haiku 4.5 shows no cache fields populated at all, no error. What's the most likely explanation given the per-tier minimums?
-- A scenario says "10,000 documents, results not needed until tomorrow, cost is the primary concern." Which objective actually owns the answer to this question, and why doesn't it belong here?
+<Recall q="Why is lowering max_tokens a poor cost fix for responses that are already short?">
+Billing counts tokens actually generated, so a lower cap saves nothing on short answers. On long answers it truncates with stop_reason max_tokens, and the retry costs more than one complete call.
+</Recall>
+
+<Recall q="A dashboard sums input_tokens and shows input spend falling 80% after caching shipped, but the invoice barely moved. What is wrong?">
+input_tokens counts only tokens after the last cache breakpoint. The cached prefix moved into cache_read_input_tokens and cache_creation_input_tokens, which must be added at 0.1x and 1.25x or 2x of the base input price.
+</Recall>
+
+<Recall q="After caching, output is 60% of each call's cost. Which lever comes next, and why not a smaller model?">
+Step effort down or tighten the output format, because both keep the same model and validated behaviour. A model change is last since it changes outputs and forces a full eval re-run.
+</Recall>
+
+<Recall q="Why model cost per completed task instead of per request?">
+Retries, failed tool calls and extra agent turns are real spend. A model that is half the price per call but needs two attempts per accepted answer costs the same per task, and more once user time is counted.
+</Recall>
+
+<Recall q="When does the 1 hour TTL beat the default 5 minute TTL?">
+When the same prefix is reused with gaps longer than 5 minutes but under an hour. A 1 hour write costs 2x once and breaks even after two reads, while a 5 minute cache would pay a fresh 1.25x write after every gap.
+</Recall>
+
+<Recall q="Changing tool_choice between requests drops cache hits. Which cached segments survive?">
+The tools and system segments stay cached; only the messages segment is invalidated. Changing tool definitions, by contrast, invalidates all three because tools render first.
+</Recall>
+
+<Recall q="A task budget is set to 60,000 tokens. Can the loop spend more?">
+Yes. Task budgets are advisory: the model sees a countdown and paces itself but may finish an action past the budget. max_tokens is the enforced per-request ceiling.
+</Recall>

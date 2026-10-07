@@ -1,0 +1,365 @@
+{
+  "_comment": "Single source of truth for drifting facts (model IDs, prices, defaults). Lints read allowedModelIds. Every entry carries where it came from. asOfGuide: whether it existed when Exam Guide v1.0 (July 2026) was written; 'unknown' means do not build exam items on it; 'likely' means the beta predates the guide, so concept items are fine but not parameter names.",
+  "verified": "2026-10-06",
+  "verifiedFrom": "Anthropic claude-api reference (model table cached 2026-09-25) and platform.claude.com/docs/en/about-claude/models/overview",
+  "models": [
+    {
+      "family": "Fable",
+      "name": "Claude Fable 5.1",
+      "id": "claude-fable-5-1",
+      "tier": "most capable",
+      "context": "1M",
+      "maxOutput": "128K",
+      "priceIn": 10,
+      "priceOut": 50,
+      "thinking": "always on (adaptive); disabled or budget_tokens returns 400",
+      "effortDefault": "high",
+      "forcedToolChoice": false,
+      "asOfGuide": "unknown"
+    },
+    {
+      "family": "Fable",
+      "name": "Claude Fable 5",
+      "id": "claude-fable-5",
+      "tier": "most capable (previous)",
+      "context": "1M",
+      "maxOutput": "128K",
+      "priceIn": 10,
+      "priceOut": 50,
+      "thinking": "always on (adaptive)",
+      "effortDefault": "high",
+      "forcedToolChoice": true,
+      "asOfGuide": "unknown"
+    },
+    {
+      "family": "Opus",
+      "name": "Claude Opus 5.5",
+      "id": "claude-opus-5-5",
+      "tier": "flagship / default",
+      "context": "1M",
+      "maxOutput": "128K",
+      "priceIn": 4,
+      "priceOut": 20,
+      "thinking": "cannot be disabled; effort is the only control",
+      "effortDefault": "medium",
+      "forcedToolChoice": false,
+      "asOfGuide": "unknown"
+    },
+    {
+      "family": "Opus",
+      "name": "Claude Opus 5",
+      "id": "claude-opus-5",
+      "tier": "flagship (previous)",
+      "context": "1M",
+      "maxOutput": "128K",
+      "priceIn": 5,
+      "priceOut": 25,
+      "thinking": "adaptive by default; disabled only at effort high or below",
+      "effortDefault": "high",
+      "forcedToolChoice": true,
+      "asOfGuide": "unknown"
+    },
+    {
+      "family": "Opus",
+      "name": "Claude Opus 4.8",
+      "id": "claude-opus-4-8",
+      "tier": "legacy",
+      "context": "1M",
+      "maxOutput": "128K",
+      "priceIn": 5,
+      "priceOut": 25,
+      "thinking": "adaptive must be set explicitly",
+      "effortDefault": "high",
+      "forcedToolChoice": true,
+      "asOfGuide": true
+    },
+    {
+      "family": "Sonnet",
+      "name": "Claude Sonnet 5.5",
+      "id": "claude-sonnet-5-5",
+      "tier": "balanced",
+      "context": "1M",
+      "maxOutput": "128K",
+      "priceIn": 2,
+      "priceOut": 10,
+      "thinking": "adaptive by default; disabled returns 400, use between_tools",
+      "effortDefault": "high",
+      "forcedToolChoice": false,
+      "asOfGuide": "unknown"
+    },
+    {
+      "family": "Sonnet",
+      "name": "Claude Sonnet 5",
+      "id": "claude-sonnet-5",
+      "tier": "balanced (previous)",
+      "context": "1M",
+      "maxOutput": "128K",
+      "priceIn": 2,
+      "priceOut": 10,
+      "thinking": "adaptive",
+      "effortDefault": "high",
+      "forcedToolChoice": true,
+      "asOfGuide": "unknown"
+    },
+    {
+      "family": "Sonnet",
+      "name": "Claude Sonnet 4.6",
+      "id": "claude-sonnet-4-6",
+      "tier": "legacy",
+      "context": "1M",
+      "maxOutput": "128K",
+      "priceIn": 3,
+      "priceOut": 15,
+      "thinking": "adaptive recommended; budget_tokens deprecated",
+      "effortDefault": "high",
+      "forcedToolChoice": true,
+      "asOfGuide": true
+    },
+    {
+      "family": "Haiku",
+      "name": "Claude Haiku 4.5",
+      "id": "claude-haiku-4-5",
+      "tier": "fastest / cheapest",
+      "context": "200K",
+      "maxOutput": "64K",
+      "priceIn": 1,
+      "priceOut": 5,
+      "thinking": "budget_tokens (min 1024, below max_tokens); no effort",
+      "effortDefault": null,
+      "forcedToolChoice": true,
+      "asOfGuide": true
+    }
+  ],
+  "allowedModelIds": [
+    "claude-fable-5-1",
+    "claude-fable-5",
+    "claude-opus-5-5",
+    "claude-opus-5",
+    "claude-opus-4-8",
+    "claude-opus-4-7",
+    "claude-opus-4-6",
+    "claude-sonnet-5-5",
+    "claude-sonnet-5",
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5",
+    "claude-haiku-4-5-20251001"
+  ],
+  "legacyIdsAllowedInMigrationExamples": [
+    "claude-sonnet-4-5",
+    "claude-opus-4-5",
+    "claude-3-5-haiku"
+  ],
+  "examples": {
+    "defaultModel": "claude-sonnet-5-5",
+    "cheapModel": "claude-haiku-4-5",
+    "note": "Study-site code uses Sonnet 5.5 as the everyday model and Haiku 4.5 for cheap, high-volume calls so examples stay inexpensive to run."
+  },
+  "sdkDefaults": {
+    "maxRetries": 2,
+    "retried": "408, 409, 429, 5xx and connection errors, with exponential backoff",
+    "timeout": "10 minutes (Python seconds, TypeScript milliseconds); TS scales up for large non-streaming max_tokens",
+    "source": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/python",
+    "honoursRetryAfter": true,
+    "timeoutsRetried": true,
+    "note": "Worst-case wall clock is about timeout x (max_retries + 1). The spend-cap 429 has no retry-after and is not recoverable by retrying."
+  },
+  "restrictions": [
+    {
+      "fact": "Assistant prefill returns 400",
+      "models": "4.6 family and later (all current models)",
+      "asOfGuide": "partial"
+    },
+    {
+      "fact": "temperature/top_p/top_k non-defaults return 400",
+      "models": "Opus 4.7+, Fable, Sonnet 5+",
+      "asOfGuide": "unknown"
+    },
+    {
+      "fact": "budget_tokens returns 400; use adaptive thinking + effort",
+      "models": "Opus 4.7+, Fable, Sonnet 5+",
+      "asOfGuide": "unknown"
+    },
+    {
+      "fact": "Forced tool_choice any/tool returns 400; use auto + strict or structured outputs",
+      "models": "Fable 5.1, Opus 5.5, Sonnet 5.5",
+      "asOfGuide": false
+    },
+    {
+      "fact": "output_format is deprecated; use output_config.format",
+      "models": "all",
+      "asOfGuide": "unknown"
+    },
+    {
+      "fact": "Batch results arrive in any order; join on custom_id",
+      "models": "all",
+      "asOfGuide": true
+    },
+    {
+      "fact": "MCP connector needs mcp_servers plus an mcp_toolset tool (beta mcp-client-2025-11-20)",
+      "models": "all",
+      "asOfGuide": "unknown"
+    },
+    {
+      "fact": "Memory tool type is memory_20250818",
+      "models": "all",
+      "asOfGuide": true
+    },
+    {
+      "fact": "inference_geo accepts 'us' or 'global' (default) on 4.6+ models; 400 on Haiku 4.5 and earlier; US-only inference priced at 1.1x; workspaces can restrict allowed geos",
+      "models": "4.6 and later",
+      "asOfGuide": "unknown",
+      "source": "https://platform.claude.com/docs/en/manage-claude/data-residency"
+    },
+    {
+      "fact": "Batch API is not ZDR-eligible (results retained 29 days)",
+      "models": "all",
+      "asOfGuide": "unknown",
+      "source": "https://platform.claude.com/docs/en/manage-claude/api-and-data-retention"
+    },
+    {
+      "fact": "Fable 5 family requires 30-day retention; not available under ZDR unless expressly authorized",
+      "models": "Fable 5, Fable 5.1",
+      "asOfGuide": false,
+      "source": "https://platform.claude.com/docs/en/manage-claude/api-and-data-retention"
+    },
+    {
+      "fact": "Refusal stop_details categories: cyber, bio, frontier_llm, reasoning_extraction, general_harms, or null; discard partial output",
+      "models": "current",
+      "asOfGuide": "unknown",
+      "source": "https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback"
+    },
+    {
+      "fact": "Server-side fallback on refusal (beta server-side-fallback-2026-07-01); not on Batch, Bedrock, Google Cloud or Foundry",
+      "models": "current",
+      "asOfGuide": "unknown",
+      "source": "https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback"
+    },
+    {
+      "fact": "Admin API keys (sk-ant-admin) are provisioned only by admins and cannot create API keys",
+      "models": "all",
+      "asOfGuide": true,
+      "source": "https://platform.claude.com/docs/en/manage-claude/admin-api"
+    },
+    {
+      "fact": "Key types, expiration, workload identity federation and App Attest for direct client calls",
+      "models": "all",
+      "asOfGuide": "unknown",
+      "source": "https://platform.claude.com/docs/en/manage-claude/authentication"
+    }
+  ],
+  "deprecations": [
+    {
+      "id": "claude-sonnet-4-5",
+      "deprecated": "2026-09-30",
+      "retires": "2026-11-30",
+      "replacement": "claude-sonnet-5-5",
+      "source": "https://platform.claude.com/docs/en/about-claude/model-deprecations"
+    },
+    {
+      "id": "claude-haiku-4-5",
+      "note": "retirement not sooner than 2026-10-15; watch for a replacement cheap model",
+      "source": "https://platform.claude.com/docs/en/about-claude/model-deprecations"
+    }
+  ],
+  "fastMode": {
+    "models": "Opus 5.5 ($8/$40), Opus 5 and Opus 4.8 ($10/$50)",
+    "what": "same model, up to 2.5x output tokens per second (not time to first token), separate rate limit, cache not shared across speeds, not on Batch",
+    "asOfGuide": "unknown",
+    "source": "https://platform.claude.com/docs/en/build-with-claude/fast-mode"
+  },
+  "tokenizer": {
+    "note": "Claude 4.7 and later use a tokenizer that produces about 30% more tokens for the same text; recount with count_tokens when migrating",
+    "source": "https://platform.claude.com/docs/en/build-with-claude/token-counting"
+  },
+  "caching": {
+    "write5m": 1.25,
+    "write1h": 2.0,
+    "readDefault": 0.1,
+    "readOverrides": {
+      "claude-opus-5-5": 0.05,
+      "claude-fable-5-1": 0.025
+    },
+    "minimumCacheableTokens": {
+      "claude-opus-5-5": 512,
+      "claude-sonnet-5-5": 512,
+      "claude-opus-5": 512,
+      "claude-opus-4-8": 1024,
+      "claude-sonnet-5": 1024,
+      "claude-sonnet-4-6": 1024,
+      "claude-haiku-4-5": 4096
+    },
+    "maxBreakpoints": 4,
+    "lookbackBlocks": 20,
+    "examRule": "teach 0.1x reads and 1.25x / 2x writes; per-model read overrides are post-guide",
+    "invalidation": "tool definitions invalidate tools, system and messages; tool_choice and image changes invalidate only messages",
+    "source": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+  },
+  "features": [
+    {
+      "name": "context editing",
+      "types": [
+        "clear_tool_uses_20250919",
+        "clear_thinking_20251015"
+      ],
+      "beta": "context-management-2025-06-27",
+      "asOfGuide": "likely",
+      "source": "https://platform.claude.com/docs/en/build-with-claude/context-editing",
+      "asOfGuideNote": "beta header date predates the July 2026 guide; parameter-level detail is still drifting, so items may test the concept but not parameter names"
+    },
+    {
+      "name": "server-side compaction (threshold)",
+      "type": "compact_20260112",
+      "beta": "compact-2026-01-12",
+      "asOfGuide": "likely",
+      "source": "https://platform.claude.com/docs/en/build-with-claude/compaction-threshold",
+      "asOfGuideNote": "beta header date predates the July 2026 guide; parameter-level detail is still drifting, so items may test the concept but not parameter names"
+    },
+    {
+      "name": "memory tool",
+      "type": "memory_20250818",
+      "beta": null,
+      "asOfGuide": true,
+      "source": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool"
+    },
+    {
+      "name": "task budgets",
+      "param": "output_config.task_budget",
+      "beta": "task-budgets-2026-03-13",
+      "asOfGuide": "likely",
+      "asOfGuideNote": "beta header predates the guide; unsupported on Haiku 4.5 and Sonnet 4.6; teach as low exam weight",
+      "source": "https://platform.claude.com/docs/en/build-with-claude/task-budgets"
+    }
+  ],
+  "mcp": {
+    "examRevision": "2025-11-25",
+    "examRevisionNote": "initialize handshake (protocolVersion, capabilities, clientInfo) then notifications/initialized; teach as exam material",
+    "postGuideRevision": "2026-07-28",
+    "postGuideNote": "stateless: no initialize or Mcp-Session-Id, server/discover; Roots, Sampling, Logging deprecated",
+    "asOfGuide": false,
+    "authorization": "OPTIONAL in the spec; HTTP transports SHOULD use the OAuth 2.1-based flow; stdio takes credentials from the environment",
+    "sdks": {
+      "python": "mcp 2.x: MCPServer (FastMCP import removed)",
+      "typescript": "v2 split packages @modelcontextprotocol/server and /client; v1 @modelcontextprotocol/sdk maintained on v1.x"
+    },
+    "connectorBetas": [
+      {
+        "beta": "mcp-client-2025-11-20",
+        "asOfGuide": "unknown"
+      },
+      {
+        "beta": "mcp-client-2026-09-15",
+        "what": "tool-list pinning",
+        "asOfGuide": false
+      }
+    ],
+    "source": "https://github.com/modelcontextprotocol/modelcontextprotocol/tree/main/docs/specification"
+  },
+  "skills": {
+    "apiMaxSkillsPerRequest": 20,
+    "apiContainer": "code execution tool required; no network, no runtime package install",
+    "customSkillScope": "workspace-wide on the API; per user on claude.ai; no cross-surface sync",
+    "frontmatter": "name (<=64, lowercase/digits/hyphens) and description (<=1024, what + when)",
+    "asOfGuide": "likely",
+    "source": "https://platform.claude.com/docs/en/build-with-claude/skills-guide"
+  }
+}

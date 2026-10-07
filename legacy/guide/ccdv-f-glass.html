@@ -454,6 +454,7 @@ footer p:last-child{margin-bottom:0}
 
 .mtoggle{display:none}
 @media(max-width:980px){
+  .mtoggle{display:inline-flex}
   .app{grid-template-columns:1fr}
   aside{position:fixed;left:0;top:0;margin:0;height:100vh;width:288px;z-index:95;
     border-radius:0 22px 22px 0;transform:translateX(-102%);
@@ -2012,6 +2013,9 @@ function srcrow(t){
 
 /* ==================== RENDER ==================== */
 const dl=document.getElementById('domains'),nv=document.getElementById('navdom');
+/* Idempotent: a pre-rendered (no-JS) snapshot ships this content in the HTML,
+   so clear it before rebuilding or it would render twice. */
+nv.innerHTML='';dl.innerHTML='';
 D.forEach(d=>{
   const a=document.createElement('a');
   a.className='nl';a.href='#dom'+d.n;
