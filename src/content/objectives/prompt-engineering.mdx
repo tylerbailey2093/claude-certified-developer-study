@@ -6,6 +6,9 @@ name: "Prompt Engineering"
 weight: 4.6
 tier: 2
 hot: false
+summary: "Write instructions Claude cannot misread, build diverse tagged examples, put durable rules in system and per-request data in user (documents first, query last), steer format positively and guarantee it with a schema, and change prompts only against an eval set."
+subskills: ["pe.clarity", "pe.few-shot", "pe.system-user", "pe.output-constraints", "pe.component-placement", "pe.iterative", "pe.adjustment", "pe.sanitization"]
+related: ["llm-fundamentals", "context-engineering", "output-handling", "claude-application-design", "ai-application-security", "tool-implementation", "debugging-and-error-handling"]
 scope:
   - "instruction clarity"
   - "few-shot examples"
@@ -16,99 +19,357 @@ scope:
   - "prompt adjustment"
   - "input sanitization"
 traps:
-  - "tool descriptions are prompts"
-  - "a prompt fix for one case commonly regresses others - hence the eval set first"
+  - name: "Tool descriptions are prompts"
+    looksRight: "A tool definition is API metadata, so its wording seems irrelevant once the schema is correct."
+    failsBecause: "The API builds a system prompt from your tool definitions, and the docs call detailed descriptions by far the most important factor in tool performance. A one-line description produces wrong, missing or mistimed calls however good the system prompt is."
+    cue: "The model 'never calls the tool', 'calls the wrong one' or passes bad arguments, the system prompt is described as careful, and only one option touches the tool's own description."
+  - name: "A prompt fix for one case regresses others"
+    looksRight: "The reported failure is fixed and the edit is one line, so re-running everything feels like overhead."
+    failsBecause: "Prompt edits are broad-spectrum: rewording for case A shifts behaviour on every case that shares the instruction. Without a before and after run on a fixed eval set the regressions ship unseen."
+    cue: "The stem ships a prompt change on the strength of the one ticket that motivated it, or asks what to do 'before deploying the revised prompt'."
+  - name: "Louder wording makes an instruction a guarantee"
+    looksRight: "CAPITALS, 'CRITICAL' and 'you MUST' signal priority, so the model should comply every time."
+    failsBecause: "Any prompt is a request the model can still miss. Current models are also more responsive to the system prompt, and the docs warn that aggressive language now causes overtriggering. When an output must always parse, the fix is structured outputs or a strict tool, enforced at decoding time."
+    cue: "'Every response must', 'downstream parser', 'always valid', with one option that adds emphasis to the prompt and one that adds a schema."
+  - name: "Near-identical examples teach the wrong pattern"
+    looksRight: "Several examples of the exact desired output should lock the format in."
+    failsBecause: "Examples that share incidental features (same length, same label, same opening, same topic) teach those features too. The docs require examples to be diverse enough that Claude does not pick up unintended patterns."
+    cue: "After adding examples the model always picks one label, copies a phrase verbatim, or fails on inputs unlike the examples."
+  - name: "Negative format instructions"
+    looksRight: "'Do not use markdown' names exactly what you do not want."
+    failsBecause: "It leaves the target undefined. The docs recommend saying what to do instead (for example, 'flowing prose paragraphs'), using XML format indicators, and matching the prompt's own style to the desired output."
+    cue: "Output keeps drifting into bullets or headers despite a 'do not' instruction, and the prompt itself is heavily formatted markdown."
+  - name: "Query before the documents"
+    looksRight: "Stating the question first tells the model what to look for while it reads."
+    failsBecause: "For long inputs (20k+ tokens) the docs say to put the documents at the top and the query at the end; queries at the end improved quality by up to 30 percent in tests, especially with multiple documents."
+    cue: "A long-document or multi-document prompt underperforms, and the options reorder the prompt, add a bigger model or add more instructions."
 sources:
-  - label: "Prompt engineering"
-    url: "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview"
+  - { label: "Prompting best practices (target of the use-xml-tags, multishot-prompting, chain-of-thought, chain-prompts, long-context-tips, system-prompts and be-clear-and-direct redirects)", url: "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices", kind: "docs", verified: "2026-10-06" }
+  - { label: "Prompt engineering overview", url: "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview", kind: "docs", verified: "2026-10-06" }
+  - { label: "Structured outputs", url: "https://platform.claude.com/docs/en/build-with-claude/structured-outputs", kind: "docs", verified: "2026-10-06" }
+  - { label: "Define tools", url: "https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools", kind: "docs", verified: "2026-10-06" }
+  - { label: "Mitigate jailbreaks and prompt injections", url: "https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks", kind: "docs", verified: "2026-10-06" }
+  - { label: "Define success criteria and build evaluations", url: "https://platform.claude.com/docs/en/test-and-evaluate/develop-tests", kind: "docs", verified: "2026-10-06" }
+  - { label: "Prompt caching", url: "https://platform.claude.com/docs/en/build-with-claude/prompt-caching", kind: "docs", verified: "2026-10-06" }
+  - { label: "Refusals and fallback", url: "https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback", kind: "docs", verified: "2026-10-06" }
+  - { label: "Prompting Claude Sonnet 5.5", url: "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5-5", kind: "docs", verified: "2026-10-06" }
+lastReviewed: "2026-10-06"
 authored: true
 ---
 
-## What this objective actually tests
+## Concept
 
-This objective tests **how** to write and place instructions well — clarity, example construction, structural placement across `system`, `user`, tool descriptions, and adjacent config surfaces, output constraints, and sanitizing untrusted input. The guide lists "few-shot examples" here explicitly, alongside the zero/single/multi-shot taxonomy that it also lists under LLM Fundamentals in Domain 5. This objective is about building and placing examples well; the taxonomy itself is covered in Domain 5.
+This objective tests the craft of writing instructions for Claude and the discipline of changing them. The guide's list (instruction clarity, few-shot examples, system versus user placement, output constraints, placement across components, iterative refinement, prompt adjustment, input sanitization) reduces to three questions an item will ask in some form: is the instruction unambiguous, is it on the right surface, and how do you know a change made things better?
+
+Items here are mostly diagnostic. A stem shows a prompt that misbehaves (wrong format, ignored rule, inconsistent labels, a tool never called, a long document answered badly) and offers four fixes. Usually three of them would help a little or help a different problem; one addresses the actual cause on the actual surface. The skill is mapping symptom to cause: vague instruction, missing context, examples that teach the wrong pattern, instruction on the wrong surface, a guarantee requested in prose, or a change shipped without measurement.
+
+The Anthropic docs frame prompt engineering as conditional: before you start you need success criteria, a way to test against them empirically, and a first draft. They also say not every failing eval is a prompt problem; latency and cost are often easier to fix by choosing a different model [Certain, overview]. Expect at least one distractor that is a good prompt edit applied to a problem a prompt cannot solve.
+
+**Scope boundary.** What zero-shot, one-shot and multi-shot mean, and why examples work at all, is <ObjLink id="llm-fundamentals" /> (D5); building, diversifying and placing examples is here. What enters and leaves the window over a session (memory, pruning, compaction, subagent isolation) is <ObjLink id="context-engineering" />. Parsing, validating and recovering from model output is <ObjLink id="output-handling" />. How Claude interprets instructions across surfaces (API, claude.ai, Claude Code, plugins), content boundaries and schema design as a product decision are <ObjLink id="claude-application-design" />. The injection threat model and guardrail architecture are <ObjLink id="ai-application-security" />. Choosing chaining as a workflow pattern is <ObjLink id="agent-patterns-and-frameworks" />; writing the prompts inside each link is here. Tool design beyond the description text is <ObjLink id="tool-implementation" />.
+
+Not this:
+- "How many shots is this?" taxonomy questions (D5)
+- Compaction, memory files, context budgets (Context Engineering)
+- JSON parsing, retries on malformed output, `stop_reason` handling (Output Handling, API Mechanics)
+- Which interface reads CLAUDE.md versus a system prompt, plugin management (Application Design)
+
+<Callout type="key" title="A prompt is a request; a schema is a guarantee; an eval is the proof">
+Write instructions a new colleague could follow without asking a question, and put each one on the surface that matches how long it must last. When the stem says something **must** or **always** happens, the answer moves out of prompt wording into a deterministic control: structured outputs, a strict tool, a hook or a validator. When the stem changes a prompt, the right answer measures the change against a fixed eval set before shipping.
+</Callout>
 
 ## Mechanism
 
-### Instruction clarity — explicit beats clever
+### Instruction clarity
 
-State what to do, not just what to avoid. An instruction that only rules things out ("don't be verbose") leaves the model to infer the positive target, and ambiguity is where run-to-run non-determinism does the most visible damage.
+<SubskillAnchor id="pe.clarity" />
 
-### System vs. user placement — durability, caching, trust boundary
+The docs' model is a brilliant but new employee who lacks context on your norms. Their golden rule: show the prompt to a colleague with minimal context on the task; if they would be confused, Claude will be too [Certain, best practices]. Four practical consequences:
 
-The split is durability, not topic. **`system`** — a top-level parameter, not a message role — holds the role, durable constraints, and rules that apply to every request; even one sentence of role-setting there measurably focuses tone. **`user`** holds task-specific data: the document, the question, this request's specifics.
+- **Say what you want, including the ambitious version.** If you want "above and beyond" behaviour, ask for it explicitly; current models follow instructions precisely rather than inferring an unstated bar [Certain].
+- **Be specific about format and constraints**, and use numbered steps when order or completeness matters [Certain].
+- **Give the reason.** Context or motivation behind a rule lets Claude generalize from it. The docs contrast a bare "NEVER use ellipses" with an explanation that the output feeds a text-to-speech engine that cannot pronounce them [Certain]. Your own version: "Keep column names lowercase snake_case because the output is written straight into a Unity Catalog table" beats "lowercase only", because Claude can then apply the reason to cases the rule did not list.
+- **Use action verbs when you want action.** "Can you suggest some changes" tends to get suggestions; "Change this function to improve its performance" gets changes [Certain].
 
-Two mechanical reasons this matters beyond tidiness. **Prompt caching** matches a stable prefix (tools, then system, then messages, in that order) — per-request data in `system` changes that "stable" prefix every call and silently defeats the cache. And the **trust boundary**: `system` is developer-authored and should stay that way; concatenating user text into it blurs trusted instructions and untrusted content, the seam most prompt-injection mitigations protect (Claude Application Design covers the content-boundary side; this is the placement-discipline half).
+**Separate instruction from material with XML tags.** When a prompt mixes instructions, context, examples and variable input, wrapping each in its own tag (`<instructions>`, `<context>`, `<input>`) reduces misinterpretation. Use consistent, descriptive tag names and nest when content is hierarchical (`<documents>` containing `<document index="n">`) [Certain]. There are no magic tag names; consistency and the ability to refer to a tag in the instruction ("using the policy in the `policy` tags") are what matter [Likely].
 
-### Few-shot examples — concrete construction
+**Calibrate tone, not volume.** The docs note Claude Opus 4.5 and 4.6 are more responsive to the system prompt than earlier models, so prompts written to fight undertriggering ("CRITICAL: You MUST use this tool when...") now cause overtriggering; plain "Use this tool when..." is the fix [Certain]. Emphasis is not a substitute for precision.
 
-Examples are one of the most reliable levers on format, tone, and structure — more reliable than describing the format in prose. Good examples are **relevant** (mirror the real use case) and **diverse** (typical case plus real edge cases — empty, ambiguous, out-of-scope input — varied enough that the model doesn't lock onto an incidental shared pattern that wasn't the point).
+**Exam angle:** cues are "inconsistent", "sometimes ignores", "ambiguous request", "only suggests changes". The distractor is a bigger model or more emphasis when the instruction itself is underspecified.
 
-Construction pattern: 2–4 canonical examples in consistent tags (`<example>`), unambiguously delimited from the live task. Stuffing in every edge case ever seen is a common overcorrection. Placement follows durability: a stable format-example set applies to every call and can sit in `system`; examples specific to one request belong with it in `user`.
+### Few-shot examples
+
+<SubskillAnchor id="pe.few-shot" />
+
+Examples are one of the most reliable ways to steer format, tone and structure [Certain]. The docs give three properties and a number:
+
+| Property | Meaning | Failure when missing |
+|---|---|---|
+| Relevant | Mirror the real use case closely | Model learns a format for inputs it never sees |
+| Diverse | Cover edge cases; vary enough to avoid unintended patterns | Model copies incidental features |
+| Structured | Each in `<example>` tags, the set in `<examples>` | Model confuses examples with instructions or with the live input |
+| Count | 3 to 5 for best results [Certain] | One example invites verbatim copying; dozens cost tokens and still may not be diverse |
+
+**Overfitting is the main construction failure.** Whatever your examples share, Claude may treat as part of the pattern: every example the same length, every label `billing`, every answer starting "Based on", every input about the same product. Build the set deliberately: one typical case per class, at least one hard boundary case (two plausible labels), one degenerate input (empty, off-topic, wrong language) with the exact fallback output you want, and vary surface features you do not care about. The docs also suggest asking Claude to evaluate your examples for relevance and diversity, or to generate more from your initial set [Certain].
+
+**Placement.** A stable example set that applies to every request belongs in the system prompt or at the start of a fixed template: it is durable and stays inside the cacheable prefix. Examples chosen per request (for instance, nearest neighbours retrieved from a labelled table) go in the user turn with that request, clearly tagged so they are not mistaken for the input to classify. With long documents, the long-context rule still holds: documents at the top, examples and instructions below them, query last [Certain].
+
+**Examples and thinking.** Multishot examples work with thinking: worked examples shape how Claude approaches similar problems in its own thinking. Present each as the problem, the method to apply and the expected answer [Certain].
+
+**Tool input examples** are a separate surface: `input_examples` on a tool definition, each validated against the tool's `input_schema` (an invalid example returns 400), costing roughly 20 to 200 tokens each [Certain, define tools].
+
+**Exam angle:** cues are "copies", "always chooses", "fails on unusual inputs", "format drifts despite description". The distractor is "add more examples of the same kind", or describing the format in more prose when examples would show it.
+
+### System versus user placement
+
+<SubskillAnchor id="pe.system-user" />
+
+The split is by durability and trust, not topic. `system` is a top-level parameter, not a message role. It holds the role, durable rules and policy that apply to every request; even a single sentence of role sets focus and tone [Certain, best practices]. The `user` turn holds this request's material and question.
+
+Three mechanical reasons the split matters:
+
+1. **Caching.** The cached prefix is ordered tools, then system, then messages; changing the system prompt invalidates the system and messages cache segments [Certain, prompt caching]. Interpolating a timestamp, a user ID or a retrieved document into `system` makes the "stable" prefix change on every call, so you pay cache writes and never get reads. Static first, variable last.
+2. **Trust.** `system` is developer-authored. Concatenating end-user or third-party text into it puts untrusted content at the highest-authority position in the request, which is the seam most injection defences protect (see Input sanitization below).
+3. **Reuse.** One system prompt serves every request, so it can be versioned, reviewed and evaluated as an artefact. Per-request content cannot.
+
+**Long-context placement.** For inputs of roughly 20k tokens or more, put the long documents at the top of the prompt, above the query, instructions and examples; queries at the end improved response quality by up to 30 percent in tests, especially with complex multi-document inputs [Certain]. Wrap each document in `<document>` with `<source>` and `<document_content>` subtags, and for long-document tasks ask Claude to first extract relevant quotes (for example into `<quotes>` tags) and then answer from them [Certain]. Quote-first grounding also makes the answer auditable.
+
+<PostGuide since="2026-08">
+The newest models add placement rules the guide predates. On Claude Fable 5.1, Opus 5.5 and Sonnet 5.5, editing earlier messages or rebuilding `system` or `tools` between requests invalidates later thinking blocks (an error, or the block dropped if you opt in); the docs say to keep history append-only and move such changes into mid-conversation system messages or server-side context management [Certain, best practices]. Treat this as engineering knowledge.
+</PostGuide>
+
+**Exam angle:** cues are "cache hit rate dropped to zero", "per-request", "the document goes where", "long contract, question at the top". The distractor puts variable data in `system` "so the model treats it as important", or puts the query above the documents.
 
 ### Output constraints
 
-Prefer a structural mechanism over a polite request. "JSON only" in prose is a soft constraint the model can still violate. `output_config.format` with a JSON Schema, or a tool with `strict: true`, uses constrained decoding — the sampler itself is restricted so no emitted token can violate the schema. Same logic as any exam stem requiring something must or always hold: a prompt is a request the model can get wrong; a schema constraint is a guarantee enforced at generation time.
+<SubskillAnchor id="pe.output-constraints" />
 
-### Placement across components — tool descriptions are prompts
+Think of output control as a ladder. Each rung is stronger and costs more design effort.
 
-The same instruction lands differently depending on the surface — `system`, `user`, a tool's `description`, `CLAUDE.md`, a hook — and picking the wrong surface for the durability needed is a distinct failure from writing the instruction badly. A tool's `name`, `description`, and parameter descriptions are read and acted on exactly like any other instruction text. A vague description ("does stuff with the database") produces the same ambiguity failure as a vague system prompt, with worse blast radius — the model may call it at the wrong time or with wrong arguments. The same craft — clarity, a usage example, an explicit statement of when *not* to call it — belongs in tool descriptions too.
+| Rung | Mechanism | Strength |
+|---|---|---|
+| 1 | Prose: "respond in JSON" | Request; usually works, sometimes does not |
+| 2 | Positive instruction, XML format indicators, matching prompt style, examples | Stronger request |
+| 3 | Structured outputs (`output_config.format`, `type: "json_schema"`) or `strict: true` on a tool | Guarantee of shape via constrained decoding |
+| 4 | Code after the call: check `stop_reason`, validate semantics | Guarantee of meaning |
 
-### Iterative refinement — the eval set comes first
+**Steering format in prose (rungs 1 and 2).** The docs list four techniques [Certain]: tell Claude what to do instead of what not to do ("Your response should be composed of smoothly flowing prose paragraphs" rather than "Do not use markdown"); use XML format indicators ("write the summary in `<summary>` tags"); match your prompt's style to the desired output (removing markdown from the prompt reduces markdown in the output); and give detailed guidance when you have specific formatting preferences. Two current-model defaults matter: Claude tends toward LaTeX for maths unless told otherwise, and to suppress a preamble the docs recommend a direct instruction ("Respond directly without preamble"), XML tags, structured outputs, or stripping it in post-processing [Certain].
 
-Change one thing, re-run the eval set, keep it or revert. A prompt edit that fixes one reported failure commonly regresses others, and without a fixed eval set that regression is invisible — you only see the case you were staring at, not the ones you silently broke.
+**Guaranteeing shape (rung 3).** Structured outputs use constrained decoding: responses are always valid JSON with guaranteed field types and required fields, with no retries needed for schema violations [Certain, structured outputs]. For classification, the docs recommend a tool with an `enum` field of valid labels or structured outputs [Certain, best practices]. Costs to know: structured outputs inject an extra system prompt describing the format (more input tokens), and changing `output_config.format` invalidates the prompt cache for that thread [Certain]. `output_format` is deprecated in favour of `output_config.format` [Certain].
+
+**What the schema does not guarantee (rung 4).** Output can still miss the schema on a refusal (`stop_reason: "refusal"`) or a truncation (`stop_reason: "max_tokens"`), and string `enum` values can differ in capitalization [Certain]. Unsupported constraints (numeric `minimum`/`maximum`, string lengths, recursive schemas) cannot be enforced by the grammar [Certain], and no schema checks business meaning. So the code path is: check `stop_reason`, parse, validate. That code belongs to <ObjLink id="output-handling" />.
+
+<PostGuide since="2026-07">
+**Prefill is gone.** Since the Claude 4.6 models, a prefilled last assistant turn returns a 400 [Certain, best practices; `facts.json` restrictions]. Material written for older models used prefill to force JSON, skip preambles or continue a cut-off answer. The documented replacements: structured outputs (or simply asking, with retries) for format; a direct system-prompt instruction or XML tags for preambles; for continuation, a user message quoting where the previous response ended. Do not treat prefill as a current technique. On Claude Opus 5.5, Sonnet 5.5 and Fable 5.1, forced `tool_choice` also returns a 400; use `auto` with strict tools or structured outputs [Certain, define tools].
+</PostGuide>
+
+**Exam angle:** cues are "must always parse", "every record", "downstream system rejects", "occasionally adds a sentence". The distractor strengthens the prompt (capitals, more examples, a bigger model) when the requirement is a guarantee.
+
+### Placement across components
+
+<SubskillAnchor id="pe.component-placement" />
+
+An instruction can be right and still fail because it sits on the wrong surface. Every surface below is read by the model as text; only some are enforced.
+
+| Surface | Use it for | Read or enforced | Lifetime |
+|---|---|---|---|
+| `system` | Role, durable rules, policy, stable examples | Read | Every request using that prompt |
+| `user` turn | Task material, per-request examples, the query | Read | This turn |
+| Tool `description` and parameter descriptions | What the tool does, when to use it and when not to, parameter meaning, caveats | Read (compiled into a system prompt) | Whenever the tool is offered |
+| `input_examples` | Shape of complex tool inputs | Read, schema-validated | Whenever the tool is offered |
+| `tool_result` | Data returned by your code | Read with skepticism | That turn onward |
+| `output_config.format`, `strict` tools | Output or input shape | Enforced | That request |
+| CLAUDE.md, skills (Claude Code) | Project conventions, procedures | Read (advisory) | Session or on demand |
+| Hooks, permission rules | Things that must always or never happen | Enforced | Every matching event |
+
+**Tool definitions are prompts.** When you pass `tools`, the API constructs a special system prompt from the tool definitions, tool configuration and your own system prompt [Certain, define tools]. The docs call extremely detailed descriptions "by far the most important factor in tool performance": say what the tool does, when it should and should not be used, what each parameter means, and caveats such as what it does not return; aim for at least 3 to 4 sentences [Certain]. A stem where Claude picks the wrong tool despite a careful system prompt is almost always a description problem.
+
+**Do not put your own instructions in tool results.** Claude treats `tool_result` content as untrusted data, so instructions there may be ignored or flagged as possible injection; send them in a `user` turn after the `tool_result` [Certain, mitigate jailbreaks].
+
+**Templates and variables.** In production a prompt is a template: fixed instruction text with named slots filled per request. The docs' own examples use double-brace placeholders such as `{{ANNUAL_REPORT}}` and `{{CONTENT}}` [Certain that the convention appears; the substitution itself is your code]. Engineering consequences [Likely]: the template is what you version, review and run through evals, while the variables are your dataset; slots for per-request data should sit in the user turn so the system prompt stays byte-stable for caching; and every slot that carries user or third-party text is a sanitization boundary.
+
+<Flow title="Where each instruction lands in one request" steps={[{label: "tools", kind: "tool", note: "descriptions are prompt text"}, {label: "system", kind: "client", note: "role, durable rules, stable examples"}, {label: "user turn", kind: "client", note: "documents first, query last"}, {label: "Claude", kind: "model"}, {label: "output_config.format", kind: "guard", note: "enforced shape"}]} caption="The first three are read in cache order (tools, system, messages). Only the schema on the right is enforced; everything left of the model is a request." />
+
+**Exam angle:** cues are "reusable across requests", "picks the wrong tool", "must happen every time", "the instruction is ignored only when the tool returns". The distractor rewrites the system prompt when the instruction belongs in a tool description, a schema or a hook.
+
+### Iterative refinement
+
+<SubskillAnchor id="pe.iterative" />
+
+Prompt work is an experiment loop, and the eval set comes first. The overview lists three prerequisites: clear success criteria, a way to test empirically against them, and a first draft [Certain]. The success-criteria page asks for criteria that are specific, measurable, achievable and relevant ("accurate sentiment classification", not "good performance") [Certain].
+
+<Flow title="Prompt iteration loop" steps={[{label: "Success criteria", kind: "decision"}, {label: "Eval set incl. edge cases", kind: "store"}, {label: "Run prompt v(n)", kind: "model"}, {label: "Grade + diff per case", kind: "guard", note: "code, LLM rubric, human"}, {label: "Change one thing", kind: "client"}, {label: "Re-run full set", kind: "model", note: "keep or revert"}]} caption="The diff is per case, not just the average: a flat score can hide one fixed case and one newly broken one." />
+
+Eval design rules from the docs [Certain, develop tests]:
+- **Task-specific**: mirror the real distribution, including edge cases.
+- **Automate grading** where possible: exact match, string match, code-graded, LLM-graded.
+- **Volume over quality**: more cases with slightly noisier automated grading beat a few hand-graded ones.
+- **Grader choice**: code-based is fastest and most reliable; human grading is flexible but slow, so avoid it where possible; LLM grading needs a detailed rubric and a reliability check before you scale it, and it is generally best to use a different model to grade than the one that generated the output.
+
+**Why one-case fixes regress.** An instruction is shared by every input. Rewording it to fix ticket 4711 changes the conditional distribution for every other ticket too. Change one variable at a time, run the full set, and compare case by case. Treat prompts like code: versioned, diffed, reviewed, with the eval run as the merge gate.
+
+**Exam angle:** cues are "before shipping the revised prompt", "a user reported", "it fixed the case but", "how do we know". The distractor deploys the fix, or tests only the motivating case. Eval design in depth sits with <ObjLink id="debugging-and-error-handling" />.
+
+### Prompt adjustment
+
+<SubskillAnchor id="pe.adjustment" />
+
+Adjustment is choosing the right edit once an eval shows a failure. Match the edit to the failure class.
+
+| Symptom on the eval | Adjustment | Not this |
+|---|---|---|
+| Correct facts, wrong format | Positive format instruction, examples, schema if it must hold | More reasoning |
+| Wrong answers on multi-step problems | More reasoning: effort or thinking on current models; manual step-by-step if thinking is off | More examples of final answers only |
+| One giant prompt does extraction, analysis and writing badly | Chain prompts: separate calls with inspectable outputs | Longer single prompt |
+| Tool or skill fires too often | Remove aggressive wording; targeted "use when" guidance | More capitals |
+| Over-builds or adds unrequested scope | Explicit scope instruction ("only make changes that are directly requested") | Lower `max_tokens` |
+| Long-document answers miss content | Documents first, query last, quote-first | Bigger model |
+
+**Reasoning on current models.** Claude 4.6 and later use adaptive thinking, where Claude decides when and how much to think, calibrated by the `effort` parameter and task complexity [Certain, best practices]. So "more reasoning" is first an `effort` decision, not a prompt rewrite. Within the prompt, the docs prefer general instructions ("think thoroughly") over hand-written step-by-step plans, because Claude's reasoning often exceeds what a human would prescribe; they recommend asking for a self-check ("Before you finish, verify your answer against...") for coding and maths [Certain]. Manual chain of thought (reason first, then the final answer in `<answer>` tags you can extract) is the fallback when thinking is off [Certain]. Thinking triggering is itself promptable: if the model thinks more than you want, tell it when thinking is worth the latency [Certain].
+
+**Prompt chaining.** With adaptive thinking and subagents, Claude handles most multi-step reasoning inside one call. Explicit chaining (sequential API calls) is still useful when you need to inspect intermediate outputs or enforce a specific pipeline structure. The most common pattern is self-correction: draft, review against criteria, refine, each a separate call so you can log, evaluate or branch [Certain, best practices].
+
+<Sequence title="Self-correction chain" actors={["Your code", "Claude (draft)", "Claude (review)"]}
+  messages={[["Your code", "Claude (draft)", "task + source material"],
+             ["Claude (draft)", "Your code", "draft", "reply"],
+             ["Your code", "Your code", "log draft, run cheap checks", "note"],
+             ["Your code", "Claude (review)", "draft + criteria in tags"],
+             ["Claude (review)", "Your code", "issues list", "reply"],
+             ["Your code", "Claude (draft)", "draft + issues: refine"],
+             ["Claude (draft)", "Your code", "final", "reply"]]} />
+
+Each arrow is a separate `messages.create` call, so every intermediate output is data you can grade, store or branch on. A single prompt saying "draft, then critique, then revise" gives you none of those inspection points.
+
+<PostGuide since="2026-09">
+On Claude Fable 5.1, Fable 5, Opus 5.5, Opus 5 and Sonnet 5.5, a prompt that asks the model to write out its reasoning (a `<thinking>` or scratchpad section, a `reasoning` field in JSON or tool input) may be declined with `stop_reason: "refusal"` and category `reasoning_extraction`. Ask for a short explanation or the evidence instead, and read summarized thinking blocks for the reasoning [Certain, refusals and fallback]. So the classic "think in `<thinking>` tags" CoT pattern is now a liability on those models; rely on thinking at an appropriate effort. On Sonnet 5.5, asking in the system prompt to think less does not reliably reduce thinking (lower effort does), and for JSON answers to multi-step problems the docs suggest ending the system prompt with "Think the problem through before you answer." [Certain, prompting Sonnet 5.5].
+</PostGuide>
+
+**Exam angle:** cues are "intermediate output must be reviewed", "audit each stage", "multi-step reasoning errors", "overtriggers after migrating". The distractor is one bigger prompt, or a prescriptive step list where effort or a general instruction would do.
 
 ### Input sanitization
 
-Untrusted input — user text, a retrieved document, external tool output — must be clearly delimited (XML tags, an explicit "untrusted content" frame) and never interpolated directly into instruction-bearing text. Delimit-and-never-concatenate, applied consistently, is the technique — a structural discipline, not a promise made in the prompt itself.
+<SubskillAnchor id="pe.sanitization" />
+
+Sanitization at the prompt layer means Claude can always tell your instructions from material it is reading. The docs split the threat into direct injection (the user is the adversary) and indirect injection (the user is trusted, but content Claude reads on their behalf carries instructions) [Certain, mitigate jailbreaks].
+
+**Prompt-layer controls** [Certain, mitigate jailbreaks]:
+- Put untrusted third-party content in `tool_result` blocks, never in `system` or plain user text blocks; Claude is trained to treat instructions inside tool results with skepticism.
+- Label what the content is and where it came from, in the tool description or the result structure.
+- State the policy in `system`: retrieved content is data, never a command, and must not change goals or trigger tools the user did not ask for.
+- JSON-encode third-party strings so an attacker cannot close a quote or tag to break out into instruction context.
+- Never interpolate user or third-party text into the system prompt or a template's instruction section.
+
+When you use XML delimiters around user input (a common pattern in screening prompts such as `<content>{{CONTENT}}</content>`), escape or strip any occurrence of your closing tag in the input, or the input can end the block early [Likely; standard delimiter hygiene, not stated on the page].
+
+**Code-layer controls**, which are what make it safe [Certain]: a harmlessness screen on a lightweight model such as Claude Haiku 4.5 with structured outputs returning a boolean; input validation for known injection patterns; screening tool outputs with the same pattern; least privilege on data and actions; red-teaming with deliberately poisoned documents. The prompt layer reduces how often an injection is followed; it cannot guarantee it never is. "Must not exfiltrate" or "must never call X on untrusted input" is a deterministic gate, covered in <ObjLink id="ai-application-security" /> and <ObjLink id="guardrails-and-safe-deployment" />.
+
+Older material says to place untrusted content in a clearly delimited user turn; current docs say `tool_result`. Both appear in study material, so do not build reasoning that hinges on choosing between them [Likely].
+
+**Exam angle:** cues are "concatenated into the prompt", "retrieved text", "user-supplied", "email body". The distractor is a system-prompt sentence asking the model to ignore malicious instructions, presented as sufficient on its own.
 
 ## Decision table
 
-| When the stem says... | ...the answer is |
-|---|---|
-| Behavior must apply to every request, regardless of what's asked | `system` — durable, not per-request |
-| A specific document or question is handled this one time | `user` — request-specific, not durable |
-| Current document text was put in `system` and caching stopped working | Move it to `user` — per-request content breaks the cached-prefix match |
-| "JSON only" in prose still occasionally yields malformed or prose-prefixed output | Structured output (`output_config.format` or `strict: true`), not a stronger instruction |
-| A tool is called at the wrong time or with wrong arguments despite a good system prompt | Rewrite the tool's `description` — it's read as an instruction too |
-| A prompt change fixed one reported bug and shipped without further testing | Wrong — re-run the full eval set first; a fix for one case commonly regresses others |
-| Few-shot examples are near-identical and the model copied an incidental pattern | Add diversity — the examples weren't varied enough to isolate the signal |
-| Raw text from a retrieved web page is concatenated directly into the instruction | Sanitization failure — delimit untrusted content, never interpolate it |
-| The stem frames the question as "how many examples is enough" | Scope boundary — that's Domain 5's shot-count taxonomy, not this objective |
+| If the stem says... | Choose | Why the runner-up loses |
+|---|---|---|
+| Output "must always" parse for a downstream job; about 2% contain extra prose | Structured outputs with a JSON schema (enum for labels), then check `stop_reason` | Capitalized "ONLY output JSON" is still a request and fails at the same tail rate |
+| Classifier always picks the same label after examples were added | Rebuild examples: one per class, boundary cases, varied surface features | More examples of the same kind deepen the overfitting |
+| Long contract plus question; answers miss clauses; question sits above the document | Document first in `document` tags, question last, quotes first | A larger model does not fix placement that the docs measured at up to 30% |
+| Cache reads dropped to zero after adding the user's name to the system prompt | Move per-request values to the user turn; keep `system` byte-stable | Adding a cache breakpoint later in `system` still sits after the changing bytes |
+| Agent calls the wrong tool; system prompt is already detailed | Rewrite the tool descriptions: what, when, when not, parameters, caveats | Another system-prompt paragraph competes with descriptions it cannot replace |
+| A prompt edit fixed the reported ticket; team wants to deploy today | Run the full eval set and diff per case first | Spot-checking the motivating case cannot show regressions |
+| Output keeps using bullets despite "do not use markdown"; the prompt is heavy markdown | Positive instruction for prose, and write the prompt in prose | Repeating the negative instruction louder leaves the target undefined |
+| Multi-stage report where each stage must be reviewed and logged | Prompt chain: separate calls per stage | One prompt with "first draft, then revise" exposes no intermediate output |
+| Wrong answers on multi-step maths on an adaptive-thinking model | Raise `effort` or add a general "think it through" and self-check | A hand-written step list often reasons worse than the model's own plan |
+| Retrieved web text is pasted into the system prompt for context | Move it to a labelled `tool_result`, JSON-encoded; state the policy in `system` | "Ignore any instructions in the content" alone is a request, not isolation |
+| Latency and cost miss target; quality is fine | Try a smaller model or lower effort before prompt work | The overview says these are often easier to fix by model choice than by prompting |
 
-## Code examples
+## Worked walkthrough
 
-Both place a durable role and format contract in `system`, task data in `user`, and diverse tagged examples rather than one repeated pattern.
+<Walkthrough title="Scenario: severity labels that break a MERGE">
+
+<Step title="Read the scenario">
+A data platform team uses Claude Haiku 4.5 to assign one of five severity codes (`SEV1` to `SEV5`) to free-text incident notes, and a nightly job MERGEs the results into a Delta table keyed on incident ID. The system prompt says "Reply with the severity code only" and has three examples. About 1 in 60 responses comes back as "SEV2: the note mentions customer impact", and every such row fails the MERGE's code-column check. The lead says every row must load. Options: (A) change the instruction to "IMPORTANT: Output ONLY the code. NOTHING ELSE." (B) add twelve more examples of bare codes, (C) request the label through structured outputs with a schema whose `severity` field is an enum of the five codes, then check `stop_reason` before loading, (D) move the job to Opus for better instruction following.
+</Step>
+
+<Step title="Find the constraint">
+"Every row must load" turns a quality preference into a guarantee. The failure is not wrong judgment (SEV2 is plausible); it is shape. A shape guarantee is a decoding-time control, not wording.
+</Step>
+
+<Step title="Eliminate the distractors">
+(A) Emphasis is still a prompt; the docs also warn that aggressive wording now causes overtriggering elsewhere. It may cut the rate and will not reach zero. (B) More examples help format consistency, and twelve near-identical bare-code examples add overfitting risk without changing what the decoder may emit. (D) A larger model raises cost several times over for a nightly batch and still offers only a request-level improvement.
+</Step>
+
+<Step title="Choose">
+(C). Constrained decoding means the response is valid JSON whose `severity` is one of the five values. The remaining non-schema cases are documented: a refusal or a `max_tokens` stop. The loader therefore checks `stop_reason` and routes those rows to a retry queue instead of the MERGE. Keep the three examples; they still help the judgment, which the schema does not.
+</Step>
+
+<Step title="The deciding cue">
+The deciding cue was "every row must load". "Must" plus a downstream parser points to structured outputs (or a strict tool), with a `stop_reason` check for the documented exceptions. The wording options fail because they leave the guarantee to the model.
+</Step>
+
+</Walkthrough>
+
+## Code
+
+All snippets read text through a helper that returns the first `text` block, because on current models the first content block can be a thinking block.
+
+**A versioned template: role in system, documents first, query last, diverse tagged examples.** The system prompt is byte-stable (cacheable); every per-request value goes in the user turn.
 
 ```python
-from anthropic import Anthropic
+import anthropic
 
-client = Anthropic()
+client = anthropic.Anthropic()
 
-SYSTEM_PROMPT = """You are a support-ticket triage assistant. Classify each
-ticket into exactly one category: billing, bug, feature_request, or other.
-Respond with only the category name, lowercase, no punctuation.
 
-<example><ticket>My card was charged twice for the same invoice.</ticket>
-<category>billing</category></example>
-<example><ticket>The export button does nothing on Safari.</ticket>
-<category>bug</category></example>
-<example><ticket>Could you add a dark mode option?</ticket>
-<category>feature_request</category></example>
-<example><ticket>What are your support hours?</ticket>
-<category>other</category></example>"""
-# Role, format contract, and stable examples live in `system` — apply to
-# every ticket and stay eligible for prompt caching.
+def text_of(resp) -> str:
+    """Return the first text block; content[0] may be a thinking block."""
+    return next((b.text for b in resp.content if b.type == "text"), "")
 
-def classify_ticket(ticket_text: str) -> str:
-    # Per-request data goes in `user`, delimited from the instruction layer.
-    msg = client.messages.create(
-        model="claude-opus-5",
-        max_tokens=10,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": f"<ticket>{ticket_text}</ticket>"}],
+
+SYSTEM_V3 = """You review data pipeline change requests for a platform team.
+Classify the risk of each change as low, medium or high, then give one sentence of evidence
+quoted from the change request. Downstream reviewers read only your output, so be specific.
+
+<examples>
+<example>
+<change>Add a nullable comment column to silver.customers.</change>
+<risk>low</risk><evidence>"nullable comment column"</evidence>
+</example>
+<example>
+<change>Rename order_ts to order_timestamp in bronze.orders; three gold views read it.</change>
+<risk>high</risk><evidence>"three gold views read it"</evidence>
+</example>
+<example>
+<change>Backfill 90 days of fx_rates from the vendor API during business hours.</change>
+<risk>medium</risk><evidence>"during business hours"</evidence>
+</example>
+<example>
+<change></change>
+<risk>low</risk><evidence>No change text was provided.</evidence>
+</example>
+</examples>"""
+
+USER_TEMPLATE = """<documents>
+<document index="1"><source>{source}</source>
+<document_content>
+{document}
+</document_content></document>
+</documents>
+
+Using the change request above, first copy the sentences that matter into <quotes> tags.
+Then answer in <risk> and <evidence> tags."""
+
+
+def review(source: str, document: str) -> str:
+    resp = client.messages.create(
+        model="claude-sonnet-5-5",
+        max_tokens=2_000,
+        system=SYSTEM_V3,
+        messages=[{"role": "user", "content": USER_TEMPLATE.format(source=source, document=document)}],
     )
-    return msg.content[0].text.strip()
+    return text_of(resp)
+
+
+print(review("CR-1182.md", "Drop the legacy_flag column from gold.revenue_daily. Two dashboards filter on it."))
 ```
 
 ```typescript
@@ -116,42 +377,354 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
 
-const SYSTEM_PROMPT = `You are a support-ticket triage assistant. Classify each
-ticket into exactly one category: billing, bug, feature_request, or other.
-Respond with only the category name, lowercase, no punctuation.
-
-<example><ticket>My card was charged twice for the same invoice.</ticket>
-<category>billing</category></example>
-<example><ticket>The export button does nothing on Safari.</ticket>
-<category>bug</category></example>
-<example><ticket>Could you add a dark mode option?</ticket>
-<category>feature_request</category></example>
-<example><ticket>What are your support hours?</ticket>
-<category>other</category></example>`;
-// Role, format contract, and examples live in `system` — durable, cacheable.
-
-async function classifyTicket(ticketText: string): Promise<string> {
-  const msg = await client.messages.create({
-    model: "claude-opus-5",
-    max_tokens: 10,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: `<ticket>${ticketText}</ticket>` }],
-  });
-  const block = msg.content[0];
-  return block.type === "text" ? block.text.trim() : "";
+function textOf(msg: Anthropic.Message): string {
+  // Return the first text block; content[0] may be a thinking block.
+  const block = msg.content.find((b): b is Anthropic.TextBlock => b.type === "text");
+  return block ? block.text : "";
 }
+
+const SYSTEM_V3 = `You review data pipeline change requests for a platform team.
+Classify the risk of each change as low, medium or high, then give one sentence of evidence
+quoted from the change request. Downstream reviewers read only your output, so be specific.
+
+<examples>
+<example>
+<change>Add a nullable comment column to silver.customers.</change>
+<risk>low</risk><evidence>"nullable comment column"</evidence>
+</example>
+<example>
+<change>Rename order_ts to order_timestamp in bronze.orders; three gold views read it.</change>
+<risk>high</risk><evidence>"three gold views read it"</evidence>
+</example>
+<example>
+<change>Backfill 90 days of fx_rates from the vendor API during business hours.</change>
+<risk>medium</risk><evidence>"during business hours"</evidence>
+</example>
+<example>
+<change></change>
+<risk>low</risk><evidence>No change text was provided.</evidence>
+</example>
+</examples>`;
+
+function userTurn(source: string, document: string): string {
+  return `<documents>
+<document index="1"><source>${source}</source>
+<document_content>
+${document}
+</document_content></document>
+</documents>
+
+Using the change request above, first copy the sentences that matter into <quotes> tags.
+Then answer in <risk> and <evidence> tags.`;
+}
+
+async function review(source: string, document: string): Promise<string> {
+  const resp = await client.messages.create({
+    model: "claude-sonnet-5-5",
+    max_tokens: 2_000,
+    system: SYSTEM_V3,
+    messages: [{ role: "user", content: userTurn(source, document) }],
+  });
+  return textOf(resp);
+}
+
+console.log(await review("CR-1182.md", "Drop the legacy_flag column from gold.revenue_daily. Two dashboards filter on it."));
 ```
 
-## Named traps, expanded
+<Output kind="illustrative">
+```text
+<quotes>"Drop the legacy_flag column from gold.revenue_daily." "Two dashboards filter on it."</quotes>
+<risk>high</risk><evidence>"Two dashboards filter on it."</evidence>
+```
+</Output>
 
-**"Tool descriptions are prompts."** Easy to miss because a tool definition looks like configuration rather than something the model "reads." Wrong to treat it that way — the model conditions its tool-calling decisions directly on that text, so vague wording produces the same failure class as a vague system prompt: unclear intent, wrong tool chosen. Recognize this whenever a stem shows tool misuse despite a well-written system prompt — the fix is almost always the tool's own description.
+**When it must always parse: structured outputs with an enum.** The walkthrough's fix. The schema guarantees shape; the `stop_reason` check catches the documented exceptions (refusal, truncation).
 
-**"A prompt fix for one case commonly regresses others."** Attractive because a fixed reported failure feels like unambiguous progress, and re-running a full eval set feels like overhead for a one-line change. Wrong because prompt changes are broad-spectrum — reweighting a phrase for case A can shift behavior on cases B and C that shared context, and without a before/after eval run those regressions ship invisibly. Recognize this whenever a stem ships a prompt change on the strength of the one case that motivated it.
+```python
+import anthropic
+import json
+
+client = anthropic.Anthropic()
+
+
+def text_of(resp) -> str:
+    return next((b.text for b in resp.content if b.type == "text"), "")
+
+
+SCHEMA = {
+    "type": "object",
+    "properties": {
+        "severity": {"type": "string", "enum": ["SEV1", "SEV2", "SEV3", "SEV4", "SEV5"]},
+        "evidence": {"type": "string"},
+    },
+    "required": ["severity", "evidence"],
+    "additionalProperties": False,
+}
+
+SYSTEM = (
+    "You assign a severity to pipeline incident notes. SEV1 means customer-facing data is wrong "
+    "or missing now; SEV5 means cosmetic. Base the label only on the note."
+)
+
+
+def label(note: str) -> dict | None:
+    resp = client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=300,
+        system=SYSTEM,
+        messages=[{"role": "user", "content": f"<note>{json.dumps(note)}</note>"}],
+        output_config={"format": {"type": "json_schema", "schema": SCHEMA}},
+    )
+    if resp.stop_reason != "end_turn":  # refusal or max_tokens: may not match the schema
+        return None  # route to a retry queue, never into the MERGE
+    return json.loads(text_of(resp))
+
+
+print(label("Gold revenue table missing yesterday's EU partition; finance dashboard shows zero."))
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+function textOf(msg: Anthropic.Message): string {
+  const block = msg.content.find((b): b is Anthropic.TextBlock => b.type === "text");
+  return block ? block.text : "";
+}
+
+const SCHEMA = {
+  type: "object",
+  properties: {
+    severity: { type: "string", enum: ["SEV1", "SEV2", "SEV3", "SEV4", "SEV5"] },
+    evidence: { type: "string" },
+  },
+  required: ["severity", "evidence"],
+  additionalProperties: false,
+};
+
+const SYSTEM =
+  "You assign a severity to pipeline incident notes. SEV1 means customer-facing data is wrong " +
+  "or missing now; SEV5 means cosmetic. Base the label only on the note.";
+
+async function label(note: string): Promise<{ severity: string; evidence: string } | null> {
+  const resp = await client.messages.create({
+    model: "claude-haiku-4-5",
+    max_tokens: 300,
+    system: SYSTEM,
+    messages: [{ role: "user", content: `<note>${JSON.stringify(note)}</note>` }],
+    output_config: { format: { type: "json_schema", schema: SCHEMA } },
+  } as Anthropic.MessageCreateParamsNonStreaming);
+  if (resp.stop_reason !== "end_turn") return null; // refusal or max_tokens: route to retry queue
+  return JSON.parse(textOf(resp));
+}
+
+console.log(await label("Gold revenue table missing yesterday's EU partition; finance dashboard shows zero."));
+```
+
+<Output kind="illustrative">
+```text
+{'severity': 'SEV1', 'evidence': "finance dashboard shows zero"}
+```
+</Output>
+
+**Iterate against an eval set, not a single ticket.** Two prompt versions run over the same labelled cases; the report lists fixed and newly broken cases, not just the average. Code-graded exact match, so it is cheap enough to run on every prompt change.
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+
+def text_of(resp) -> str:
+    return next((b.text for b in resp.content if b.type == "text"), "")
+
+
+PROMPTS = {
+    "v1": "Classify the incident note as SEV1 to SEV5. Reply with the code only.",
+    "v2": ("Classify the incident note as SEV1 to SEV5. SEV1: customer-facing data wrong now. "
+           "SEV3: internal job late, no data loss. SEV5: cosmetic. Reply with the code only."),
+}
+EVAL = [  # in practice hundreds of rows, including edge cases, from a versioned table
+    {"id": "e1", "note": "Finance dashboard shows zero revenue for EU since 02:00.", "gold": "SEV1"},
+    {"id": "e2", "note": "Nightly feature job finished 40 minutes late; outputs complete.", "gold": "SEV3"},
+    {"id": "e3", "note": "Typo in a column comment on silver.customers.", "gold": "SEV5"},
+    {"id": "e4", "note": "", "gold": "SEV5"},
+]
+
+
+def run(version: str) -> dict[str, bool]:
+    results = {}
+    for case in EVAL:
+        resp = client.messages.create(
+            model="claude-haiku-4-5",
+            max_tokens=20,
+            system=PROMPTS[version],
+            messages=[{"role": "user", "content": f"<note>{case['note']}</note>"}],
+        )
+        results[case["id"]] = text_of(resp).strip().upper() == case["gold"]
+    return results
+
+
+base, cand = run("v1"), run("v2")
+fixed = [k for k in base if not base[k] and cand[k]]
+broken = [k for k in base if base[k] and not cand[k]]
+print(f"v1 {sum(base.values())}/{len(EVAL)}  v2 {sum(cand.values())}/{len(EVAL)}")
+print("fixed:", fixed, "newly broken:", broken)  # ship only if broken is empty or accepted
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+function textOf(msg: Anthropic.Message): string {
+  const block = msg.content.find((b): b is Anthropic.TextBlock => b.type === "text");
+  return block ? block.text : "";
+}
+
+const PROMPTS: Record<string, string> = {
+  v1: "Classify the incident note as SEV1 to SEV5. Reply with the code only.",
+  v2:
+    "Classify the incident note as SEV1 to SEV5. SEV1: customer-facing data wrong now. " +
+    "SEV3: internal job late, no data loss. SEV5: cosmetic. Reply with the code only.",
+};
+const EVAL = [ // in practice hundreds of rows, including edge cases, from a versioned table
+  { id: "e1", note: "Finance dashboard shows zero revenue for EU since 02:00.", gold: "SEV1" },
+  { id: "e2", note: "Nightly feature job finished 40 minutes late; outputs complete.", gold: "SEV3" },
+  { id: "e3", note: "Typo in a column comment on silver.customers.", gold: "SEV5" },
+  { id: "e4", note: "", gold: "SEV5" },
+];
+
+async function run(version: string): Promise<Record<string, boolean>> {
+  const results: Record<string, boolean> = {};
+  for (const c of EVAL) {
+    const resp = await client.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 20,
+      system: PROMPTS[version],
+      messages: [{ role: "user", content: `<note>${c.note}</note>` }],
+    });
+    results[c.id] = textOf(resp).trim().toUpperCase() === c.gold;
+  }
+  return results;
+}
+
+const base = await run("v1");
+const cand = await run("v2");
+const fixed = Object.keys(base).filter((k) => !base[k] && cand[k]);
+const broken = Object.keys(base).filter((k) => base[k] && !cand[k]);
+const score = (r: Record<string, boolean>) => Object.values(r).filter(Boolean).length;
+console.log(`v1 ${score(base)}/${EVAL.length}  v2 ${score(cand)}/${EVAL.length}`);
+console.log("fixed:", fixed, "newly broken:", broken); // ship only if broken is empty or accepted
+```
+
+<Output kind="illustrative">
+```text
+v1 2/4  v2 3/4
+fixed: ['e2', 'e4'] newly broken: ['e3']
+```
+</Output>
+
+**A two-step self-correction chain.** Each step is its own call, so the draft and the review are logged data you can grade or branch on.
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+
+def text_of(resp) -> str:
+    return next((b.text for b in resp.content if b.type == "text"), "")
+
+
+def ask(system: str, user: str, max_tokens: int = 1_500) -> str:
+    resp = client.messages.create(
+        model="claude-sonnet-5-5",
+        max_tokens=max_tokens,
+        system=system,
+        messages=[{"role": "user", "content": user}],
+    )
+    return text_of(resp)
+
+
+SOURCE = "Job 8812 failed: AnalysisException, column order_ts not found in bronze.orders after upstream rename."
+CRITERIA = "States root cause, affected tables, and one concrete fix. Under 120 words. No speculation."
+
+draft = ask("You write incident summaries for data engineers.", f"<source>{SOURCE}</source>\nWrite the summary.")
+review = ask("You review incident summaries against criteria. List concrete issues only.",
+             f"<criteria>{CRITERIA}</criteria>\n<draft>{draft}</draft>")
+final = ask("You write incident summaries for data engineers.",
+            f"<source>{SOURCE}</source>\n<draft>{draft}</draft>\n<issues>{review}</issues>\n"
+            "Rewrite the draft so it resolves every issue.")
+print(final)
+```
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+function textOf(msg: Anthropic.Message): string {
+  const block = msg.content.find((b): b is Anthropic.TextBlock => b.type === "text");
+  return block ? block.text : "";
+}
+
+async function ask(system: string, user: string, maxTokens = 1_500): Promise<string> {
+  const resp = await client.messages.create({
+    model: "claude-sonnet-5-5",
+    max_tokens: maxTokens,
+    system,
+    messages: [{ role: "user", content: user }],
+  });
+  return textOf(resp);
+}
+
+const SOURCE = "Job 8812 failed: AnalysisException, column order_ts not found in bronze.orders after upstream rename.";
+const CRITERIA = "States root cause, affected tables, and one concrete fix. Under 120 words. No speculation.";
+
+const draft = await ask("You write incident summaries for data engineers.", `<source>${SOURCE}</source>\nWrite the summary.`);
+const review = await ask("You review incident summaries against criteria. List concrete issues only.",
+  `<criteria>${CRITERIA}</criteria>\n<draft>${draft}</draft>`);
+const final = await ask("You write incident summaries for data engineers.",
+  `<source>${SOURCE}</source>\n<draft>${draft}</draft>\n<issues>${review}</issues>\nRewrite the draft so it resolves every issue.`);
+console.log(final);
+```
 
 ## Recall checks
 
-- Why does putting a per-request document in `system` break prompt caching, and where should it go instead?
-- What two properties should few-shot examples have, and what goes wrong when they're relevant but not diverse?
-- A stem argues adding one more example will fix a classification prompt. Which domain owns that claim, and what does this objective own instead?
-- Why is "ask for JSON in the prompt" weaker than a JSON Schema passed to `output_config.format`?
-- An agent keeps calling the wrong tool despite a careful system prompt. What's the first thing to inspect, and why?
+<Recall q="What is the docs' golden rule for instruction clarity, and why does giving the reason behind a rule help?">
+Show the prompt to a colleague with minimal context; if they would be confused, Claude will be too. Explaining why a rule exists lets Claude generalize it to cases the rule did not list, instead of applying it literally.
+</Recall>
+
+<Recall q="Your few-shot classifier now picks the same label for most inputs. What went wrong in construction, and how do you rebuild the set?">
+The examples shared an incidental pattern (often the same label or near-identical inputs), so Claude learned that pattern. Rebuild with 3 to 5 relevant, diverse examples: one typical case per class, boundary cases, a degenerate input, varied surface features, each wrapped in example tags.
+</Recall>
+
+<Recall q="Why does interpolating a per-request value into the system prompt hurt both caching and security?">
+The cache prefix runs tools, then system, then messages, so a changing system prompt invalidates the system and messages segments on every call. It also places request or user content at the developer-authored, highest-trust position, which blurs the boundary injection defences rely on.
+</Recall>
+
+<Recall q="Where do long documents and the query go in a long-context prompt, and what extra step improves grounding?">
+Documents at the top, each in document tags with source and document_content, and the query at the end; the docs report up to 30 percent better quality from queries at the end. Asking Claude to extract relevant quotes first, then answer from them, focuses it on the relevant content.
+</Recall>
+
+<Recall q="A stem says every response must be valid JSON for a downstream parser. Why is a stronger prompt instruction the wrong answer, and what does the right answer still not guarantee?">
+A prompt is a request the model can miss; structured outputs constrain decoding so the response is schema-valid. It still does not cover refusals or max_tokens truncation, or business-rule correctness, so code checks stop_reason and validates meaning.
+</Recall>
+
+<Recall q="An agent keeps calling the wrong tool despite a detailed system prompt. What do you change first, and why?">
+The tool descriptions. The API compiles tool definitions into a system prompt, and the docs call detailed descriptions (what, when, when not, parameters, caveats, at least 3 to 4 sentences) the most important factor in tool performance.
+</Recall>
+
+<Recall q="A one-line prompt edit fixes the reported failure. What must happen before it ships, and why?">
+Run the full eval set with both versions and compare case by case. Instructions are shared by every input, so a fix for one case can silently break others, and only a per-case diff exposes that.
+</Recall>
+
+<Recall q="When is explicit prompt chaining still worth it on models with adaptive thinking?">
+When you need to inspect, log or grade intermediate outputs, or enforce a specific pipeline structure. Adaptive thinking handles most multi-step reasoning inside one call, so chaining is for control and observability, not raw reasoning ability.
+</Recall>
+
+<Recall q="Where should untrusted third-party content go in a request, and what must not go next to it?">
+In tool_result blocks, labelled with its source and ideally JSON-encoded, with the untrusted-content policy stated in the system prompt. Your own instructions must not go inside tool results, because Claude treats that content as untrusted and may ignore or flag them.
+</Recall>
