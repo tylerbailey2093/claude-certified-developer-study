@@ -7,8 +7,8 @@ Live: https://tylerbailey2093.github.io/claude-certified-developer-study/
 <!-- stats:start -->
 | | |
 |---|---|
-| Objectives | 25 (all 8 domains) |
-| Question bank | see `npm run coverage` |
+| Objectives | 25 (all 8 domains), every page on the v2 structure |
+| Question bank | 360 active original items (target 453), 18.6% multi-response; `npm run coverage` for per-objective counts |
 | Labs | 11 |
 <!-- stats:end -->
 
