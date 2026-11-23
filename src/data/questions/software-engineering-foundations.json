@@ -483,7 +483,7 @@
       },
       {
         "id": "d",
-        "text": "Raise max_tokens so that long responses are never cut off partway through a JSON object or value",
+        "text": "Give the call a much larger output allowance so the JSON object has room to close every time",
         "why": "Truncation is a different failure; here the quantity field is complete but carries the wrong type."
       }
     ],

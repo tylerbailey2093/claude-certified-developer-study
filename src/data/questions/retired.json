@@ -926,5 +926,109 @@
     "sources": [],
     "author": "v1-new",
     "status": "retired"
+  },
+  {
+    "id": "legacy-048",
+    "objective": "cost-and-token-management",
+    "domain": 5,
+    "subskills": [
+      "cost.checkpointing"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A contract-review assistant sends fixed tool definitions, then a 15,000-token clause library in the system prompt that every user's conversation shares, then the conversation itself. Its only cache_control marker sits on the latest user message. Logs show later turns within one conversation read from cache, but the first turn of every new conversation writes the whole clause library again. Which change fixes this?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Add a second breakpoint at the end of the system prompt so every new conversation reads the shared tools and clause library",
+        "why": "Correct. Writes happen only at breakpoints, so a marker at the stability boundary creates an entry that any conversation with the same tools and system prompt can read."
+      },
+      {
+        "id": "b",
+        "text": "Switch the existing marker to the 1-hour TTL so a cached conversation stays alive long enough for the next user to reuse it",
+        "why": "The entry written at one conversation's tail includes that user's messages, so no other conversation ever matches it, however long it lives."
+      },
+      {
+        "id": "c",
+        "text": "Move the clause library out of the system prompt into the first user message so it sits closer to the existing cache marker",
+        "why": "Moving the library does not add a write point at the shared boundary; the only entry is still keyed to each conversation's own messages."
+      },
+      {
+        "id": "d",
+        "text": "Move the only breakpoint onto the tool definitions instead, because tools are rendered first and change least often of all",
+        "why": "That caches just the tools; the clause library and the whole conversation become uncached input on every request, which costs more."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is content that every conversation shares sitting behind a marker that only exists at each conversation's tail. A cache read needs an entry written at a matching prefix, and the lookback finds only entries earlier requests wrote at their own breakpoints, so place a checkpoint where stability changes (after tools and system) and keep one at the moving conversation end. A longer TTL is the tempting fix, but expiry is not the problem when the prefix never matches.",
+    "cue": "every user's conversation shares",
+    "pattern": "diagnosis",
+    "difficulty": 3,
+    "tags": [
+      "retired:tracks-v1.1-sample"
+    ],
+    "sources": [
+      {
+        "label": "Prompt caching",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-cost-context",
+    "status": "retired"
+  },
+  {
+    "id": "legacy-016",
+    "objective": "claude-api-mechanics",
+    "domain": 2,
+    "subskills": [
+      "api.streaming"
+    ],
+    "type": "single",
+    "select": 1,
+    "stem": "A chat service streams responses and alerts on any upstream status outside the 2xx range, and its dashboards have shown only HTTP 200 all week. Users still report answers that stop mid-sentence at peak hours, and the stream handler silently skips event types it does not recognise. What is the most likely explanation?",
+    "options": [
+      {
+        "id": "a",
+        "text": "An error event such as overloaded_error arrived mid-stream after the 200 status had been sent",
+        "why": "Correct. The status line is committed before generation finishes, so a failure arrives as an SSE error event that the handler skips."
+      },
+      {
+        "id": "b",
+        "text": "The responses ended early with stop_reason end_turn because peak load shortens generations",
+        "why": "Load does not change where Claude ends a turn; end_turn marks a natural finish, not an interrupted sentence."
+      },
+      {
+        "id": "c",
+        "text": "The client's HTTP connection timed out and the server discarded the remaining chunks silently",
+        "why": "A client timeout would surface as a client-side exception or log entry, and nothing in the stem points to the network."
+      },
+      {
+        "id": "d",
+        "text": "A proxy buffered the SSE stream and discarded the final message_stop event before delivery",
+        "why": "Losing message_stop would not cut text mid-sentence; the text deltas before it would still have arrived."
+      }
+    ],
+    "answer": [
+      "a"
+    ],
+    "explanation": "The cue is all-200 dashboards plus a handler that skips unknown events. A streamed response can carry an error event, for example overloaded_error, after the 200 was sent, so status monitoring cannot see it and the partial answer looks like a silent cut. Network blame is tempting but explains nothing a status-only monitor would miss.",
+    "cue": "silently skips event types it does not recognise",
+    "pattern": "diagnosis",
+    "difficulty": 2,
+    "tags": [
+      "retired:tracks-v1.1-sample"
+    ],
+    "sources": [
+      {
+        "label": "Streaming messages",
+        "url": "https://platform.claude.com/docs/en/build-with-claude/streaming"
+      }
+    ],
+    "verified": "2026-10-06",
+    "author": "agent:q-api",
+    "status": "retired"
   }
 ]

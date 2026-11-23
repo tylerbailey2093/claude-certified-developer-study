@@ -18,7 +18,7 @@
       },
       {
         "id": "b",
-        "text": "Move the assistant to a smaller model tier so that every input and output token on every request costs less",
+        "text": "Route every request to the cheapest tier available, accepting whatever quality change that brings",
         "why": "Model downgrade is the last lever: it changes behaviour and voids the evaluation suite that was just signed off, while caching saves more on this prefix."
       },
       {
@@ -48,56 +48,6 @@
       {
         "label": "Pricing",
         "url": "https://platform.claude.com/docs/en/about-claude/pricing"
-      }
-    ],
-    "verified": "2026-10-06",
-    "author": "agent:q-cost-context",
-    "status": "active"
-  },
-  {
-    "id": "legacy-048",
-    "objective": "cost-and-token-management",
-    "domain": 5,
-    "subskills": [
-      "cost.checkpointing"
-    ],
-    "type": "single",
-    "select": 1,
-    "stem": "A contract-review assistant sends fixed tool definitions, then a 15,000-token clause library in the system prompt that every user's conversation shares, then the conversation itself. Its only cache_control marker sits on the latest user message. Logs show later turns within one conversation read from cache, but the first turn of every new conversation writes the whole clause library again. Which change fixes this?",
-    "options": [
-      {
-        "id": "a",
-        "text": "Add a second breakpoint at the end of the system prompt so every new conversation reads the shared tools and clause library",
-        "why": "Correct. Writes happen only at breakpoints, so a marker at the stability boundary creates an entry that any conversation with the same tools and system prompt can read."
-      },
-      {
-        "id": "b",
-        "text": "Switch the existing marker to the 1-hour TTL so a cached conversation stays alive long enough for the next user to reuse it",
-        "why": "The entry written at one conversation's tail includes that user's messages, so no other conversation ever matches it, however long it lives."
-      },
-      {
-        "id": "c",
-        "text": "Move the clause library out of the system prompt into the first user message so it sits closer to the existing cache marker",
-        "why": "Moving the library does not add a write point at the shared boundary; the only entry is still keyed to each conversation's own messages."
-      },
-      {
-        "id": "d",
-        "text": "Move the only breakpoint onto the tool definitions instead, because tools are rendered first and change least often of all",
-        "why": "That caches just the tools; the clause library and the whole conversation become uncached input on every request, which costs more."
-      }
-    ],
-    "answer": [
-      "a"
-    ],
-    "explanation": "The cue is content that every conversation shares sitting behind a marker that only exists at each conversation's tail. A cache read needs an entry written at a matching prefix, and the lookback finds only entries earlier requests wrote at their own breakpoints, so place a checkpoint where stability changes (after tools and system) and keep one at the moving conversation end. A longer TTL is the tempting fix, but expiry is not the problem when the prefix never matches.",
-    "cue": "every user's conversation shares",
-    "pattern": "diagnosis",
-    "difficulty": 3,
-    "tags": [],
-    "sources": [
-      {
-        "label": "Prompt caching",
-        "url": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
       }
     ],
     "verified": "2026-10-06",
