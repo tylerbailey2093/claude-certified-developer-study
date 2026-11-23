@@ -7,7 +7,7 @@
 // of mocks instead of always or never. Within an objective, unseen items are
 // preferred and harder items are slightly over-weighted, because candidates
 // report the live exam is harder than practice material.
-import { DOMAINS, MOCK_COMPOSITION } from '../blueprint';
+import { DOMAINS, MOCK_COMPOSITION, MOCK_COMPOSITION_V11 } from '../blueprint';
 import { isExamEligible, isDrawable, type Question } from './schema';
 import { shuffle, type Rng } from './shuffle';
 
@@ -56,7 +56,9 @@ export function allocate(n: number, weights: number[], rng: Rng): number[] {
   return alloc;
 }
 
-export function drawExam(bank: Question[], opts: DrawOptions, total = 53): Question[] {
+export type GuideVersion = 'v1.0' | 'v1.1';
+
+export function drawExam(bank: Question[], opts: DrawOptions, total = 53, version: GuideVersion = 'v1.0'): Question[] {
   const { rng, seen = new Set() } = opts;
   const eligible = bank.filter(isExamEligible);
   const multiCap = Math.round(total * MULTI_CAP_SHARE);
@@ -68,10 +70,12 @@ export function drawExam(bank: Question[], opts: DrawOptions, total = 53): Quest
   // Full exam: the blueprint's fixed composition. Shorter mocks: split the
   // total across domains with the same remainder-preserving allocation, so the
   // count is exact (rounding each domain separately drifts by one or two).
+  const comp = version === 'v1.1' ? MOCK_COMPOSITION_V11 : MOCK_COMPOSITION;
+  const fullSize = DOMAINS.reduce((a, d) => a + comp[d.n], 0);
   const domainCounts =
-    total === 53
-      ? DOMAINS.map((d) => MOCK_COMPOSITION[d.n])
-      : allocate(total, DOMAINS.map((d) => MOCK_COMPOSITION[d.n]), rng);
+    total === fullSize
+      ? DOMAINS.map((d) => comp[d.n])
+      : allocate(total, DOMAINS.map((d) => comp[d.n]), rng);
 
   for (const [di, d] of DOMAINS.entries()) {
     const need = domainCounts[di];

@@ -1,0 +1,28 @@
+import Callout from '../components/mdx/Callout.astro';
+
+## Field notes from recent candidates (Oct to Nov 2026)
+
+These themes come from public write-ups by people who sat CCDV-F v1.0, mostly October and November 2026. Most are Japanese-language posts, read through search summaries because several blog hosts are blocked from this build environment. They are individual accounts, not data, and contain no exam items. **[Likely]** on the themes, **[Guessing]** on any single claim.
+
+| Theme | What people report |
+|---|---|
+| **Reading load is the main difficulty** | Several candidates found the wording harder than the technical depth. Non-native English readers finished with 5 to 6 minutes to spare. Fluent readers report 40 to 90 minutes in total. |
+| **Practical judgment items** | "How do you handle this common production problem" items, often solvable by elimination. Every wrong option is a real mechanism that works somewhere else, so **fit** decides the answer. |
+| **Recognisable trap families** | Retrying a permanent failure. A context file where a hook was needed. A bigger model or a higher limit instead of fixing the cause. Scenarios are set in unfamiliar industries to stop pattern matching. |
+| **General engineering is scored directly** | Env vars and secrets, validating JSON output, config precedence, retry vs permanent failure. Candidates with production backgrounds found this transferred well. |
+| **Courses alone were not enough** | An AWS-certified candidate said the Anthropic courses probably are not sufficient alone. Building something and reading the docs mattered more. |
+| **Difficulty (v1.0)** | Holders of all four Claude certifications ranked Developer Foundations second easiest. Self-reported passing scores of 852 to 970 after 8 to 10 hours of study. Survivorship bias applies: only people who passed posted. |
+| **"Sit it before the revision"** | One November candidate titled his write-up that way. Others expect v1.1 to be harder because of the 70-item pace and the trace-reading items. |
+| **Official samples are the best style guide** | The published samples matched the real item style better than third-party practice banks. |
+
+<Callout type="tip" title="What to do with this">
+1. **Practise at pace.** Run one strict simulation in your version's format. Check the clock at the halfway mark, not near the end.
+2. **For every distractor, name why it fails here.** "Exists" is never the question; "fits these constraints" is.
+3. **Use your production background.** Secrets, config precedence, idempotent retries and output validation are scored as engineering, not as Claude trivia.
+</Callout>
+
+<Callout type="trap" title="Avoid dump sites">
+Several search results for this exam advertise "real questions" or "past-exam format" PDFs. They were not opened. Using them violates the NDA you accept at the start of the exam, which can void a result and revoke the credential.
+</Callout>
+
+Sources for these themes: [vkorost/claude-certified-developer-guide](https://github.com/vkorost/claude-certified-developer-guide) (practitioner notes, no items), [davolu/ccdv-f-exam-prep](https://github.com/davolu/ccdv-f-exam-prep) (v1.1 summary), plus candidate posts on Medium, Qiita, Zenn and note.com found through search on 2026-11-23.

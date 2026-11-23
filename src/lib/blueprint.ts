@@ -63,6 +63,29 @@ export const MOCK_COMPOSITION: Record<number, number> = Object.fromEntries(
 
 export const EXAM = { items: 53, minutes: 120, cut: 720 } as const;
 
+// Exam Guide v1.1 (effective 2026-12-07): 70 items (60 scored), per-domain
+// weights only, objectives rewritten as 24 skills. The appointment date decides
+// which version a candidate sits.
+type V11 = {
+  effective: string;
+  format: { items: number; scored: number; unscored: number; minutes: number; cut: number };
+  weights: Record<string, number>;
+  mock_composition: Record<string, number>;
+  skills: { domain: number; name: string; guide: string; maps_to: string[] }[];
+};
+const v11 = (raw as unknown as { v1_1: V11 }).v1_1;
+export const V11_EFFECTIVE = v11.effective;
+export const EXAM_V11 = { items: v11.format.items, scored: v11.format.scored, minutes: v11.format.minutes, cut: v11.format.cut } as const;
+export const WEIGHTS_V11: Record<number, number> = Object.fromEntries(Object.entries(v11.weights).map(([k, v]) => [Number(k), v]));
+export const MOCK_COMPOSITION_V11: Record<number, number> = Object.fromEntries(
+  Object.entries(v11.mock_composition).map(([k, v]) => [Number(k), v])
+);
+export const V11_SKILLS = v11.skills;
+/** Which guide version applies to an exam on this date (YYYY-MM-DD). */
+export function guideVersionFor(date?: string): 'v1.0' | 'v1.1' {
+  return date && date < V11_EFFECTIVE ? 'v1.0' : 'v1.1';
+}
+
 export function domainName(n: number): string {
   return DOMAINS.find((d) => d.n === n)?.name ?? `Domain ${n}`;
 }

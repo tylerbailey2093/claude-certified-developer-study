@@ -2,7 +2,7 @@
 import Base from '../layouts/Base.astro';
 import HomeDashboard from '../islands/HomeDashboard.tsx';
 import PipelineMap from '../components/PipelineMap.astro';
-import { DOMAINS } from '../lib/blueprint';
+import { DOMAINS, WEIGHTS_V11 } from '../lib/blueprint';
 import { allQuestions } from '../lib/bank/bank';
 
 const base = import.meta.env.BASE_URL;
@@ -14,13 +14,18 @@ const maxW = Math.max(...domains.map((d) => d.weight));
 ---
 <Base title="Home" grid="full">
   <header class="page-head">
-    <p class="eyebrow">Claude Certified Developer · Foundations · Exam Guide v1.0</p>
+    <p class="eyebrow">Claude Certified Developer · Foundations · Exam Guide v1.0 and v1.1</p>
     <h1>Study for CCDV-F the way the exam is weighted.</h1>
     <p class="lede">
-      53 items, 120 minutes, pass at 720 of 1000, and no per-domain minimum. Domain 2 alone is a third of the exam, so depth here
-      follows the blueprint rather than what is interesting.
+      Pass at 720 of 1000 with no per-domain minimum, so depth here follows the blueprint rather than what is interesting.
+      Before Dec 7, 2026: 53 items in 120 minutes. From Dec 7: 70 items (60 scored) in 120 minutes, with new weights.
     </p>
   </header>
+
+  <div class="callout callout-key">
+    <p class="callout-title">The exam changes on December 7, 2026</p>
+    <p>Your appointment date decides the version. v1.1 cuts Domain 2 from 33.1% to 20%, lifts Eval and Debugging from 2.6% to 10% and Claude Code from 3.1% to 8%, and moves to 1.71 minutes per item. <a href={`${base}exam-update/`}>See what changed and the skill map</a>.</p>
+  </div>
 
   <HomeDashboard client:load base={base} poolSizes={poolSizes} bankSize={bank.length} />
 
@@ -31,7 +36,7 @@ const maxW = Math.max(...domains.map((d) => d.weight));
   <div class="cards">
     {domains.map((d) => (
       <a class="card" href={`${base}domain/${d.n}/`} data-d={d.n}>
-        <span class="tag tag-dom">D{d.n} · {d.weight}% · ~{d.approxItems} items</span>
+        <span class="tag tag-dom">D{d.n} · v1.0 {d.weight}% · v1.1 {WEIGHTS_V11[d.n]}%</span>
         <h3>{d.name}</h3>
         <div class="meter" style="margin:10px 0 8px"><i style={`width:${(d.weight / maxW) * 100}%`}></i></div>
         <p>{d.objectives.length} objective{d.objectives.length === 1 ? '' : 's'}: {d.objectives.map((o) => o.name).join(', ')}</p>
@@ -41,8 +46,8 @@ const maxW = Math.max(...domains.map((d) => d.weight));
 
   <div class="callout callout-key" style="margin-top:28px">
     <p class="callout-title">The strategy in three numbers</p>
-    <p><strong>Domain 2 is 33.1%</strong> (about 17 items). Claude Application Design at 8.6% is the single heaviest objective and has no dedicated lesson in the official course.</p>
-    <p><strong>Domains 2 + 5 are 49.9%.</strong> Half the exam, and the half with the least carry-over from the Architect certification.</p>
-    <p><strong>Domains 3 + 4 are 5.7%</strong> (about 3 items). Learn the vocabulary and move on.</p>
+    <p><strong>v1.0 (to Dec 6):</strong> Domain 2 is 33.1% (about 17 of 53). Claude Application Design at 8.6% is the single heaviest objective. Domains 3 + 4 are only 5.7%.</p>
+    <p><strong>v1.1 (from Dec 7):</strong> Domains 1 + 6 are 32% and outweigh Domain 2 at 20%. Domains 3 + 4 rise to 18%, about 13 of 70 items, so evaluation design, trace diagnosis and Claude Code customization need real study.</p>
+    <p><strong>Both:</strong> one buried constraint decides most items, and a "must" or "always" points to a deterministic control, never a prompt.</p>
   </div>
 </Base>

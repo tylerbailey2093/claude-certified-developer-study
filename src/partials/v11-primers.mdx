@@ -1,0 +1,203 @@
+import Callout from '../components/mdx/Callout.astro';
+import PostGuide from '../components/mdx/PostGuide.astro';
+import ObjLink from '../components/mdx/ObjLink.astro';
+
+Exam Guide v1.1 (effective 2026-12-07) raises D4, D6 and D3 and writes many skills around reading a trace, an error log or a usage record. These primers cover what the objective pages treat thinly.
+
+<Callout type="key" title="The v1.1 reading habit">
+Find the one field that names the cause (`stop_reason`, `error.type`, `cache_read_input_tokens`, a missing `tool_result`), then pick the fix that changes the cause, not the symptom.
+</Callout>
+
+## 1. Evaluation design and LLM-as-judge calibration
+
+Use the fastest, most reliable, most scalable grader that works ([develop tests](https://platform.claude.com/docs/en/test-and-evaluate/develop-tests)) [Certain].
+
+| Grader | Use for | Weakness |
+|---|---|---|
+| Code (exact match, schema, unit test) | Format, fields, tool-call shape | No nuance |
+| Model (rubric judge) | Tone, faithfulness, completeness | Must be calibrated first |
+| Human | Labelling the calibration set, ambiguous cases | Slow, expensive |
+
+- **Golden set**: real task distribution plus edge cases (empty, overlong, hostile, cases humans disagree on); volume beats hand-graded perfection [Certain, develop tests].
+- **Rubric judge**: detailed rubric, constrained verdict (`correct`/`incorrect` or 1 to 5), thinking on before scoring [Certain]. One judge per dimension, plus an "Unknown" option ([agent evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)) [Certain].
+- **Different grader**: grading with a different model from the generator is "generally best practice" [Certain, develop tests].
+- **Regression vs capability**: regression suites should pass at nearly 100% and run in CI on every prompt, model or tool change; capability suites start low [Certain, agent evals].
+- **Behavioural checks**: invariants (calls the lookup tool before quoting a price, never emits a key), code-graded on the trace.
+
+**Calibrating the judge** against a human-labelled sample: build a confusion matrix (false passes matter most when the judge gates releases) and measure agreement beyond chance, such as Cohen's kappa. Raw accuracy misleads: if 90% of outputs are good, a judge that always passes scores 90%. Probe verbosity bias (longer wins) and position bias (swap pairwise order and average). The docs require calibration "closely calibrated with human experts" [Certain]; the specific statistics are standard practice, not doc text [Likely].
+
+**Defensible metrics** are specific, measurable, achievable, relevant and usually multidimensional [Certain]. For non-deterministic output run several trials: pass@k (one success suffices) vs pass^k (all must succeed, for consistency) [Certain, agent evals].
+
+Exam cue: "judge agrees 92% with humans but misses most bad answers" -> confusion matrix or kappa.
+Exam cue: "catch breakage when the prompt or model changes" -> regression suite in CI.
+Exam cue: "must hold every time" -> code-graded check, not a rubric judge.
+
+Deeper: <ObjLink id="debugging-and-error-handling" hash="ss-dbg-isolation" />.
+
+## 2. Reading traces: failure-mode diagnosis
+
+Split the layer first: raw response correct but app wrong means integration; wrong on exact replay means model output.
+
+| Signal in the trace | Failure mode | Layer | Fix the cause |
+|---|---|---|---|
+| Fluent claim, no supporting passage | Hallucination | Model or missing context | Supply sources, allow "not found", citations plus support check |
+| HTTP 200, `stop_reason: "refusal"`, `stop_details` set | Refusal | Model / policy | Discard partial output; retry on a fallback model |
+| `end_turn`, "I would check the system", no `tool_use` | Under-acting | Model (prompt, tool description) | Sharper tool description, act-don't-describe instruction |
+| Late turn contradicts an early constraint; history trimmed | Context loss | Integration (trimming) or model | Persist constraints in `system` or memory, compact, subagents |
+| JSON gains prose or renamed keys over time | Format drift | Model | Structured outputs or strict tools, plus validation |
+| Same input, materially different answers | Inconsistent output | Model | Tighter spec and examples; measure pass^k |
+| `stop_reason: "max_tokens"`, object cut off | Truncation | Integration (budget) | Raise `max_tokens` or continue; never "repair" |
+| `tool_use` with no `tool_result` next turn, then 400 | Broken loop | Integration | Append every result, errors as `is_error` |
+
+Refusal and `max_tokens` handling are [Certain] on [handling stop reasons](https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons) ("retry on a fallback model"; "raise `max_tokens` or continue"); the other rows are this site's synthesis [Likely].
+
+Exam cue: "says it will look it up, then answers with no tool call" -> under-acting, not a retry policy.
+Exam cue: "200, empty answer, stop_details present" -> refusal handling, not an HTTP retry.
+
+Deeper: <ObjLink id="debugging-and-error-handling" hash="ss-dbg-traces" />.
+
+## 3. Integration resilience
+
+Error classes ([errors](https://platform.claude.com/docs/en/api/errors)) [Certain]:
+
+| Status / type | Retry? | Then |
+|---|---|---|
+| 429 `rate_limit_error` | Yes, honour `retry-after` | Shape traffic. No `retry-after` = tier spend cap; retrying never helps |
+| 529 `overloaded_error` (load across all users) | Yes, backoff | Degrade or route to another model [Likely] |
+| 400 `invalid_request_error` | **Never** | Fix the request |
+| 413 `request_too_large` | No | Shrink, split, or use the Files API |
+| 500 `api_error` | Yes, backoff | |
+| 504 `timeout_error` | Cautiously | Stream long generations, or batch |
+| 401 / 403 | No | Fix key or permission |
+
+The SDK already retries connection errors, 408, 409, 429 and 5xx twice with backoff [Certain]. Wrapping it in your own 3-attempt loop gives 9 calls per failure: configure `max_retries` or own the loop, not both. Catch typed SDK exceptions, not message strings [Certain].
+
+**Streaming terminal semantics** ([streaming](https://platform.claude.com/docs/en/build-with-claude/streaming)) [Certain]: `message_start` carries empty content and non-final usage; `content_block_stop` closes **one block**; `message_delta` carries `stop_reason` and **cumulative** usage; `message_stop` ends the response; an `error` event (for example `overloaded_error`) can arrive after the HTTP 200; ignore `ping` and unknown event types. Typical defects: billing usage read from `message_start` (output looks like 1 token); tool input parsed per `input_json_delta` instead of once at the block's stop; an uncaught mid-stream `error` leaving a partial answer cached as complete. On 4.6+ models, recover by sending the partial text in a user message asking Claude to continue [Certain].
+
+**Files API ingestion** ([files](https://platform.claude.com/docs/en/build-with-claude/files)) [Certain]:
+
+| Input | Block | Pitfall |
+|---|---|---|
+| PDF, plain text (.csv/.md as `text/plain`) | `document` | An image in a `document` block returns 400 |
+| JPEG, PNG, GIF, WebP | `image` | |
+| .docx, .xlsx | none | Convert to text; .docx with images to PDF |
+| Datasets to analyse | `container_upload` | Reading a big CSV as text bloats context |
+
+Also: uploaded files are not downloadable; file IDs are workspace-scoped, so never accept one from an end user; an expired file fails the request before inference. Not on Bedrock or Google-managed Vertex.
+
+<PostGuide since="2026-10">
+The Files API is out of beta; the `files-api-2025-04-14` header is optional and returns the old list shape.
+</PostGuide>
+
+Exam cue: "retries make the outage worse" -> remove the stacked retry layer.
+Exam cue: "400 after a model switch, retried five times" -> never retry a 400.
+Exam cue: "usage logged as 1 output token" -> read the final `message_delta`.
+
+Deeper: <ObjLink id="claude-api-mechanics" hash="ss-api-streaming" />.
+
+## 4. Caching patterns and cost diagnosis
+
+Mechanics ([prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)) [Certain]: prefix order `tools`, `system`, `messages`; up to **4** breakpoints; writes happen only at a breakpoint; reads walk back at most **20 blocks** per breakpoint for an earlier write; longer TTLs precede shorter ones.
+
+| Pattern | Breakpoints | When |
+|---|---|---|
+| Single | End of the stable prefix | One stable block, short varying tail |
+| Layered | One per change cadence, slowest first: tools + system (deploy), shared corpus (daily), conversation | Segments on different schedules |
+| Rolling | Last block each turn (or automatic caching) plus a fixed earlier one | Long conversations; catches turns that push the end 20+ blocks past the last write |
+
+**Quantify from usage**: total input = `cache_read_input_tokens` + `cache_creation_input_tokens` + `input_tokens` (only what follows the last breakpoint). Writes 1.25x (5 min) or 2x (1 h); reads 0.1x [Certain].
+
+**Worked example.** A 20,000-token tools-plus-system prefix, 100 calls inside the TTL, $2 per million input tokens (Sonnet 5.5, `facts.json`):
+
+| Setup | Prefix cost |
+|---|---|
+| No caching | 100 x 20,000 x $2/M = **$4.00** |
+| Working cache | 1 write $0.05 + 99 reads at 0.1x $0.396 = **$0.446** (about 89% less) |
+| Broken: `cache_creation_input_tokens: 20000`, reads 0, every call | 100 writes at 1.25x = **$5.00**, worse than no cache |
+
+Writes with no reads mean the prefix changes every call (timestamp, unsorted JSON, reordered tools), sits behind a volatile block, or the TTL lapses.
+
+<PostGuide since="2026-08">
+Opus 5.5 and Sonnet 5.5 reads now cost 0.05x (Fable 5.x 0.025x), which drops the working row to about $0.25. Use 0.1x for exam arithmetic.
+</PostGuide>
+
+Exam cue: "creation every request, reads zero" -> remove the volatile byte upstream, not a longer TTL.
+Exam cue: "hits stop after a tool-heavy turn" -> add an earlier second breakpoint.
+Exam cue: "requests 20 to 40 minutes apart" -> 1-hour TTL.
+
+Deeper: <ObjLink id="cost-and-token-management" hash="ss-cost-checkpointing" />.
+
+## 5. Grounding and source citation
+
+A grounded request combines:
+
+1. Documents first, question last, each in a `document` block or `document` / `source` / `document_content` tags; queries at the end improve quality by up to 30% ([prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)) [Certain].
+2. A legal "not found": answer exactly `NOT_FOUND` when the documents lack the answer ([reduce hallucinations](https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/reduce-hallucinations)) [Certain].
+3. Quote first for documents over about 20k tokens, then answer only from the quotes [Certain].
+4. `citations: {"enabled": true}` per document ([citations](https://platform.claude.com/docs/en/build-with-claude/citations)) [Certain].
+
+Citations facts [Certain]: plain text cites character ranges, PDF pages, custom content block indices; `cited_text` does not count toward output tokens; pointers are "guaranteed to contain valid pointers to the provided documents"; works with caching and batch; **citations plus `output_config.format` returns a 400**.
+
+**A valid pointer does not prove support.** It guarantees the quoted span exists, not that it entails the sentence it is attached to. Spot-check support and treat uncited text as ungrounded.
+
+| Factor | Full set in context | Retrieve passages |
+|---|---|---|
+| Corpus size | Fits comfortably | Exceeds the window or mostly irrelevant per query |
+| Cost | Stable corpus, cached, many queries | Unused text would dominate per-query cost |
+| Freshness | Changes rarely | Changes constantly |
+
+[Likely] as a synthesis.
+
+Exam cue: "must say when the documents do not cover it" -> explicit not-found instruction.
+Exam cue: "citations and a strict JSON schema on one call" -> incompatible; split into two steps [Likely].
+Exam cue: "every claim cites a real page but some are wrong" -> support check.
+
+Deeper: <ObjLink id="output-handling" hash="ss-out-skepticism" />.
+
+## 6. Choosing the extension mechanism
+
+Key on where it lives, who maintains it, and how Claude finds it ([features overview](https://code.claude.com/docs/en/features-overview)) [Certain].
+
+| Mechanism | Lives | Maintained by | Discovery | Enforced? |
+|---|---|---|---|---|
+| Built-in tool | The platform | Anthropic | Always available | Permissions apply |
+| Custom tool | Your app's `tools` array | App team | Name and description | Your code runs it |
+| MCP server | Separate service | System owner, independently | Tool names at start, schemas on demand | Server-side |
+| Skill | `SKILL.md` folder | Procedure owner | Description always loaded; body on match or `/name` | No |
+| Plugin | `.claude-plugin/plugin.json` via a marketplace | Publisher, versioned | Components load while enabled; `/plugin:skill` | Packaging only |
+| Rules file | `CLAUDE.md`, `.claude/rules/*.md` (`paths:` scoping) | Repo team | Every session, or on matching files | No |
+| Hook | `settings.json` or a plugin | Repo or admin | Fires on a lifecycle event | **Yes** |
+| Subagent | `.claude/agents/*.md` | Repo or user | Delegated by description; fresh context | Tool scope |
+| Slash command | Skill (`disable-model-invocation: true`) or `.claude/commands/` | Repo or user | User types `/name` | No |
+
+A CLAUDE.md or skill rule "is a request, not a guarantee"; a `PreToolUse` hook is enforcement [Certain]. A plugin adds packaging and distribution, not capability ([plugins](https://code.claude.com/docs/en/plugins)) [Certain].
+
+Exam cue: "only when editing files under the billing service" -> path-scoped rule.
+Exam cue: "owned by another team, used by several agents" -> MCP server.
+Exam cue: "same setup in 30 repos, versioned" -> plugin.
+
+Deeper: <ObjLink id="agentic-customization" hash="ss-cust-selection" />.
+
+## 7. Release planning across model versions
+
+Lifecycle ([model deprecations](https://platform.claude.com/docs/en/about-claude/model-deprecations)) [Certain]: Active, Legacy, Deprecated (replacement and retirement date set), Retired (requests fail). At least 60 days' notice for public models; the Console usage export lists usage by key and model.
+
+| Step | Guards against |
+|---|---|
+| Pin the full ID in config (dateless IDs are snapshots from 4.6 on) | Silent weight change |
+| Regression suite on old and candidate IDs, same golden set | Behaviour change |
+| Fix request shapes per the migration guide | 400s after the switch |
+| Recount with `count_tokens` | About 30% more tokens on the 4.7+ tokenizer |
+| Canary behind a config flag, rollback to the pinned ID | Blast radius |
+| Keep monitoring | Serving-side change under a fixed ID |
+
+Current dates [Certain, checked 2026-11-23]: `claude-sonnet-4-5` retires **2026-11-30** (replacement `claude-sonnet-5-5`); Opus 4.5 retires 2027-01-22 (replacement `claude-opus-5-5`).
+
+<PostGuide since="2026-10">
+API version `2026-10-21` removes `temperature`, `top_p` and `top_k` for every model, so pin the `anthropic-version` header too.
+</PostGuide>
+
+Exam cue: "plan for behaviour change in the next release" -> regression evals on both IDs, then staged rollout.
+Exam cue: "requests to the old model now fail" -> retired; migrate, do not retry.
+
+Deeper: <ObjLink id="model-selection-and-tradeoffs" hash="ss-ms-breaking" />.

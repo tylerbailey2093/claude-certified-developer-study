@@ -296,6 +296,10 @@ The guide lists this taxonomy here and "few-shot examples" under D6 Prompt Engin
 
 **Exam angle:** "outputs inconsistent in format despite clear instructions" points to adding diverse examples. Distractors: lowering temperature, raising effort, switching to a larger model.
 
+<PostGuide title="API version 2026-10-21" since="2026-11-23">
+The first API version bump since `2023-06-01` removes `temperature`, `top_p` and `top_k` entirely: under `anthropic-version: 2026-10-21`, sending them returns 400 on every model, even at default values. The new SDK majors (Python 2.0.0, TypeScript 1.0.0) send that version by default and no longer accept the parameters [Certain: api/migration-2026-10-21]. For the exam, keep the concept: sampling controls randomness, and non-determinism persists even at low temperature. Treat the parameter mechanics as engineering knowledge.
+</PostGuide>
+
 ## Decision table
 
 | If the stem says... | Choose | Why the runner-up loses |

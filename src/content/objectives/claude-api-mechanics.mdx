@@ -217,13 +217,13 @@ Limits and costs [Certain on the vision page, drifting]:
 | Images per request | 600 on most models; 100 on models with a 200k-token window |
 | Max dimensions | 8000 x 8000 px; above 20 images in one request a stricter limit applies (keep each side at or under 2000 px) |
 | Max size per image | 10 MB base64 on the Claude API; 5 MB on Bedrock and Google Cloud |
-| Request size | 32 MB on the Claude API; Bedrock 20 MB, Google Cloud 30 MB |
+| Request size | 128 MB on the Claude API since 2026-10-28 (was 32 MB); Bedrock 20 MB, Google Cloud 30 MB |
 | Token cost | One visual token per 28 x 28 px patch: ceil(w/28) x ceil(h/28), after downscaling to the model's tier |
 | Tiers | Standard: 1568 px long edge, 1568 tokens max. High-resolution (Claude 4.7 and later): 2576 px, 4784 tokens max |
 
 Oversized images are downscaled, so token cost caps out. Because every turn resends history, base64 images ride along in every request; a Files API reference keeps payloads small.
 
-**PDFs** go in `document` blocks with the same three sources. Each page becomes an image with its text extracted alongside, so charts and layout survive [Certain]. Cost is text tokens (typically 1,500 to 3,000 per page) plus per-page image cost; limits are 32 MB and 600 pages (100 when the context window is under 1M) [Certain, drifting]. Plain text works as a `document`; .docx and .xlsx must be converted first. `citations: {"enabled": true}` returns cited passages with page locations.
+**PDFs** go in `document` blocks with the same three sources. Each page becomes an image with its text extracted alongside, so charts and layout survive [Certain]. Cost is text tokens (typically 1,500 to 3,000 per page) plus per-page image cost; limits are the request size (128 MB since 2026-10-28, previously 32 MB) and 600 pages (100 when the context window is under 1M) [Certain, drifting]. Plain text works as a `document`; .docx and .xlsx must be converted first. `citations: {"enabled": true}` returns cited passages with page locations.
 
 Platform differences matter here: on Amazon Bedrock and Google Cloud only base64 sources are available [Certain]. On Bedrock's older Converse API, visual PDF analysis happens only when citations are enabled; without them it falls back to text extraction [Certain].
 
@@ -303,7 +303,7 @@ The guide's phrase is not defined anywhere we could find, so this is an interpre
 3. **Batch retrieval and pagination.** Results come from the batch's `results_url` as JSONL; stream them rather than downloading whole. Batches and Models paginate with `after_id`/`before_id` and `has_more`; newer list endpoints (including Files) use `page`/`next_page` [Certain]. SDK auto-pagination hides both.
 4. **Token counting.** `POST /v1/messages/count_tokens` takes a Messages-shaped body (system, tools, images, PDFs) and returns input tokens. Free but rate limited, an estimate, and it rejects server tools and `url` or `file` sources [Certain].
 
-Size limits frame all four: 32 MB for Messages and token counting, 256 MB per batch, 500 MB per file; over that is a 413 `request_too_large` [Certain].
+Size limits frame all four: 128 MB for Messages and token counting (raised from 32 MB on 2026-10-28), 256 MB per batch, 500 MB per file; over that is a 413 `request_too_large` [Certain].
 
 <PostGuide since="2026-08">
 The Files API is now out of beta and no longer needs the `files-api-2025-04-14` header; its list endpoint moved to `page`/`next_page` pagination. Exam items written in July may still assume the beta header.

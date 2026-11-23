@@ -1301,5 +1301,261 @@
     "7": 4,
     "8": 6
   },
-  "schema_version": 2
+  "schema_version": 2,
+  "v1_1": {
+    "_note": "Exam Guide v1.1, effective 2026-12-07 (read from the official PDF the user supplied on 2026-11-23). Appointment date decides the version. Weights are per domain only; v1.1 publishes no per-objective weights. Skill text is the guide's own wording.",
+    "guide_version": "1.1",
+    "effective": "2026-12-07",
+    "format": {
+      "items": 70,
+      "scored": 60,
+      "unscored": 10,
+      "minutes": 120,
+      "cut": 720,
+      "scale": "100-1000",
+      "fee_usd": 125,
+      "item_format": "Scenario-based multiple-choice; each item states how many responses to select"
+    },
+    "weights": {
+      "1": 17,
+      "2": 20,
+      "3": 8,
+      "4": 10,
+      "5": 12,
+      "6": 15,
+      "7": 8,
+      "8": 10
+    },
+    "mock_composition": {
+      "1": 12,
+      "2": 14,
+      "3": 6,
+      "4": 7,
+      "5": 8,
+      "6": 10,
+      "7": 6,
+      "8": 7
+    },
+    "skills": [
+      {
+        "domain": 1,
+        "name": "Architecture and Runtime Selection",
+        "guide": "Evaluating whether a workflow or an agentic architecture fits a set of business requirements, error tolerance, and audit constraints. This includes choosing the orchestrator and subagent decomposition and selecting the execution environment: a self-hosted harness or a managed, sandboxed agent runtime.",
+        "maps_to": [
+          "agent-architecture",
+          "agent-construction-with-claude",
+          "understanding-requirements"
+        ]
+      },
+      {
+        "domain": 1,
+        "name": "Agent SDK Construction and Hooks",
+        "guide": "Building and correcting Claude Agent SDK agent definitions, custom agent loops and harnesses, and hook configurations so that required actions execute deterministically rather than at the model's discretion.",
+        "maps_to": [
+          "agent-construction-with-claude",
+          "claude-hooks"
+        ]
+      },
+      {
+        "domain": 1,
+        "name": "Agent Pattern Diagnosis",
+        "guide": "Analyzing a trace or description of a misbehaving agent to identify which design pattern is missing or misapplied, such as tool-use loop termination, subagent isolation, memory, or context-window management, and selecting the pattern that corrects the behavior.",
+        "maps_to": [
+          "agent-patterns-and-frameworks",
+          "context-engineering"
+        ]
+      },
+      {
+        "domain": 2,
+        "name": "Messages API Mechanics",
+        "guide": "Applying Messages API mechanics in application code and API requests, including message structure, tool use, streaming, vision, thinking, prompt caching, structured output, and stop reasons, to produce the intended behavior, and choosing between realtime and batch processing.",
+        "maps_to": [
+          "claude-api-mechanics",
+          "technical-fundamentals"
+        ]
+      },
+      {
+        "domain": 2,
+        "name": "Application Boundary and Surface Behavior",
+        "guide": "Evaluating an application design for how Claude interprets instructions on different surfaces, what content crosses the application boundary, and whether its schema and session decisions meet the stated requirements.",
+        "maps_to": [
+          "claude-application-design",
+          "understanding-requirements"
+        ]
+      },
+      {
+        "domain": 2,
+        "name": "Configuration and SDLC Integration",
+        "guide": "Determining the correct configuration for a Claude system from its configuration artifacts and SDLC context, including CLAUDE.md files, settings.json, model version pinning, prompt versioning, plugin dependencies, and CI integration, and assessing how a configuration change affects each environment.",
+        "maps_to": [
+          "configuration-management",
+          "software-engineering-foundations",
+          "systems-life-cycle"
+        ]
+      },
+      {
+        "domain": 2,
+        "name": "Integration Resilience",
+        "guide": "Analyzing failing or degraded integration code and its error output to find the defect and select a correction consistent with documented API error semantics. Defects include mishandled streaming events and terminal-event semantics, retry and fallback logic that does not distinguish Anthropic's error classes (rate limits, overloaded, invalid request, timeout), and faulty multi-format ingestion through the Files API.",
+        "maps_to": [
+          "debugging-and-error-handling",
+          "technical-fundamentals",
+          "claude-api-mechanics"
+        ]
+      },
+      {
+        "domain": 3,
+        "name": "Claude Code Operation",
+        "guide": "Operating Claude Code correctly across the CLI, desktop, IDE, web, and mobile surfaces, including session management, the CLAUDE.md hierarchy and precedence, settings.json, permission modes, headless and streaming modes, and built-in commands.",
+        "maps_to": [
+          "claude-code-operation",
+          "configuration-management"
+        ]
+      },
+      {
+        "domain": 3,
+        "name": "Claude Code Customization and Extension",
+        "guide": "Analyzing a repeatable team workflow to choose the extension mechanism that fits it, whether a Skill, plugin, Rules file, hook, subagent, or slash command, and authoring and packaging that extension for distribution.",
+        "maps_to": [
+          "agentic-customization",
+          "claude-hooks",
+          "claude-code-operation"
+        ]
+      },
+      {
+        "domain": 4,
+        "name": "Evaluation Design",
+        "guide": "Constructing an evaluation that measures a stated quality goal for a Claude application or component, including LLM-as-judge harnesses calibrated against human-labeled data, golden sets, regression tests, and behavioral checks, and selecting defensible metrics.",
+        "maps_to": [
+          "guardrails-and-safe-deployment",
+          "systems-life-cycle",
+          "prompt-engineering"
+        ]
+      },
+      {
+        "domain": 4,
+        "name": "Failure-Mode Diagnosis",
+        "guide": "Analyzing a trace excerpt or reproduction to identify the failure mode, such as hallucination, refusal, under-acting, context loss, format drift, or inconsistent output; isolating whether it originates in the integration layer or in model output; and selecting a recovery that addresses the cause rather than the symptom.",
+        "maps_to": [
+          "debugging-and-error-handling",
+          "output-handling"
+        ]
+      },
+      {
+        "domain": 5,
+        "name": "Generation Mechanics and Model Options",
+        "guide": "Applying an understanding of tokens, context windows, sampling and non-determinism, and model options such as adaptive thinking and effort levels to predict, explain, and control an observed behavior.",
+        "maps_to": [
+          "llm-fundamentals"
+        ]
+      },
+      {
+        "domain": 5,
+        "name": "Model Tier Selection and Release Planning",
+        "guide": "Evaluating model tier options across quality, latency, and cost against task requirements and binding constraints, justifying the selection, and planning for behavior change across model releases using regression evaluations.",
+        "maps_to": [
+          "model-selection-and-tradeoffs",
+          "configuration-management"
+        ]
+      },
+      {
+        "domain": 5,
+        "name": "Cost Diagnosis and Optimization",
+        "guide": "Analyzing usage or cost data to identify the dominant cost driver, selecting the optimization that addresses it, such as prompt caching (single, layered, and rolling breakpoints and checkpoint placement), batch processing, or token budgets, and quantifying the expected impact.",
+        "maps_to": [
+          "cost-and-token-management",
+          "claude-api-mechanics"
+        ]
+      },
+      {
+        "domain": 6,
+        "name": "Context Management for Long-Running Sessions",
+        "guide": "Analyzing context bloat or drift in a long-running session or agent and selecting the management technique that restores intended behavior, such as compaction, tool-output pruning, subagent isolation, or criteria for starting a fresh session.",
+        "maps_to": [
+          "context-engineering",
+          "agent-patterns-and-frameworks"
+        ]
+      },
+      {
+        "domain": 6,
+        "name": "Prompt Revision",
+        "guide": "Revising a prompt to close a gap between intended and actual output that regression evaluations have exposed, using instruction clarity, system-versus-user placement, zero-, single-, or multi-shot examples, output constraints, and input sanitization, closing the gap and keeping it closed.",
+        "maps_to": [
+          "prompt-engineering",
+          "llm-fundamentals"
+        ]
+      },
+      {
+        "domain": 6,
+        "name": "Structured Output and Defensive Parsing",
+        "guide": "Applying structured outputs with strict schema validation, response validation, and defensive parsing of free-text fallbacks to protect downstream code from malformed or unexpected model output.",
+        "maps_to": [
+          "output-handling",
+          "claude-application-design"
+        ]
+      },
+      {
+        "domain": 6,
+        "name": "Grounding and Source Citation",
+        "guide": "Constructing a request that grounds answers in the supplied documents, cites their source, and returns 'not found' when the documents do not contain the answer. This includes deciding, based on corpus size, cost, and freshness, whether to supply the full document set in context or retrieve only the relevant passages.",
+        "maps_to": [
+          "output-handling",
+          "guardrails-and-safe-deployment",
+          "context-engineering"
+        ]
+      },
+      {
+        "domain": 7,
+        "name": "Prompt Injection and Jailbreak Defense",
+        "guide": "Analyzing the prompt-injection and jailbreak exposure of an agent that processes untrusted content, and selecting layered mitigations that prevent data leakage and unintended actions without breaking the agent's function.",
+        "maps_to": [
+          "ai-application-security"
+        ]
+      },
+      {
+        "domain": 7,
+        "name": "Deterministic Guardrails and Least Privilege",
+        "guide": "Applying guardrail layering, least privilege, and hooks as deterministic enforcement so that destructive actions cannot execute even under adversarial instruction.",
+        "maps_to": [
+          "guardrails-and-safe-deployment",
+          "ai-application-security",
+          "claude-hooks"
+        ]
+      },
+      {
+        "domain": 7,
+        "name": "API Key and Credential Handling",
+        "guide": "Handling Anthropic API keys and credentials correctly in development and production, including server-side proxying rather than client embedding, workspace-scoped keys versus admin keys, environment separation, rotation, and access monitoring, without exposing any key beyond its intended scope.",
+        "maps_to": [
+          "identity-secrets-and-key-management"
+        ]
+      },
+      {
+        "domain": 8,
+        "name": "Tool Design and Response Shaping",
+        "guide": "Implementing a tool for an integration need: a function schema, a description that drives correct invocation, response shaping so the model receives a minimal and actionable result, error handling, the choice of execution side, and an approval pattern, and assembling the tool set for performance.",
+        "maps_to": [
+          "tool-implementation"
+        ]
+      },
+      {
+        "domain": 8,
+        "name": "MCP Server Development and Integration",
+        "guide": "Building, deploying, and integrating an MCP server into Claude applications and workflows, including its resources, tools, and prompts, the choice of transport (stdio or HTTP), and authentication.",
+        "maps_to": [
+          "mcp-server-development"
+        ]
+      },
+      {
+        "domain": 8,
+        "name": "Capability Mechanism Selection",
+        "guide": "Evaluating built-in tools, custom tools, Skills, and MCP servers for a use case, based on where the capability must live, who maintains it, and how Claude discovers and invokes it, and justifying the selection.",
+        "maps_to": [
+          "agentic-customization",
+          "tool-implementation",
+          "mcp-server-development"
+        ]
+      }
+    ]
+  }
 }

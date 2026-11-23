@@ -1,13 +1,28 @@
 {
   "_comment": "Single source of truth for drifting facts (model IDs, prices, defaults). Lints read allowedModelIds. Every entry carries where it came from. asOfGuide: whether it existed when Exam Guide v1.0 (July 2026) was written; 'unknown' means do not build exam items on it; 'likely' means the beta predates the guide, so concept items are fine but not parameter names.",
-  "verified": "2026-10-06",
-  "verifiedFrom": "Anthropic claude-api reference (model table cached 2026-09-25) and platform.claude.com/docs/en/about-claude/models/overview",
+  "verified": "2026-11-23",
+  "verifiedFrom": "platform.claude.com/docs models overview, pricing, model-deprecations, release notes and api/migration-2026-10-21, read 2026-11-23",
   "models": [
+    {
+      "family": "Fable",
+      "name": "Claude Fable 5.2",
+      "id": "claude-fable-5-2",
+      "tier": "most capable",
+      "context": "1M",
+      "maxOutput": "128K",
+      "priceIn": 8,
+      "priceOut": 40,
+      "thinking": "always on (adaptive); disabled or budget_tokens returns 400",
+      "effortDefault": "high",
+      "forcedToolChoice": false,
+      "asOfGuide": false,
+      "released": "2026-11-09"
+    },
     {
       "family": "Fable",
       "name": "Claude Fable 5.1",
       "id": "claude-fable-5-1",
-      "tier": "most capable",
+      "tier": "most capable (previous)",
       "context": "1M",
       "maxOutput": "128K",
       "priceIn": 10,
@@ -21,7 +36,7 @@
       "family": "Fable",
       "name": "Claude Fable 5",
       "id": "claude-fable-5",
-      "tier": "most capable (previous)",
+      "tier": "legacy",
       "context": "1M",
       "maxOutput": "128K",
       "priceIn": 10,
@@ -117,9 +132,25 @@
     },
     {
       "family": "Haiku",
+      "name": "Claude Haiku 5.5",
+      "id": "claude-haiku-5-5",
+      "tier": "fastest / cheapest",
+      "context": "1M",
+      "maxOutput": "128K",
+      "priceIn": 0.1,
+      "priceOut": 0.5,
+      "priceNote": "$0.10/$0.50 per MTok up to 100K-token prompts; $0.50/$2.50 above",
+      "thinking": "adaptive; budget_tokens, sampling params and prefill return 400",
+      "effortDefault": "medium",
+      "forcedToolChoice": true,
+      "asOfGuide": false,
+      "released": "2026-10-07"
+    },
+    {
+      "family": "Haiku",
       "name": "Claude Haiku 4.5",
       "id": "claude-haiku-4-5",
-      "tier": "fastest / cheapest",
+      "tier": "legacy (still active; Haiku 5.5 is the cheap tier)",
       "context": "200K",
       "maxOutput": "64K",
       "priceIn": 1,
@@ -131,6 +162,9 @@
     }
   ],
   "allowedModelIds": [
+    "claude-mythos-5-2",
+    "claude-haiku-5-5",
+    "claude-fable-5-2",
     "claude-fable-5-1",
     "claude-fable-5",
     "claude-opus-5-5",
@@ -161,7 +195,7 @@
     "source": "https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/python",
     "honoursRetryAfter": true,
     "timeoutsRetried": true,
-    "note": "Worst-case wall clock is about timeout x (max_retries + 1). The spend-cap 429 has no retry-after and is not recoverable by retrying."
+    "note": "Worst-case wall clock is about timeout x (max_retries + 1). The spend-cap 429 has no retry-after and is not recoverable by retrying. New SDK majors (2026-10-21) send API version 2026-10-21 and Authorization: Bearer by default."
   },
   "restrictions": [
     {
@@ -171,17 +205,18 @@
     },
     {
       "fact": "temperature/top_p/top_k non-defaults return 400",
-      "models": "Opus 4.7+, Fable, Sonnet 5+",
-      "asOfGuide": "unknown"
+      "models": "Opus 4.7+, Fable, Sonnet 5+, Haiku 5.5; under API version 2026-10-21 sending them at all returns 400 on every model",
+      "asOfGuide": "unknown",
+      "source": "https://platform.claude.com/docs/en/api/migration-2026-10-21"
     },
     {
       "fact": "budget_tokens returns 400; use adaptive thinking + effort",
-      "models": "Opus 4.7+, Fable, Sonnet 5+",
+      "models": "Opus 4.7+, Fable, Sonnet 5+, Haiku 5.5",
       "asOfGuide": "unknown"
     },
     {
       "fact": "Forced tool_choice any/tool returns 400; use auto + strict or structured outputs",
-      "models": "Fable 5.1, Opus 5.5, Sonnet 5.5",
+      "models": "Fable 5.1, Fable 5.2, Mythos 5.2, Opus 5.5, Sonnet 5.5",
       "asOfGuide": false
     },
     {
@@ -217,8 +252,8 @@
       "source": "https://platform.claude.com/docs/en/manage-claude/api-and-data-retention"
     },
     {
-      "fact": "Fable 5 family requires 30-day retention; not available under ZDR unless expressly authorized",
-      "models": "Fable 5, Fable 5.1",
+      "fact": "Covered Models (Fable 5, 5.1, 5.2; Mythos 5, 5.1, 5.2) require 30-day retention; not available under ZDR unless expressly authorized",
+      "models": "Fable and Mythos 5.x",
       "asOfGuide": false,
       "source": "https://platform.claude.com/docs/en/manage-claude/api-and-data-retention"
     },
@@ -229,7 +264,7 @@
       "source": "https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback"
     },
     {
-      "fact": "Server-side fallback on refusal (beta server-side-fallback-2026-07-01); not on Batch, Bedrock, Google Cloud or Foundry",
+      "fact": "Server-side fallback on refusal (beta server-side-fallback-2026-07-01): Claude API and Claude Models on Google Cloud (Anthropic managed); not on Message Batches; Haiku 5.5 has none (a fallback list returns 400)",
       "models": "current",
       "asOfGuide": "unknown",
       "source": "https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback"
@@ -245,6 +280,12 @@
       "models": "all",
       "asOfGuide": "unknown",
       "source": "https://platform.claude.com/docs/en/manage-claude/authentication"
+    },
+    {
+      "fact": "API version 2026-10-21 (first bump since 2023-06-01): sampling params removed, document blocks in assistant messages and citations on user text blocks return 400, Admin API field renames. New SDK majors send it by default (Python 2.0.0, TS 1.0.0) and authenticate with Authorization: Bearer",
+      "models": "all",
+      "asOfGuide": false,
+      "source": "https://platform.claude.com/docs/en/api/migration-2026-10-21"
     }
   ],
   "deprecations": [
@@ -257,12 +298,19 @@
     },
     {
       "id": "claude-haiku-4-5",
-      "note": "retirement not sooner than 2026-10-15; watch for a replacement cheap model",
+      "note": "still active, no deprecation notice as of 2026-11-23; the cheap-tier successor is claude-haiku-5-5 (released 2026-10-07)",
+      "source": "https://platform.claude.com/docs/en/about-claude/model-deprecations"
+    },
+    {
+      "id": "claude-opus-4-5",
+      "deprecated": "2026-11-23",
+      "retires": "2027-01-22",
+      "replacement": "claude-opus-5-5",
       "source": "https://platform.claude.com/docs/en/about-claude/model-deprecations"
     }
   ],
   "fastMode": {
-    "models": "Opus 5.5 ($8/$40), Opus 5 and Opus 4.8 ($10/$50)",
+    "models": "Fable 5.2 and Mythos 5.2 ($16/$80); Opus 5.5 ($8/$40, GA since 2026-10-15); Opus 5 ($10/$50, preview); Opus 4.8 fast mode removed 2026-11-30",
     "what": "same model, up to 2.5x output tokens per second (not time to first token), separate rate limit, cache not shared across speeds, not on Batch",
     "asOfGuide": "unknown",
     "source": "https://platform.claude.com/docs/en/build-with-claude/fast-mode"
@@ -277,7 +325,9 @@
     "readDefault": 0.1,
     "readOverrides": {
       "claude-opus-5-5": 0.05,
-      "claude-fable-5-1": 0.025
+      "claude-fable-5-1": 0.025,
+      "claude-sonnet-5-5": 0.05,
+      "claude-fable-5-2": 0.025
     },
     "minimumCacheableTokens": {
       "claude-opus-5-5": 512,
@@ -286,7 +336,10 @@
       "claude-opus-4-8": 1024,
       "claude-sonnet-5": 1024,
       "claude-sonnet-4-6": 1024,
-      "claude-haiku-4-5": 4096
+      "claude-haiku-4-5": 4096,
+      "claude-fable-5-2": 512,
+      "claude-fable-5-1": 512,
+      "claude-haiku-5-5": 512
     },
     "maxBreakpoints": 4,
     "lookbackBlocks": 20,

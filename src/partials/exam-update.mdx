@@ -1,0 +1,49 @@
+import Callout from '../components/mdx/Callout.astro';
+
+## Which exam are you sitting?
+
+**Your appointment date decides it.** Exams taken before **December 7, 2026** use Exam Guide v1.0 (July 2026). Exams on or after December 7 use **v1.1**. Both guides are labelled with a version number on the cover; go by the effective date printed there **[Certain: v1.1 PDF, cover and Section 15]**.
+
+| | v1.0 (to Dec 6) | v1.1 (from Dec 7) |
+|---|---|---|
+| Items | 53 | **70, of which 60 are scored**. The 10 unscored items are not identified |
+| Time | 120 min | 120 min |
+| Pace | 2.26 min/item | **1.71 min/item** |
+| Cut score | 720 of 100 to 1000 | 720 of 100 to 1000 |
+| Fee, validity, retakes | $125 · 12 months · 14/30/90 days, max 4 a year | unchanged |
+| Weights | per objective (25 objectives) | **per domain only**; objectives rewritten as 24 skills |
+| Score report | pass/fail, scaled score, % per domain (diagnostic) | unchanged |
+
+## The new weights
+
+| Domain | v1.0 | v1.1 | Change | v1.1 items (of 70) |
+|---|---|---|---|---|
+| D1 Agents and Workflows | 14.7% | **17%** | up | ~12 |
+| D2 Applications and Integration | 33.1% | **20%** | **down 13 pts** | ~14 |
+| D3 Claude Code | 3.1% | **8%** | **up 2.6x** | ~6 |
+| D4 Eval, Testing, and Debugging | 2.6% | **10%** | **up 3.8x** | ~7 |
+| D5 Model Selection and Optimization | 16.8% | **12%** | down | ~8 |
+| D6 Prompt and Context Engineering | 11.0% | **15%** | up | ~10 |
+| D7 Security and Safety | 8.1% | **8%** | same | ~6 |
+| D8 Tools and MCP | 10.6% | **10%** | same | ~7 |
+
+<Callout type="key" title="What this does to your study plan">
+On v1.1, **D1 + D6 (32%) outweigh D2 (20%)**. **D3 + D4 go from 5.7% to 18%**, about 13 items, so "learn the vocabulary and move on" no longer holds for Claude Code, evaluation design or failure diagnosis. Claude Application Design is no longer the heaviest objective. It survives as one of four D2 skills ("Application Boundary and Surface Behavior").
+</Callout>
+
+## How the items change
+
+- **Diagnosis from evidence.** Many v1.1 skills start with "Analyzing a trace", "its error output", or "usage or cost data". Expect a code excerpt, a trace or a usage table, and a question asking for the defect or the dominant driver.
+- **Longer stems and options.** The three new published samples run 4 to 6 sentences, and every option is a full sentence with its own justification. At 1.71 min per item, reading speed matters more than on v1.0.
+- **Same core logic.** The answer still fixes the **cause**, not the symptom. The distractors are still real mechanisms in the wrong place: raise the limit, switch model tier, retry, add a prompt line, add another tool.
+- **Answer every item.** The 10 unscored items look like the rest, and there is no guessing penalty.
+
+## Pacing at 1.71 minutes per item
+
+- Checkpoints: **item 24 by 40 minutes, item 47 by 80 minutes**, leaving about 15 minutes for flagged items.
+- First pass: read the question line first, then the stem hunting for the deciding constraint, then the options. Flag anything over about 2.5 minutes.
+- The [exam simulator](../exam/) has v1.1 modes: 70 items, 120 minutes, drawn by the v1.1 weights, with pacing charted against the 1.71 line.
+
+## Skill map: v1.1 skill to study page
+
+Each v1.1 skill below links to the pages on this site that teach it. **Bold** rows are where v1.1 adds emphasis that the v1.0 pages cover more thinly; the primers further down fill those gaps.
