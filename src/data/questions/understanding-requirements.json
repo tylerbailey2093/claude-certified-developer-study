@@ -560,7 +560,7 @@
       },
       {
         "id": "e",
-        "text": "Raise max_tokens so that long answers are never truncated before they reach the shopper",
+        "text": "Give each call a far larger output allowance so shoppers always receive a complete answer",
         "why": "Truncation is not the complaint; max_tokens only caps length, and allowing longer outputs can only make full responses slower."
       }
     ],

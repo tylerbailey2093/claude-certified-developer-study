@@ -25,8 +25,9 @@ work may need to run on a personal machine.
 
 | | |
 |---|---|
-| Items | 53, multiple-choice and multiple-response (each states how many to select) |
-| Time | 120 minutes (~2.3 min/item) |
+| Version | **v1.0 for appointments before 2026-12-07; v1.1 from 2026-12-07** (official PDF, read 2026-11-23) |
+| Items | v1.0: 53. **v1.1: 70, of which 60 scored** (10 unscored, unidentified). Multiple-choice and multiple-response |
+| Time | 120 minutes (v1.0 ~2.3 min/item; v1.1 ~1.7 min/item) |
 | Scoring | Scaled 100–1000, **cut score 720**, criterion-referenced |
 | Fee | $125 USD per attempt |
 | Delivery | Pearson VUE, online proctored or test center |
@@ -41,16 +42,18 @@ percentage works — a strong Domain 2 can carry a weak Domain 3.
 
 ## Domain weights
 
-| Domain | Weight | Items |
+| Domain | v1.0 | v1.1 (from Dec 7) |
 |---|---|---|
-| 2 · Applications and Integration | **33.1%** | ~17 |
-| 5 · Model Selection and Optimization | 16.8% | ~9 |
-| 1 · Agents and Workflows | 14.7% | ~8 |
-| 6 · Prompt and Context Engineering | 11.0% | ~6 |
-| 8 · Tools and MCPs | 10.6% | ~6 |
-| 7 · Security and Safety | 8.1% | ~4 |
-| 3 · Claude Code | 3.1% | ~2 |
-| 4 · Eval, Testing, and Debugging | 2.6% | ~1 |
+| 2 · Applications and Integration | **33.1%** (~17) | 20% (~14) |
+| 5 · Model Selection and Optimization | 16.8% (~9) | 12% (~8) |
+| 1 · Agents and Workflows | 14.7% (~8) | **17%** (~12) |
+| 6 · Prompt and Context Engineering | 11.0% (~6) | **15%** (~10) |
+| 8 · Tools and MCPs | 10.6% (~6) | 10% (~7) |
+| 7 · Security and Safety | 8.1% (~4) | 8% (~6) |
+| 3 · Claude Code | 3.1% (~2) | **8%** (~6) |
+| 4 · Eval, Testing, and Debugging | 2.6% (~1) | **10%** (~7) |
+
+v1.1 gives per-domain weights only and rewrites the objectives as 24 skills, many built on traces, error output and usage data (`blueprint.json` → `v1_1`, mapped to our 25 pages). The v1.0 notes below about Claude Application Design and D3/D4 apply to v1.0 only.
 
 **Claude Application Design (8.6%, inside Domain 2) is the single heaviest
 objective on the exam** — worth more than Claude Code, Eval/Debugging, and Hooks

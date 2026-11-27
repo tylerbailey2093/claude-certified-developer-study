@@ -84,7 +84,7 @@ Errors come back as JSON with `error.type`, `error.message` and a `request_id` [
 | 403 | `permission_error` | Key lacks access to the resource | No |
 | 404 | `not_found_error` | Bad path or ID (often a retired model ID) | No |
 | 409 | `conflict_error` | Conflicts with current resource state | SDK retries; then resolve the state |
-| 413 | `request_too_large` | Over the byte limit (32 MB Messages, 256 MB Batch, 500 MB Files); rejected before reaching the API servers | No: shrink, split or use the Files API |
+| 413 | `request_too_large` | Over the byte limit (128 MB Messages since 2026-10-28, previously 32 MB; 256 MB Batch; 500 MB Files); rejected before reaching the API servers | No: shrink, split or use the Files API |
 | 429 | `rate_limit_error` | RPM, input or output TPM, acceleration limit, or tier spend cap | Yes with `retry-after`; **not** the spend cap |
 | 500 | `api_error` | Internal error | Yes, backoff |
 | 504 | `timeout_error` | Timed out while processing | Prefer streaming or batch for long work |

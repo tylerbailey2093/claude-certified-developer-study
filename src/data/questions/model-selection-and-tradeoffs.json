@@ -72,7 +72,7 @@
       },
       {
         "id": "b",
-        "text": "Retry the failed calls with exponential backoff until the new model accepts the request",
+        "text": "Keep resending the rejected calls on a growing delay, hoping the new model eventually accepts them",
         "why": "A 400 is a validation error about request shape; an identical retry fails identically."
       },
       {

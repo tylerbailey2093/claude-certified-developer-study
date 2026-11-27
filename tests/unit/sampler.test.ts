@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { allQuestions } from '../../src/lib/bank/bank';
 import { allocate, drawExam, drawWeighted } from '../../src/lib/bank/sampler';
 import { mulberry32 } from '../../src/lib/bank/shuffle';
-import { MOCK_COMPOSITION, OBJECTIVES } from '../../src/lib/blueprint';
+import { MOCK_COMPOSITION, MOCK_COMPOSITION_V11, OBJECTIVES, guideVersionFor } from '../../src/lib/blueprint';
 
 const bank = allQuestions();
 
@@ -54,6 +54,25 @@ describe('drawExam over 1,000 seeds', () => {
     const a = drawExam(bank, { rng: mulberry32(99) }).map((q) => q.id);
     const b = drawExam(bank, { rng: mulberry32(99) }).map((q) => q.id);
     expect(a).toEqual(b);
+  });
+});
+
+describe('drawExam v1.1 (Dec 7, 2026 format)', () => {
+  it('draws exactly 70 unique items with the v1.1 domain counts', () => {
+    for (let i = 0; i < 300; i++) {
+      const d = drawExam(bank, { rng: mulberry32(i + 1) }, 70, 'v1.1');
+      expect(d).toHaveLength(70);
+      expect(new Set(d.map((q) => q.id)).size).toBe(70);
+      for (const [dom, n] of Object.entries(MOCK_COMPOSITION_V11)) {
+        expect(d.filter((q) => q.domain === Number(dom)).length).toBe(n);
+      }
+    }
+  });
+
+  it('picks the guide version from the appointment date', () => {
+    expect(guideVersionFor('2026-12-06')).toBe('v1.0');
+    expect(guideVersionFor('2026-12-07')).toBe('v1.1');
+    expect(guideVersionFor(undefined)).toBe('v1.1');
   });
 });
 

@@ -26,7 +26,6 @@ import {
   type ExamSession,
 } from '../lib/store/exam';
 
-const PACE_MS = (120 * 60 * 1000) / 53; // 2.26 min per item
 
 function fmt(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000));
@@ -157,7 +156,7 @@ export default function ExamSimulator({ base = '/' }: Props) {
     if (!bank) return;
     const seed = Number(new URLSearchParams(location.search).get('seed')) || newSeed();
     const rng = mulberry32(seed);
-    const items = drawExam(bank, { rng, seen: Store.seenIds() }, MODE_CONFIG[mode].items);
+    const items = drawExam(bank, { rng, seen: Store.seenIds() }, MODE_CONFIG[mode].items, MODE_CONFIG[mode].version);
     const order = Object.fromEntries(items.map((q) => [q.id, optionOrder(q, rng)]));
     archived.current = null;
     setViewRecord(null);
@@ -420,7 +419,9 @@ function Intro({ history, bankSize, onStart, onView }: { history: ExamRecord[]; 
             <p>
               {m === 'strict' && 'Exactly like exam day: no pause, timer runs on reload. The real readiness check.'}
               {m === 'practice' && 'Full length and blueprint-weighted, but you can pause. Good for a first run.'}
-              {m === 'mini' && 'A 20-item, 45-minute slice at the same per-item pace. Fits a lunch break.'}
+              {m === 'mini' && 'A 20-item, 45-minute slice. Fits a lunch break.'}
+              {m === 'strict70' && 'The Dec 7, 2026 format: 70 items in 120 minutes (1.71 min each), drawn by the v1.1 domain weights. No pause.'}
+              {m === 'practice70' && 'v1.1 format and weights, pausable. Use it to learn the faster pace.'}
             </p>
             <div className="btn-row" style={{ marginTop: 12 }}>
               <button className="btn btn-run" onClick={() => onStart(m)}>▶ Start</button>
@@ -431,9 +432,10 @@ function Intro({ history, bankSize, onStart, onView }: { history: ExamRecord[]; 
       <div className="callout callout-note">
         <p className="callout-title">How this mirrors the real exam</p>
         <p>
-          Items are drawn per domain exactly as the blueprint weights them (D2 gets 17 of 53), then per objective by weight, preferring
-          items you have not seen. No feedback until the end. Pace is 2.26 minutes per item; flag anything slow and come back. The
-          scaled score shown afterwards is a linear estimate, because Anthropic does not publish its scaling. The pass mark is 720.
+          Your appointment date decides the version: before Dec 7, 2026 you sit v1.0 (53 items, 2.26 min each); from Dec 7, v1.1
+          (70 items of which 10 are unscored and unidentified, 1.71 min each). Items are drawn per domain by that version's weights,
+          then per objective, preferring items you have not seen. No feedback until the end. The scaled score shown afterwards is a
+          linear estimate, because Anthropic does not publish its scaling. The pass mark is 720 on both versions.
         </p>
       </div>
       <p className="faint">Drawing from {bankSize} original items. Your answers here feed spaced repetition and mastery tracking.</p>
@@ -469,7 +471,9 @@ function Results({ rec, items, base, onNew }: { rec: ExamRecord; items: Question
 
   // Pacing: cumulative dwell in item order vs the 2.26 min/item line.
   const n = rec.items.length;
-  const pace = PACE_MS; // the mini mock (45 min / 20) runs at the same per-item pace
+  // Per-item pace for this run: 2.26 min on v1.0 (53 items), 1.71 on v1.1 (70).
+  const cfgR = rec.mode === 'legacy' ? undefined : MODE_CONFIG[rec.mode];
+  const pace = ((cfgR?.minutes ?? 120) * 60 * 1000) / Math.max(1, cfgR?.items ?? 53);
   let cum = 0;
   const points = rec.items.map((id, i) => {
     cum += rec.dwell[id] ?? 0;
@@ -535,7 +539,7 @@ function Results({ rec, items, base, onNew }: { rec: ExamRecord; items: Question
         <div className="panel">
           <div className="panel-head"><h3>Pacing</h3><span className="faint num">{(rec.usedMs / Math.max(1, n) / 60000).toFixed(2)} min/item</span></div>
           {points.length > 1 && rec.usedMs > 0 ? (
-            <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Cumulative time per item against the 2.26 minute pace line">
+            <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Cumulative time per item against the pace line">
               <line className="axis" x1={40} y1={H - 28} x2={W - 16} y2={H - 28} />
               <line className="axis" x1={40} y1={20} x2={40} y2={H - 28} />
               <line x1={px(0)} y1={py(0)} x2={px(n)} y2={py(n * pace)} stroke="var(--text-3)" strokeDasharray="4 4" />
@@ -552,7 +556,7 @@ function Results({ rec, items, base, onNew }: { rec: ExamRecord; items: Question
           ) : (
             <p className="muted">No timing data for this record.</p>
           )}
-          <p className="faint" style={{ fontSize: 12.5 }}>Dashed: 2.26 min/item pace. Above the line means behind.</p>
+          <p className="faint" style={{ fontSize: 12.5 }}>Dashed: {(pace / 60000).toFixed(2)} min/item pace. Above the line means behind.</p>
         </div>
       </div>
 

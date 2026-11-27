@@ -166,6 +166,13 @@ How to migrate safely:
 
 **Exam angle:** "after updating the model ID, requests fail with 400" or "same price, higher bill" point here. Distractors: retrying the 400 (not transient), reverting forever (models retire), and shipping after only fixing the errors (no evals).
 
+<PostGuide title="Lineup changes since October 2026" since="2026-11-23">
+- **Claude Haiku 5.5** (`claude-haiku-5-5`, 2026-10-07) is the new cheap tier: 1M context, $0.10/$0.50 per million tokens up to a 100K-token prompt and $0.50/$2.50 above it. Unlike Haiku 4.5 it uses adaptive thinking with `effort`, and `budget_tokens`, sampling parameters and prefill all return 400. Haiku 4.5 is still active, at $1/$5 [Certain: models overview and pricing pages, 2026-11-23].
+- **Claude Fable 5.2** (`claude-fable-5-2`, 2026-11-09) is the most capable tier at $8/$40, cheaper than Fable 5.1 [Certain].
+- **Opus 4.5** is deprecated and retires 2027-01-22. **Sonnet 4.5** retires 2026-11-30 [Certain: model-deprecations page].
+- The tier logic the exam tests is unchanged: Haiku for cheap, high-volume work; Sonnet for balanced work; Opus or Fable for the hardest. A price step at a prompt-length threshold, as on Haiku 5.5, is a cost-design detail to check before routing long prompts to it.
+</PostGuide>
+
 ## Decision table
 
 | If the stem says... | Choose | Why the runner-up loses |

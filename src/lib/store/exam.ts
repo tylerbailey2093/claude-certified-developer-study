@@ -9,12 +9,14 @@
 import { grade, type GradeResult } from '../bank/grade';
 import type { Question } from '../bank/schema';
 
-export type ExamMode = 'strict' | 'practice' | 'mini';
+export type ExamMode = 'strict' | 'practice' | 'mini' | 'strict70' | 'practice70';
 
-export const MODE_CONFIG: Record<ExamMode, { items: number; minutes: number; pausable: boolean; label: string }> = {
-  strict: { items: 53, minutes: 120, pausable: false, label: 'Full exam (strict)' },
-  practice: { items: 53, minutes: 120, pausable: true, label: 'Full exam (pausable)' },
-  mini: { items: 20, minutes: 45, pausable: true, label: 'Mini mock' },
+export const MODE_CONFIG: Record<ExamMode, { items: number; minutes: number; pausable: boolean; label: string; version: 'v1.0' | 'v1.1' }> = {
+  strict: { items: 53, minutes: 120, pausable: false, label: 'v1.0 full exam (strict)', version: 'v1.0' },
+  practice: { items: 53, minutes: 120, pausable: true, label: 'v1.0 full exam (pausable)', version: 'v1.0' },
+  mini: { items: 20, minutes: 45, pausable: true, label: 'Mini mock', version: 'v1.0' },
+  strict70: { items: 70, minutes: 120, pausable: false, label: 'v1.1 full exam (strict)', version: 'v1.1' },
+  practice70: { items: 70, minutes: 120, pausable: true, label: 'v1.1 full exam (pausable)', version: 'v1.1' },
 };
 
 export type Visit = [enter: number, leave?: number];
